@@ -1,0 +1,247 @@
+<title>Neon Bay</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&family=Rubik:wght@400;500;700;800&display=swap">
+<style>
+:root{
+  --night:#150f26;
+  --ink:#fff1e4;
+  --dim:rgba(255,241,228,.68);
+  --pink:#ff4fa3;
+  --cyan:#3fe6e0;
+  --sun:#ffb35c;
+  --panel:rgba(21,15,38,.62);
+  --line:rgba(255,241,228,.2);
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px);
+  --safe-r:env(safe-area-inset-right,0px);
+  color-scheme:dark;
+}
+[hidden]{display:none!important;}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--night);touch-action:none;overscroll-behavior:none;}
+body{font-family:Rubik,system-ui,"Segoe UI",sans-serif;color:var(--ink);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+#game{position:fixed;top:0;left:0;width:100%;height:100%;display:block;touch-action:none;}
+body.playing:not(.touch) #game{cursor:none;}
+.script{font-family:Pacifico,"Brush Script MT",cursive;font-weight:400;}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;}
+#map{position:absolute;top:calc(14px + var(--safe-t));left:calc(14px + var(--safe-l));width:150px;height:150px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,79,163,.55),0 0 18px rgba(255,79,163,.35);}
+#clock{position:absolute;top:calc(16px + var(--safe-t));right:calc(18px + var(--safe-r));font-weight:800;font-size:30px;font-variant-numeric:tabular-nums;letter-spacing:.02em;color:var(--ink);text-shadow:0 0 10px rgba(255,79,163,.8),0 2px 0 rgba(0,0,0,.35);}
+#district{position:absolute;right:calc(26px + var(--safe-r));bottom:calc(28px + var(--safe-b));font-size:clamp(28px,4.6vw,46px);color:#ffe3f0;text-shadow:0 0 6px var(--pink),0 0 18px var(--pink),0 0 36px rgba(255,79,163,.6);opacity:0;transform:translateY(8px);transition:opacity .5s,transform .5s;text-align:right;}
+#district.on{opacity:1;transform:none;}
+#tip{position:absolute;left:50%;bottom:calc(22px + var(--safe-b));transform:translateX(-50%);max-width:calc(100% - 32px);padding:9px 16px;background:var(--panel);box-shadow:0 0 0 1px var(--line);border-radius:999px;font-size:14px;font-weight:500;text-align:center;opacity:0;transition:opacity .6s;}
+#tip.on{opacity:1;}
+#status{position:absolute;top:calc(174px + var(--safe-t));left:calc(14px + var(--safe-l));display:flex;flex-direction:column;gap:6px;width:150px;}
+#stars{display:flex;gap:2px;font-size:22px;line-height:1;}
+#stars i{font-style:normal;color:rgba(255,241,228,.22);text-shadow:0 1px 2px rgba(0,0,0,.5);}
+#stars i.on{color:#ffd84f;text-shadow:0 0 8px rgba(255,200,60,.9),0 1px 2px rgba(0,0,0,.6);}
+#stars.none{opacity:.55;}
+#stars.blink i.on{animation:starblink .5s steps(2) infinite;}
+@keyframes starblink{50%{color:rgba(255,216,79,.25);text-shadow:none;}}
+#hp{display:flex;align-items:center;gap:6px;}
+#hp .heart{color:#ff4f6a;font-size:16px;text-shadow:0 0 6px rgba(255,79,106,.7);}
+#hp .bar{flex:1;height:8px;border-radius:4px;background:rgba(21,15,38,.7);box-shadow:0 0 0 1px var(--line);overflow:hidden;}
+#hpFill{height:100%;width:100%;background:linear-gradient(90deg,#ff4f6a,#ff9a5c);transition:width .2s;}
+#hp.low #hpFill{background:#ff2f45;}
+#weapon{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6);}
+#wAmmo{font-size:17px;font-variant-numeric:tabular-nums;color:var(--cyan);}
+#cross{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.85),0 0 0 3px rgba(0,0,0,.35);display:none;}
+#cross::after{content:"";position:absolute;left:7px;top:7px;width:4px;height:4px;border-radius:50%;background:#fff;}
+#cross.on{display:block;}
+#cross.aim{transform:scale(.7);}
+#lock{position:absolute;left:0;top:0;width:34px;height:34px;border-radius:50%;border:3px solid #ffd84f;box-shadow:0 0 10px rgba(255,216,79,.7);display:none;}
+#lock.on{display:block;}
+#lock.cop{border-color:#4f8cff;box-shadow:0 0 10px rgba(79,140,255,.8);}
+#hurt{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 50%,rgba(200,10,20,.7) 100%);opacity:0;}
+#bigmsg{position:absolute;left:0;right:0;top:36%;text-align:center;font-size:clamp(54px,10vw,110px);opacity:0;transform:scale(1.3);transition:opacity .6s,transform .6s;padding-inline:16px;}
+#bigmsg.on{opacity:1;transform:none;}
+#bigmsg.wasted{color:#ffd0d0;text-shadow:0 0 8px #ff2a3a,0 0 26px #ff2a3a,0 0 50px rgba(255,42,58,.7);}
+#bigmsg.busted{color:#d6e6ff;text-shadow:0 0 8px #3f7fff,0 0 26px #3f7fff,0 0 50px rgba(63,127,255,.7);}
+.bubble{position:absolute;left:0;top:0;padding:7px 12px;background:#fff6fb;color:#2a0c1c;border-radius:12px;font-size:14px;font-weight:700;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.3);will-change:transform;}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-7px;border:7px solid transparent;border-bottom:0;border-top-color:#fff6fb;}
+#portrait{position:absolute;top:calc(176px + var(--safe-t));left:16px;right:16px;margin-inline:auto;max-width:360px;padding:10px 14px;background:var(--panel);box-shadow:0 0 0 1px var(--line);border-radius:10px;font-size:14px;text-align:center;}
+
+/* touch controls */
+.tc{display:none;}
+body.touch .tc{display:flex;}
+#stick{position:absolute;left:0;top:0;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,241,228,.45);background:rgba(21,15,38,.28);align-items:center;justify-content:center;opacity:0;transition:opacity .12s;}
+#stick.on{opacity:1;}
+#stickKnob{width:56px;height:56px;border-radius:50%;background:rgba(255,79,163,.75);box-shadow:0 0 16px rgba(255,79,163,.7);}
+#stickHint{position:absolute;left:calc(26px + var(--safe-l));bottom:calc(26px + var(--safe-b));width:110px;height:110px;border-radius:50%;border:2px dashed rgba(255,241,228,.25);align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--dim);text-align:center;}
+body.touch #stick.on ~ #stickHint{opacity:0;}
+.tbtn{position:absolute;pointer-events:auto;border-radius:50%;border:2px solid rgba(255,241,228,.55);background:rgba(21,15,38,.45);color:var(--ink);font:700 13px/1 Rubik,sans-serif;letter-spacing:.04em;align-items:center;justify-content:center;touch-action:none;}
+.tbtn:active,.tbtn.on{background:rgba(255,79,163,.7);border-color:#fff;box-shadow:0 0 18px rgba(255,79,163,.7);}
+#btnFire{right:calc(26px + var(--safe-r));bottom:calc(30px + var(--safe-b));width:92px;height:92px;background:rgba(255,63,90,.45);}
+#btnJump{right:calc(132px + var(--safe-r));bottom:calc(24px + var(--safe-b));width:74px;height:74px;font-size:11px;}
+#btnRun{right:calc(40px + var(--safe-r));bottom:calc(136px + var(--safe-b));width:64px;height:64px;}
+#btnWeapon{right:calc(128px + var(--safe-r));bottom:calc(114px + var(--safe-b));width:58px;height:58px;font-size:11px;}
+#btnPause{top:calc(62px + var(--safe-t));right:calc(18px + var(--safe-r));width:46px;height:46px;border-radius:12px;font-size:16px;}
+body.touch #district{bottom:calc(136px + var(--safe-b));}
+body.driving .walkOnly{display:none!important;}
+.driveOnly{display:none;}
+body.touch.driving .driveOnly{display:flex;}
+#btnGas{right:calc(26px + var(--safe-r));bottom:calc(30px + var(--safe-b));width:92px;height:92px;}
+#btnBrake{right:calc(132px + var(--safe-r));bottom:calc(24px + var(--safe-b));width:74px;height:74px;}
+#btnHand{right:calc(40px + var(--safe-r));bottom:calc(136px + var(--safe-b));width:66px;height:66px;font-size:11px;}
+#btnHorn{right:calc(128px + var(--safe-r));bottom:calc(116px + var(--safe-b));width:56px;height:56px;font-size:11px;}
+#btnEnter{display:none;top:calc(118px + var(--safe-t));right:calc(18px + var(--safe-r));width:70px;height:70px;background:rgba(255,79,163,.55);}
+body.touch #btnEnter.avail{display:flex;}
+#speedo{position:absolute;top:calc(14px + var(--safe-t));left:50%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:2px;padding:6px 18px 8px;background:var(--panel);box-shadow:0 0 0 1px var(--line);border-radius:14px;}
+body.driving #speedo{display:flex;}
+#speedo #carName{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);}
+#speedNum{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 0 12px rgba(255,79,163,.7);}
+#speedo .u{font-size:13px;font-weight:600;margin-left:6px;color:var(--dim);}
+#prompt{position:absolute;left:50%;bottom:calc(84px + var(--safe-b));transform:translateX(-50%);padding:9px 16px;background:rgba(255,79,163,.85);color:#2a0c1c;border-radius:999px;font-weight:800;font-size:15px;white-space:nowrap;}
+body.driving #stickHint{visibility:hidden;}
+body.touch #tip{bottom:auto;top:calc(16px + var(--safe-t));}
+
+/* ---------- screens ---------- */
+.screen{position:fixed;inset:0;display:flex;align-items:flex-start;overflow-y:auto;touch-action:pan-y;
+  padding:max(24px,var(--safe-t)) max(16px,calc(var(--safe-r) + 16px)) max(24px,var(--safe-b)) max(clamp(16px,7vw,110px),calc(var(--safe-l) + 16px));
+  background:linear-gradient(90deg,rgba(21,15,38,.9) 0%,rgba(21,15,38,.66) 50%,rgba(21,15,38,.08) 100%);}
+.card{max-width:540px;margin-block:auto;display:flex;flex-direction:column;gap:20px;}
+.eyebrow{font-weight:700;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);}
+h1,h2{margin:0;line-height:1.05;text-wrap:balance;}
+h1{font-size:clamp(60px,12vw,122px);color:#ffe3f0;text-shadow:0 0 6px var(--pink),0 0 20px var(--pink),0 0 48px rgba(255,79,163,.65);padding-bottom:.08em;}
+h2{font-size:clamp(44px,8vw,76px);color:#ffe3f0;text-shadow:0 0 6px var(--pink),0 0 20px var(--pink);}
+.lede{margin:0;font-size:17px;line-height:1.5;max-width:46ch;}
+.btn{align-self:flex-start;font:800 18px/1 Rubik,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#2a0c1c;background:linear-gradient(90deg,#ff7ab8,#ffb35c);border:0;border-radius:999px;padding:16px 40px;cursor:pointer;box-shadow:0 0 24px rgba(255,79,163,.55);touch-action:manipulation;}
+.btn:hover{filter:brightness(1.08);}
+.btn:focus-visible,.seg button:focus-visible,.ghost:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+.ghost{align-self:flex-start;font:600 14px/1 Rubik,sans-serif;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:11px 18px;cursor:pointer;touch-action:manipulation;}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 22px;font-size:15px;}
+.controls div{display:flex;align-items:center;gap:10px;}
+kbd{font:600 12px/1 Rubik,sans-serif;min-width:22px;text-align:center;padding:5px 8px;border:1px solid rgba(255,241,228,.4);border-bottom-width:3px;border-radius:5px;white-space:nowrap;}
+.forTouch{display:none;}
+body.touch .forTouch{display:grid;}
+body.touch .forDesk{display:none;}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px;font-weight:500;}
+.row input[type=range]{accent-color:var(--pink);width:170px;max-width:100%;}
+.row output{min-width:3ch;font-variant-numeric:tabular-nums;}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;}
+.seg button{font:600 13px/1 Rubik,sans-serif;color:var(--ink);background:transparent;border:0;padding:9px 14px;cursor:pointer;touch-action:manipulation;}
+.seg button[aria-pressed="true"]{background:var(--pink);color:#2a0c1c;}
+.note{font-size:13px;color:var(--dim);max-width:48ch;line-height:1.45;}
+.fsOnly{display:none;}
+body.touch .fsOnly{display:inline-block;}
+@media (max-width:640px),(max-height:480px){
+  .controls{grid-template-columns:1fr;}
+  #map{width:108px;height:108px;}
+  #status{top:calc(130px + var(--safe-t));width:120px;}
+  #clock{font-size:24px;}
+  #portrait{top:calc(130px + var(--safe-t));}
+  .card{gap:14px;}
+  .lede{font-size:15px;}
+}
+@media (max-height:480px){ h1{font-size:56px;} h2{font-size:42px;} }
+@media (prefers-reduced-motion:reduce){#district,#tip,#stick{transition:none;}}
+</style>
+
+<canvas id="game"></canvas>
+
+<div id="hud" hidden>
+  <canvas id="map" width="150" height="150"></canvas>
+  <div id="clock">19:12</div>
+  <div id="district" class="script"></div>
+  <div id="hurt"></div>
+  <div id="status">
+    <div id="stars" class="none"><i>★</i><i>★</i><i>★</i><i>★</i><i>★</i></div>
+    <div id="hp"><span class="heart">♥</span><div class="bar"><div id="hpFill"></div></div></div>
+    <div id="weapon"><span id="wName">Кулаки</span><b id="wAmmo"></b></div>
+  </div>
+  <div id="cross"></div>
+  <div id="lock"></div>
+  <div id="bigmsg" class="script"></div>
+  <div id="tip"></div>
+  <div class="bubble" hidden></div><div class="bubble" hidden></div><div class="bubble" hidden></div>
+  <div id="portrait" hidden>Поверните телефон горизонтально — так удобнее играть.</div>
+  <div id="stick" class="tc"><div id="stickKnob"></div></div>
+  <div id="stickHint" class="tc">Джойстик<br>здесь</div>
+  <button id="btnRun" class="tbtn tc walkOnly" type="button" aria-label="Бег">БЕГ</button>
+  <button id="btnJump" class="tbtn tc walkOnly" type="button" aria-label="Прыжок">ПРЫЖОК</button>
+  <button id="btnFire" class="tbtn tc walkOnly" type="button" aria-label="Удар или огонь">УДАР</button>
+  <button id="btnWeapon" class="tbtn tc walkOnly" type="button" aria-label="Сменить оружие">ОРУЖ.</button>
+  <button id="btnGas" class="tbtn driveOnly" type="button" aria-label="Газ">ГАЗ</button>
+  <button id="btnBrake" class="tbtn driveOnly" type="button" aria-label="Тормоз и задний ход">ТОРМОЗ</button>
+  <button id="btnHand" class="tbtn driveOnly" type="button" aria-label="Ручной тормоз">РУЧНИК</button>
+  <button id="btnHorn" class="tbtn driveOnly" type="button" aria-label="Сигнал">БИП</button>
+  <button id="btnEnter" class="tbtn" type="button" aria-label="Сесть или выйти">СЕСТЬ</button>
+  <div id="speedo"><span id="carName"></span><div><b id="speedNum">0</b><span class="u">км/ч</span></div></div>
+  <div id="prompt" hidden></div>
+  <button id="btnPause" class="tbtn tc" type="button" aria-label="Пауза">II</button>
+</div>
+
+<div id="menu" class="screen">
+  <div class="card">
+    <div class="eyebrow">Этап 5 · Скорая помощь</div>
+    <h1 class="script">Neon Bay</h1>
+    <p class="lede" id="lede">Приморский район в духе 80-х: пастельные отели, неон, пальмы и океан на закате. Город живёт своей жизнью, а полиция патрулирует улицы. Нарушите закон на глазах у копов — получите звёзды розыска. Оружие лежит по городу: ищите светящиеся столбы на мини-карте. Участок отмечен буквой «П», больница — красным крестом. Если кого-то избили или сбили, приедет скорая и поставит его на ноги.</p>
+    <button id="playBtn" class="btn" type="button">Играть</button>
+    <div class="controls forDesk">
+      <div><kbd>W A S D</kbd>Ходьба</div>
+      <div><kbd>Мышь</kbd>Камера</div>
+      <div><kbd>Shift</kbd>Бег</div>
+      <div><kbd>Пробел</kbd>Прыжок</div>
+      <div><kbd>Колесо</kbd>Ближе / дальше</div>
+      <div><kbd>Esc</kbd>Пауза</div>
+      <div><kbd>F</kbd>Сесть / выйти из машины</div>
+      <div><kbd>W / S</kbd>Газ / тормоз, задний ход</div>
+      <div><kbd>Пробел</kbd>Ручник (в машине)</div>
+      <div><kbd>H</kbd>Сигнал</div>
+      <div><kbd>ЛКМ</kbd>Удар / выстрел</div>
+      <div><kbd>ПКМ</kbd>Прицелиться</div>
+      <div><kbd>Q, 1–4</kbd>Сменить оружие</div>
+    </div>
+    <div class="controls forTouch">
+      <div><kbd>Левый палец</kbd>Ходьба</div>
+      <div><kbd>Правый палец</kbd>Камера</div>
+      <div><kbd>БЕГ</kbd>Включить бег</div>
+      <div><kbd>ПРЫЖОК</kbd>Прыгнуть</div>
+      <div><kbd>СЕСТЬ</kbd>Сесть в машину рядом</div>
+      <div><kbd>ГАЗ / ТОРМОЗ</kbd>Ехать, джойстик — руль</div>
+      <div><kbd>УДАР / ОГОНЬ</kbd>Автоприцел по ближайшему</div>
+      <div><kbd>ОРУЖ.</kbd>Сменить оружие</div>
+    </div>
+    <div class="row">Графика
+      <div class="seg" role="group" aria-label="Качество графики">
+        <button type="button" data-q="low">Низкая</button><button type="button" data-q="auto">Авто</button><button type="button" data-q="high">Высокая</button>
+      </div>
+    </div>
+    <label class="row" for="sens">Чувствительность камеры <input id="sens" type="range" min="0.3" max="2.5" step="0.05" value="1"><output id="sensOut">1.00</output></label>
+    <button id="fsBtn" class="ghost fsOnly" type="button">На весь экран</button>
+    <div class="note">«Авто» само снижает качество, если игра начинает тормозить.</div>
+  </div>
+</div>
+
+<div id="pause" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow">Пауза</div>
+    <h2 class="script">Перерыв</h2>
+    <button id="resumeBtn" class="btn" type="button">Продолжить</button>
+    <div class="row">Графика
+      <div class="seg" role="group" aria-label="Качество графики">
+        <button type="button" data-q="low">Низкая</button><button type="button" data-q="auto">Авто</button><button type="button" data-q="high">Высокая</button>
+      </div>
+    </div>
+    <label class="row" for="sens2">Чувствительность камеры <input id="sens2" type="range" min="0.3" max="2.5" step="0.05" value="1"><output id="sensOut2">1.00</output></label>
+    <button id="fsBtn2" class="ghost fsOnly" type="button">На весь экран</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/world.js"></script>
+<script src="js/player.js"></script>
+<script src="js/npc.js"></script>
+<script src="js/cars.js"></script>
+<script src="js/vehicles.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/police.js"></script>
+<script src="js/ems.js"></script>
+<script src="js/input.js"></script>
+<script src="js/main.js"></script>
