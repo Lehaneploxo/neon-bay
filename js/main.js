@@ -64,6 +64,7 @@
 
   /* ---------- cars ---------- */
   const audio = NB.createAudio();
+  player.onSplash = big => audio.splash(big); player.onStroke = () => audio.stroke();
   const vehOpts = { audio, onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
   const carLimits = () => lowCrowd() ? { traffic: 6, carRange: 90, patrols: 1 } : { traffic: 12, carRange: 130, patrols: 2 };
@@ -157,6 +158,7 @@
   });
   Object.assign(vehOpts, {
     onHeroHit: v => heroDamage(v * 2.2),
+    onFlood: () => { audio.engineOn(false); flashTip('Машина заглохла в воде — выплывайте (F)', 2.6); },
     onCopsExit: car => { const rx = -Math.cos(car.h), rz = Math.sin(car.h); for (const s of [-1, 1]) crowd.spawnCop(0, 0, 0, 0, 0, 0, car.x + rx * s * (car.model.w / 2 + .8), car.z + rz * s * (car.model.w / 2 + .8)); }
   });
 
@@ -268,7 +270,7 @@
   let aimTarget = null;
   function computeAim() {
     aimTarget = null;
-    if (vehicles.driving || player.dead) return null;
+    if (vehicles.driving || player.dead || player.swim) return null;
     camera.getWorldDirection(camDir);
     const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, gun = !combat.isMelee(), touch = input.touch;
     let best = null, bestScore = Infinity;
@@ -570,7 +572,7 @@
     if ($('wName').textContent !== wp.name) $('wName').textContent = wp.name;
     const at = ammo == null ? '' : String(ammo); if ($('wAmmo').textContent !== at) $('wAmmo').textContent = at;
     const fireLabel = combat.isMelee() ? 'УДАР' : 'ОГОНЬ'; if ($('btnFire').textContent !== fireLabel) $('btnFire').textContent = fireLabel;
-    const showCross = !drv && !combat.isMelee() && !input.touch && !player.dead;
+    const showCross = !drv && !combat.isMelee() && !input.touch && !player.dead && !player.swim;
     $('cross').classList.toggle('on', showCross); $('cross').classList.toggle('aim', rig.aimBlend > .5);
     if (aimTarget && !combat.isMelee() && !drv) {
       projV.set(aimTarget.x, aimTarget.y + 1.25 * aimTarget.look.hs, aimTarget.z).project(camera);
@@ -600,7 +602,7 @@
       rig.aimBlend = U.damp(rig.aimBlend, input.aim && !combat.isMelee() && !vehicles.driving && !player.dead ? 1 : 0, 10, dt);
       if (!vehicles.driving) player.update(dt, input, rig.yaw); else input.jump = false;
       vehicles.update(dt, { player, input, people: crowd.people, camYaw: rig.yaw, limits: carLimits, police, target: { x: player.x, z: player.z, vx: player.vx, vz: player.vz, onFoot: !vehicles.driving } });
-      combat.update(dt, input, aim, !!vehicles.driving);
+      combat.update(dt, input, aim, !!vehicles.driving || player.swim);   // no fighting while swimming
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       taxi.update(dt);

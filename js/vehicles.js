@@ -87,7 +87,7 @@
       cars.splice(cars.indexOf(car), 1);
     }
     function floorAt(x, z, fromY) {
-      let f = 0;
+      let f = NB.water.floorAt(x, z);   // a car driven into the sea rolls down the sea bed
       for (const b of col.query(x - .5, z - .5, x + .5, z + .5, tmp)) {
         if (b.maxY > fromY + .45) continue;
         if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && b.maxY > f) f = b.maxY;
@@ -130,6 +130,13 @@
     /* ---------- driving physics (hero's car and loose cars) ---------- */
     function physics(car, dt, ctl) {
       const pf = car.model.perf;
+      // deep water floods the engine: no power, heavy drag, and the car is written off
+      const W = NB.water.at(car.x, car.z);
+      if (W && W.surface() - car.y > .8) {
+        if (!car.flooded) { car.flooded = true; if (car.driver === 'player' && opts.onFlood) opts.onFlood(car); }
+        ctl = { throttle: 0, steer: ctl.steer * .2, handbrake: false };
+        car.vx *= Math.exp(-2.5 * dt); car.vz *= Math.exp(-2.5 * dt); car.damage = Math.max(car.damage, 120);
+      }
       const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
       let vF = car.vx * fx + car.vz * fz, vR = car.vx * rx + car.vz * rz;
       const t = ctl.throttle, top = pf.top;
@@ -528,7 +535,7 @@
             for (const w of c.wheels) { w.w.rotation.x = c.spin; if (w.front) w.g.rotation.y = c.steer; }
           }
           // smoke when badly damaged
-          if (c.damage > 90 && d < 70) {
+          if (c.damage > 90 && d < 70 && !c.flooded) {
             c.smokeT -= dt;
             if (c.smokeT <= 0) { c.smokeT = c.damage > 150 ? .06 : .14; const [fx, fz] = fwd(c); puff(c.x + fx * (c.model.l / 2 - .8), c.y + 1.1, c.z + fz * (c.model.l / 2 - .8), c.damage > 150); }
           }
@@ -557,7 +564,7 @@
         sirens.sort((a, b) => a[0] - b[0]);
         audio.sirens(sirens.slice(0, 2).filter(s => s[0] < 110).map(s => [s[1].x, 1.4, s[1].z]));
         // sound for the hero's car
-        if (driving) {
+        if (driving && !driving.flooded) {
           const v = Math.abs(speedOf(driving)), top = driving.model.perf.top;
           const gears = [0, .22, .42, .62, .82, 1.01], rel = v / top;
           let g = 1; while (g < gears.length - 1 && rel > gears[g]) g++;

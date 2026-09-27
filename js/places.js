@@ -613,13 +613,13 @@
     // the rooftop pool deck, built on top of the real hotel in the city
     if (hotelRoof) {
       const R = hotelRoof; K.at(0, 0);
-      const px0 = R.x0 + 4.2, px1 = R.x1 - 3.4, pz0 = R.z0 + 2.2, pz1 = R.z1 - 2.2, y = R.y, base = y - 3.05, deep = y - 1.15;
+      const px0 = R.x0 + 4.2, px1 = R.x1 - 3.4, pz0 = R.z0 + 2.2, pz1 = R.z1 - 2.2, y = R.y, base = y - 3.05, deep = y - 1.66;
+      NB.water.add({ name: 'roofpool', test: (x, z) => x > px0 + .1 && x < px1 - .1 && z > pz0 + .1 && z < pz1 - .1, surface: () => y - .22 });
       for (const [a, b, c, d] of [[R.x0, R.z0, px0, R.z1], [px1, R.z0, R.x1, R.z1], [px0, R.z0, px1, pz0], [px0, pz1, px1, R.z1]]) { K.box(a, y - .12, b, c, y, d, '#efe4d6'); K.solid(a, base, b, c, y, d); }
       K.box(px0, deep - .05, pz0, px1, deep, pz1, '#3fb3c7'); K.solid(px0, base, pz0, px1, deep, pz1);
       for (const [a, b, c, d] of [[px0, pz0, px0 + .12, pz1], [px1 - .12, pz0, px1, pz1], [px0, pz0, px1, pz0 + .12], [px0, pz1 - .12, px1, pz1]]) K.box(a, deep, b, c, y - .02, d, '#4fc9d6');
-      // steps out of the pool at the east end
-      K.box(px1 - 1.6, deep, pz0 + .12, px1 - .12, deep + .38, pz1 - .12, '#4fc9d6'); K.solid(px1 - 1.6, base, pz0, px1, deep + .38, pz1);
-      K.box(px1 - .9, deep, pz0 + .12, px1 - .12, deep + .76, pz1 - .12, '#4fc9d6'); K.solid(px1 - .9, base, pz0, px1, deep + .76, pz1);
+      // steps out of the pool at the east end, each one an easy step up
+      for (let k = 1; k <= 3; k++) { const x0 = px1 - .12 - (4 - k) * .6; K.box(x0, deep, pz0 + .12, px1 - .12, deep + k * .415, pz1 - .12, k % 2 ? '#5fd6e2' : '#4fc9d6'); K.solid(x0, base, pz0, px1, deep + k * .415, pz1); }
       const water = new THREE.Mesh(new THREE.PlaneGeometry(px1 - px0 - .24, pz1 - pz0 - .24).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
         transparent: true, uniforms: { uTime: { value: 0 } },
         vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -743,6 +743,8 @@
       for (const [a, b, c, d] of [[128.6, 85, 128.7, 95], [132.3, 85, 132.4, 95], [128.6, 85, 132.4, 85.1], [128.6, 94.9, 132.4, 95]]) K.box(a, 0, b, c, dy - .01, d, '#4fc9d6');
       const water = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 9.8).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x5fd6e6, transparent: true, opacity: .75 }));
       water.position.set(130.5, .3, 90); scene.add(water);
+      // deep enough to swim; you climb out over the edge onto the deck
+      NB.water.add({ name: 'villapool', test: (x, z) => x > 128.7 && x < 132.3 && z > 85.1 && z < 94.9, surface: () => .3, floor: () => -1.3 });
       for (const z of [97.5, 100]) { K.box(129, dy, z, 131.5, dy + .32, z + .7, '#ffffff', true); K.box(131.1, dy + .32, z, 131.5, dy + .8, z + .7, '#ffffff'); K.box(129.1, dy + .33, z + .1, 131, dy + .35, z + .6, PINK); }
       palms.push([133, .02, 80.8], [133, .38, 102.6], [110.2, .02, 98.2], [128.2, .38, 82]);
       mapShapes.push({ x0: 111.2, z0: 80.4, x1: 119, z1: 89, c: '#f6f2ec', k: 'b' }, { x0: 119.5, z0: 90, x1: 127.5, z1: 101.5, c: '#ffd6e6', k: 'b' }, { x0: 128.6, z0: 85, x1: 132.4, z1: 95, c: '#4fc9d6', k: 'p' });

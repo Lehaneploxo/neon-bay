@@ -404,9 +404,21 @@
         const h = rr(1.2, 2.6), z = sz * 108 + rr(-.8, .8);
         bPlain.box(x, 0, z - 1.8, x + rr(2.6, 3.6), h, z + 1.8, C(pick(['#8a8290', '#7a7282', '#958c98'])));
       }
-      col.add(CITY, 0, sz > 0 ? 106 : -112, SHORE + 40, 6, sz > 0 ? 112 : -106);
+      col.add(CITY, -10, sz > 0 ? 106 : -112, SHORE + 80, 6, sz > 0 ? 112 : -106);
     }
-    col.add(SHORE + 6, 0, -120, SHORE + 12, 6, 120);
+    // the rock spits run on out into the sea, as far as you can swim (own random, so the city stays the same)
+    {
+      const RR = U.rng(777), r2 = (a, b) => a + RR() * (b - a);
+      for (const sz of [-1, 1]) for (let x = SHORE + 30; x < SHORE + 80; x += 3.4) {
+        const h = r2(1.2, 2.8), z = sz * 108 + r2(-.8, .8);
+        bPlain.box(x, -3.5, z - 1.8, x + r2(2.6, 3.6), h, z + 1.8, C(['#8a8290', '#7a7282', '#958c98'][(RR() * 3) | 0]));
+      }
+    }
+    col.add(SHORE + 76, -10, -120, SHORE + 82, 8, 120);
+    // the sea: the bed slopes away from the shoreline; wading, then swimming a few metres out
+    NB.water.vols.length = 0;
+    NB.water.add({ name: 'sea', test: (x, z) => x > SHORE - .6 && x < SHORE + 90 && Math.abs(z) < 118, surface: () => .05,
+      floor: (x) => .02 - U.clamp((x - SHORE + .6) * .3, 0, 3.4) });
 
     /* ---------- city boundary + distant skyline ---------- */
     for (let z = -130; z < 130;) { const w = rr(10, 20); building(-130, z, -CITY, Math.min(130, z + w), rr(12, 38), pick(MUTED), 0); z += w; }

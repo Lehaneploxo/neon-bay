@@ -267,6 +267,14 @@
       }
       if (alarm) alarm.g.gain.setTargetAtTime(on ? .05 : 0, AC.currentTime, .05);
     };
+    // water: a splash when jumping in, a soft swish for each swimming stroke
+    A.splash = function (big) {
+      if (!ok()) return; const t = AC.currentTime, d = out(null);
+      noise(d, t, big ? .9 : .5, 'lowpass', big ? 2600 : 1800, .7, big ? .55 : .3, 300);
+      noise(d, t + .03, big ? .6 : .35, 'bandpass', 900, 1.2, big ? .35 : .2, 200);
+      tone(d, t, .18, 'sine', big ? 120 : 160, big ? .35 : .15, 50);
+    };
+    A.stroke = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); noise(d, t, .32, 'bandpass', 700 + Math.random() * 400, 1.1, .09, 250); };
     // slot machine reel tick and roulette ball
     A.tick = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .015, 'bandpass', 3500, 3, .25); };
 

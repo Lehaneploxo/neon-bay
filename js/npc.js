@@ -301,6 +301,7 @@
     }
     function collide(p) {
       const r = .3;
+      if (p.x > SHORE - .4 && p.x < SHORE + 100 && Math.abs(p.z) < 120) { p.x = SHORE - .4; p.blocked += 1; }   // people stay out of the sea
       for (const b of col.query(p.x - 1, p.z - 1, p.x + 1, p.z + 1, tmp)) {
         if (b.maxY <= p.y + .42 || b.minY >= p.y + 1.8) continue;
         const cx = U.clamp(p.x, b.minX, b.maxX), cz = U.clamp(p.z, b.minZ, b.maxZ);

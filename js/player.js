@@ -88,6 +88,59 @@
 
   const MELEE = { fists: true, bat: true };
 
+  // Rings spreading on the water surface, and a spray of droplets for splashes and strokes.
+  function makeWaterFx(scene) {
+    const rings = [], ringGeo = new THREE.RingGeometry(.42, .52, 28).rotateX(-Math.PI / 2);
+    for (let i = 0; i < 14; i++) {
+      const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false }));
+      m.visible = false; m.life = 0; m.max = 1; scene.add(m); rings.push(m);
+    }
+    const N = 160, pos = new Float32Array(N * 3), vel = new Float32Array(N * 3), life = new Float32Array(N), floorY = new Float32Array(N);
+    for (let i = 0; i < N; i++) pos[i * 3 + 1] = -999;
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xeafcff, size: .11, transparent: true, opacity: .9, depthWrite: false }));
+    pts.frustumCulled = false; scene.add(pts);
+    let rh = 0, ph = 0, alive = 0;
+    const fx = {
+      ripple(x, y, z, size) {
+        const m = rings[rh]; rh = (rh + 1) % rings.length;
+        m.position.set(x, y + .02, z); m.life = 1.5; m.max = 1.5; m.size = size; m.scale.setScalar(.6); m.visible = true;
+      },
+      drops(x, y, z, n, power = 1) {
+        for (let k = 0; k < n; k++) {
+          const i = ph; ph = (ph + 1) % N;
+          pos[i * 3] = x + U.rand(-.25, .25); pos[i * 3 + 1] = y + .05; pos[i * 3 + 2] = z + U.rand(-.25, .25);
+          const a = Math.random() * Math.PI * 2, s = U.rand(.4, 1.6) * power;
+          vel[i * 3] = Math.cos(a) * s; vel[i * 3 + 1] = U.rand(1.5, 3.6) * power; vel[i * 3 + 2] = Math.sin(a) * s;
+          life[i] = 1.4; floorY[i] = y;
+        }
+        alive = 1.6;
+      },
+      // a jump into the water: a crown of spray and two rings
+      splash(x, y, z, k) {
+        fx.drops(x, y, z, Math.round(18 + k * 50), .8 + k * .8);
+        fx.ripple(x, y, z, 1.4 + k); setTimeout(() => fx.ripple(x, y, z, 1 + k), 180);
+      },
+      update(dt) {
+        for (const m of rings) if (m.visible) {
+          m.life -= dt; const f = 1 - m.life / m.max;
+          m.scale.setScalar(.6 + f * 2.4 * m.size); m.material.opacity = Math.max(0, (1 - f) * (1 - f) * .42);
+          if (m.life <= 0) m.visible = false;
+        }
+        if (alive <= 0) return;
+        alive -= dt;
+        for (let i = 0; i < N; i++) {
+          if (life[i] <= 0) continue;
+          life[i] -= dt; vel[i * 3 + 1] -= 9.8 * dt;
+          pos[i * 3] += vel[i * 3] * dt; pos[i * 3 + 1] += vel[i * 3 + 1] * dt; pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
+          if (life[i] <= 0 || pos[i * 3 + 1] < floorY[i]) { life[i] = 0; pos[i * 3 + 1] = -999; }
+        }
+        geo.attributes.position.needsUpdate = true;
+      }
+    };
+    return fx;
+  }
+
   class Player {
     constructor(scene, col) {
       this.col = col;
@@ -98,8 +151,12 @@
       this.x = 0; this.y = 0; this.z = 0; this.vx = 0; this.vz = 0; this.vy = 0;
       this.heading = 0; this.onGround = true; this.phase = 0; this.run = 0; this.air = 0; this.tmp = [];
       this.hp = 100; this.dead = false; this.deadT = 0; this.punchT = 0; this.aimT = 0; this.aimYaw = 0; this.aimPitch = 0; this.recoil = 0; this.weapon = 'fists';
+      // in the water: swim (deep), wade (waist-deep, slower); tilt 0.25 treading water .. 1 front crawl
+      this.swim = false; this.wade = 0; this.tilt = .25; this.rippleT = 0; this.strokeT = 0;
+      this.onSplash = null; this.onStroke = null;
+      this.fx = makeWaterFx(scene);
     }
-    place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; }
+    place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; this.swim = false; }
     get speed() { return Math.hypot(this.vx, this.vz); }
     setOutfit(id) {
       const o = OUTFITS[id] || OUTFITS.hawaii, m = this.m;
@@ -108,7 +165,7 @@
       m.jeans.color.setHex(o.pants); m.cap.visible = !!o.cap;
       this.outfit = OUTFITS[id] ? id : 'hawaii';
     }
-    setWeapon(id) { this.weapon = id; for (const k in this.m.guns) this.m.guns[k].visible = k === id; }
+    setWeapon(id) { this.weapon = id; for (const k in this.m.guns) this.m.guns[k].visible = k === id && !this.swim; }   // no gun in hand while swimming
     punch() { this.punchT = .3; }
     fired() { this.recoil = 1; this.aimT = Math.max(this.aimT, .8); }
     // world position of the gun barrel (or the fist)
@@ -120,7 +177,7 @@
     }
 
     floorAt(x, z, fromY) {
-      let f = 0; const r = RADIUS * .6;
+      let f = NB.water.floorAt(x, z); const r = RADIUS * .6;   // the sea bed slopes below 0
       for (const b of this.col.query(x - 1, z - 1, x + 1, z + 1, this.tmp)) {
         if (b.maxY > fromY + STEP) continue;
         if (x + r > b.minX && x - r < b.maxX && z + r > b.minZ && z - r < b.maxZ && b.maxY > f) f = b.maxY;
@@ -162,23 +219,57 @@
       const sy = Math.sin(camYaw), cy = Math.cos(camYaw);
       let wx = mx * cy - my * sy, wz = -mx * sy - my * cy;
       const wl = Math.hypot(wx, wz);
-      const top = input.sprint ? SPRINT : JOG;
+      // swimming is slow, wading slows you down the deeper it gets
+      let top = input.sprint ? SPRINT : JOG;
+      if (this.swim) top = input.sprint ? 3.3 : 2.2;
+      else if (this.wade > 0) top *= 1 - Math.min(.55, this.wade * .6);
       if (wl > 1e-4) { wx = wx / wl * top * mag; wz = wz / wl * top * mag; }
-      const k = this.onGround ? 10 : 2.5;
+      const k = this.swim ? 2.2 : this.onGround ? 10 : 2.5;
       this.vx = U.damp(this.vx, wx, k, dt); this.vz = U.damp(this.vz, wz, k, dt);
-      if (input.jump && this.onGround) { this.vy = JUMP; this.onGround = false; }
+      if (input.jump && this.onGround && !this.swim && this.wade < .9) { this.vy = JUMP; this.onGround = false; }
       input.jump = false;
 
       // horizontal move, then walls
+      const px = this.x, pz = this.z;
       this.x += this.vx * dt; this.z += this.vz * dt;
       this.collide();
-      // vertical: gravity, landing, stepping onto curbs
       const floor = this.floorAt(this.x, this.z, this.y);
-      this.vy -= GRAVITY * dt; this.y += this.vy * dt;
-      const was = this.onGround;
-      if (this.y <= floor || (was && this.vy <= 0 && this.y - floor < .25)) { this.y = floor; this.vy = 0; this.onGround = true; }
-      else this.onGround = false;
-      this.air = this.onGround ? 0 : this.air + dt;
+      const W = NB.water.at(this.x, this.z), surf = W ? W.surface() : 0, t = performance.now() / 1000;
+      if (W && surf - floor > 1.3 && (this.swim || this.y <= surf - 1.0)) {
+        // afloat: shoulders at the surface, bobbing on the swell
+        if (!this.swim) { this.swim = true; this.fx.splash(this.x, surf, this.z, Math.min(1, -this.vy / 9) + .25); if (this.onSplash) this.onSplash(this.vy < -5); this.setWeapon(this.weapon); }
+        this.tilt = U.damp(this.tilt, this.speed > .7 ? 1 : .25, 3, dt);
+        const want = surf - 1.5 * Math.cos(this.tilt) + Math.sin(t * 2.1 + this.x * .3) * .04;
+        this.y = U.damp(this.y, want, 5, dt); this.vy = 0; this.onGround = false; this.air = 0; this.wade = 0;
+        // swim against the edge of a pool and you climb out onto it
+        const moved = Math.hypot(this.x - px, this.z - pz), wantMove = Math.hypot(wx, wz) * dt;
+        if (wantMove > .02 && moved < wantMove * .35) {
+          const dl = Math.hypot(wx, wz), ax = this.x + wx / dl * .7, az = this.z + wz / dl * .7;
+          const ledge = this.floorAt(ax, az, surf + .4);
+          if (ledge > surf - .5 && ledge <= surf + .85 && !NB.water.at(ax, az)) {
+            this.x = ax; this.z = az; this.y = ledge; this.swim = false; this.onGround = true; this.tilt = .25;
+            this.fx.splash(px, surf, pz, .35); this.setWeapon(this.weapon);
+          }
+        }
+      } else {
+        if (this.swim) { this.swim = false; this.setWeapon(this.weapon); }
+        // vertical: gravity, landing, stepping onto curbs
+        this.vy -= GRAVITY * dt; this.y += this.vy * dt;
+        const was = this.onGround;
+        if (this.y <= floor || (was && this.vy <= 0 && this.y - floor < .25)) {
+          if (!was && W && this.vy < -4 && surf > floor) { this.fx.splash(this.x, surf, this.z, .6); if (this.onSplash) this.onSplash(false); }
+          this.y = floor; this.vy = 0; this.onGround = true;
+        } else this.onGround = false;
+        this.air = this.onGround ? 0 : this.air + dt;
+        this.wade = W ? Math.max(0, surf - this.y) : 0;
+      }
+      // rings spreading around you in the water, and the sound of strokes
+      if (W && (this.swim || this.wade > .15)) {
+        this.rippleT -= dt * (this.speed > .5 ? 1.6 : .6);
+        if (this.rippleT <= 0) { this.rippleT = .45; this.fx.ripple(this.x, surf, this.z, this.swim ? 1 : .6); }
+        if (this.swim && this.speed > .7 && (this.strokeT -= dt) <= 0) { this.strokeT = .62; if (this.onStroke) this.onStroke(); this.fx.drops(this.x + Math.sin(this.heading) * .6, surf, this.z + Math.cos(this.heading) * .6, 5); }
+      }
+      this.fx.update(dt);
 
       // face the direction of travel
       const sp = this.speed;
@@ -187,7 +278,32 @@
       this.animate(dt, sp);
     }
 
+    // front crawl when moving, treading water when still; the body tilts forward and floats at the surface
+    animateSwim(dt, sp) {
+      const m = this.m, t = performance.now() / 1000, TAU = Math.PI * 2;
+      this.phase += dt * (2.2 + sp * 1.1);
+      const ph = this.phase, crawl = U.clamp((this.tilt - .25) / .75, 0, 1), L = (a, b) => a + (b - a) * Math.min(1, dt * 12);
+      const wrap = a => ((a % TAU) + TAU) % TAU;
+      // crawl: arms windmill in turn, legs flutter; treading: arms scull out to the sides, legs cycle slowly
+      const kick = Math.sin(ph * 2.4);
+      const crawlAL = -wrap(ph), crawlAR = -wrap(ph + Math.PI);
+      const scull = Math.sin(t * 3.2);
+      const aLx = crawl > .5 ? crawlAL : -.45 + scull * .25, aRx = crawl > .5 ? crawlAR : -.45 - scull * .25;
+      m.aL.sh.rotation.x = crawl > .5 ? aLx : L(m.aL.sh.rotation.x, aLx); m.aR.sh.rotation.x = crawl > .5 ? aRx : L(m.aR.sh.rotation.x, aRx);
+      m.aL.sh.rotation.z = L(m.aL.sh.rotation.z, -(1 - crawl) * (.9 + scull * .25) - .07); m.aR.sh.rotation.z = L(m.aR.sh.rotation.z, (1 - crawl) * (.9 - scull * .25) + .07);
+      m.aL.el.rotation.x = L(m.aL.el.rotation.x, crawl > .5 ? -.25 : -.9); m.aR.el.rotation.x = L(m.aR.el.rotation.x, crawl > .5 ? -.25 : -.9);
+      m.lL.hip.rotation.x = L(m.lL.hip.rotation.x, crawl * kick * .35 + (1 - crawl) * Math.sin(t * 2.5) * .5);
+      m.lR.hip.rotation.x = L(m.lR.hip.rotation.x, -crawl * kick * .35 - (1 - crawl) * Math.sin(t * 2.5) * .5);
+      m.lL.kn.rotation.x = L(m.lL.kn.rotation.x, .2 + (1 - crawl) * (.5 + Math.max(0, Math.sin(t * 2.5)) * .6));
+      m.lR.kn.rotation.x = L(m.lR.kn.rotation.x, .2 + (1 - crawl) * (.5 + Math.max(0, -Math.sin(t * 2.5)) * .6));
+      m.torso.rotation.x = L(m.torso.rotation.x, 0); m.torso.rotation.y = crawl * Math.sin(ph) * .22;
+      m.hips.position.y = .95; m.head.rotation.x = -this.tilt * .75;   // keep the face up out of the water
+      m.root.position.set(this.x, this.y, this.z); m.root.rotation.y = this.heading; m.root.rotation.x = this.tilt;
+      this.blob.visible = false;
+    }
     animate(dt, sp) {
+      if (this.swim) { this.animateSwim(dt, sp); return; }
+      this.tilt = U.damp(this.tilt, .25, 6, dt);
       const m = this.m;
       this.run = U.damp(this.run, U.clamp((sp - JOG * .6) / (SPRINT - JOG * .6), 0, 1), 6, dt);
       const moving = U.clamp(sp / 2, 0, 1);

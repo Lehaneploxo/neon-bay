@@ -151,4 +151,13 @@ window.NB = {};
     return tmin;
   }
   NB.Colliders = Colliders;
+
+  // Bodies of water (the sea, the pools). Each has a test(x, z), a surface() height, and optionally a
+  // floor(x, z) — the bottom where there is no collider box underneath, e.g. the sea bed sloping away.
+  NB.water = {
+    vols: [],
+    add(v) { this.vols.push(v); return v; },
+    at(x, z) { for (const v of this.vols) if (v.test(x, z)) return v; return null; },
+    floorAt(x, z) { const v = this.at(x, z); return v && v.floor ? v.floor(x, z) : 0; }
+  };
 })(window.NB);
