@@ -7,7 +7,7 @@
   if (!window.THREE) { $('lede').textContent = 'Не удалось загрузить 3D-движок. Проверьте интернет и обновите страницу.'; return; }
 
   const isTouchDevice = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0;
-  const settings = { sens: 1, quality: 'auto' };
+  const settings = { sens: 1, quality: 'auto', volume: 1, muted: false };
   try { Object.assign(settings, JSON.parse(localStorage.getItem('nb_settings') || '{}')); } catch (e) {}
   const save = () => { try { localStorage.setItem('nb_settings', JSON.stringify(settings)); } catch (e) {} };
 
@@ -268,6 +268,7 @@
     requestLock: lock,
     onEscape: () => { if (!locked) pause(); },
     onZoom: s => { rig.dist = U.clamp(rig.dist + s * .6, 2.6, 9); },
+    onMute: () => toggleMute(),
     onMode: () => onResize()
   });
 
@@ -335,6 +336,27 @@
     for (const [i, o] of [['sens', 'sensOut'], ['sens2', 'sensOut2']]) { $(i).value = v; $(o).textContent = v.toFixed(2); }
   }
   setSens(settings.sens);
+  // sound: a volume slider in the menus, a speaker button in the HUD and the M key; remembered between visits
+  function applySound() {
+    const on = !settings.muted && settings.volume > 0;
+    audio.setVolume(settings.muted ? 0 : settings.volume);
+    for (const [i, o, b] of [['vol', 'volOut', 'muteBtn'], ['vol2', 'volOut2', 'muteBtn2']]) {
+      $(i).value = settings.volume; $(o).textContent = settings.muted ? 'выкл' : Math.round(settings.volume * 100) + '%';
+      $(b).textContent = on ? 'Выключить' : 'Включить';
+    }
+    $('btnSound').classList.toggle('muted', !on);
+    $('btnSound').setAttribute('aria-label', on ? 'Выключить звук' : 'Включить звук');
+  }
+  function toggleMute() {
+    if (settings.muted || settings.volume <= 0) { settings.muted = false; if (settings.volume <= 0) settings.volume = .8; }
+    else settings.muted = true;
+    save(); applySound();
+    if (state === 'playing') flashTip(settings.muted ? 'Звук выключен · M — включить' : 'Звук включён', 1.6);
+  }
+  for (const id of ['vol', 'vol2']) $(id).addEventListener('input', e => { settings.volume = +e.target.value; settings.muted = false; save(); applySound(); });
+  for (const id of ['muteBtn', 'muteBtn2']) $(id).addEventListener('click', toggleMute);
+  $('btnSound').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); toggleMute(); });
+  applySound();
 
   /* ---------- HUD ---------- */
   let tipTimer = 0;
@@ -396,6 +418,11 @@
     if (world.station) {
       const q = toMap(world.station.cx, world.station.cz, true);
       dot(q, W * .06, '#2f5fb0'); g.fillStyle = '#fff'; g.font = `800 ${Math.round(W * .075)}px Rubik, sans-serif`; g.fillText('П', q[0], q[1] + 1);
+    }
+    if (world.club) {
+      // pink disc with "21" for the club
+      const q = toMap(world.club.center.x, world.club.center.z, true);
+      dot(q, W * .065, '#ff4fa3'); g.fillStyle = '#fff'; g.font = `800 ${Math.round(W * .062)}px Rubik, sans-serif`; g.fillText('21', q[0], q[1] + 1);
     }
     if (shop.place) {
       // orange disc with a little pistol
@@ -519,7 +546,15 @@
     sun.position.copy(sun.target.position).addScaledVector(env.lightDir, 90);
     if (shadowsOn && (++frameNo & 1)) renderer.shadowMap.needsUpdate = true;
     sky.position.copy(camera.position);
+    env.px = fx; env.pz = fz;
     world.update(now / 1000, env);
+    // club music: full inside, muffled through the walls nearby
+    const club = world.club;
+    if (club) {
+      const inside = state === 'playing' && club.inside(player.x, player.z);
+      const d = Math.hypot(player.x - club.door.out[0], player.z - club.door.z);
+      audio.club(state !== 'playing' ? 0 : inside ? 1 : Math.max(0, 1 - d / 55) * .5, inside);
+    }
     vehicles.setNight(env.night);
     renderer.render(scene, camera);
   }

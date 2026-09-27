@@ -4,11 +4,17 @@
   NB.createAudio = function () {
     let AC = null, master = null, noiseBuf = null, eng = null, skid = null;
     const A = {};
+    let volume = 1;
+    // overall volume 0..1 (0 = sound off), applied to the master bus
+    A.setVolume = function (v) {
+      volume = Math.max(0, Math.min(1, v));
+      if (master) master.gain.setTargetAtTime(.7 * volume, AC.currentTime, .05);
+    };
     A.init = function () {
       if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
       try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
       const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
-      master = AC.createGain(); master.gain.value = .7; master.connect(comp); comp.connect(AC.destination);
+      master = AC.createGain(); master.gain.value = .7 * volume; master.connect(comp); comp.connect(AC.destination);
       noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     };
@@ -126,6 +132,52 @@
       else { [523, 415, 330].forEach((f, i) => tone(d, t + i * .22, .3, 'square', f, .08)); }
     };
     A.starUp = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); tone(d, t, .12, 'square', 988, .06); tone(d, t + .12, .18, 'square', 1318, .06); };
+    // NEOLOXO 21 music: an 80s disco loop at 118 BPM (four-on-the-floor kick, claps, hats, octave bass,
+    // offbeat chord stabs and a quiet arpeggio over Am-F-C-G), scheduled ahead on the audio clock.
+    // Outside the club it is quieter and muffled through the walls.
+    let club = null;
+    const CHORDS = [[55, [220, 261.63, 329.63]], [43.65, [174.61, 220, 261.63]], [65.41, [261.63, 329.63, 392]], [49, [196, 246.94, 293.66]]];
+    function clubStep(step, t) {
+      const bus = club.bus, s = step % 16, bar = ((step / 16) | 0) % 4, [root, chord] = CHORDS[bar];
+      if (s % 4 === 0) {   // kick
+        const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+        env(g, t, .002, .9, .28); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .3);
+      }
+      if (s === 4 || s === 12) { noise(bus, t, .16, 'bandpass', 1500, .9, .35); noise(bus, t + .012, .12, 'bandpass', 1100, 1.2, .25); }
+      if (s % 4 === 2) noise(bus, t, .14, 'highpass', 7000, .7, .18); else noise(bus, t, .03, 'highpass', 9000, .7, .06);
+      if (s % 2 === 0) {   // octave bass on the eighths
+        const f = root * ((s / 2) % 2 ? 2 : 1), o = AC.createOscillator(), flt = AC.createBiquadFilter(), g = AC.createGain();
+        o.type = 'sawtooth'; o.frequency.value = f; flt.type = 'lowpass'; flt.frequency.setValueAtTime(900, t); flt.frequency.exponentialRampToValueAtTime(220, t + .14);
+        env(g, t, .005, .32, .16); o.connect(flt); flt.connect(g); g.connect(bus); o.start(t); o.stop(t + .2);
+      }
+      if (s === 6 || s === 14 || (s === 3 && bar % 2)) {   // chord stabs
+        const flt = AC.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 2400; flt.connect(bus);
+        for (const f of chord) { const o = AC.createOscillator(), g = AC.createGain(); o.type = 'square'; o.frequency.value = f; o.detune.value = (Math.random() - .5) * 8; env(g, t, .004, .045, .2); o.connect(g); g.connect(flt); o.start(t); o.stop(t + .25); }
+      }
+      { const f = chord[s % 3] * (s % 6 < 3 ? 2 : 4), o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.value = f; env(g, t, .003, .03, .09); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .12); }
+    }
+    A.club = function (level, inside) {
+      if (!ok()) return;
+      const t = AC.currentTime;
+      if (!club) {
+        const bus = AC.createGain(), flt = AC.createBiquadFilter(), out = AC.createGain();
+        bus.gain.value = .55; flt.type = 'lowpass'; flt.frequency.value = 600; out.gain.value = 0;
+        bus.connect(flt); flt.connect(out); out.connect(master);
+        club = { bus, flt, out, timer: 0, next: 0, step: 0, level: 0 };
+      }
+      club.out.gain.setTargetAtTime(level * .8, t, .25);
+      club.flt.frequency.setTargetAtTime(inside ? 15000 : 380 + level * 900, t, .25);
+      if (level > .005 && !club.timer) {
+        club.next = t + .06;
+        club.timer = setInterval(() => {
+          if (!AC || AC.state !== 'running') return;
+          const step = 60 / 118 / 4;
+          while (club.next < AC.currentTime + .18) { clubStep(club.step++, club.next); club.next += step; }
+        }, 40);
+      } else if (level <= .005 && club.timer && club.level <= .005) { clearInterval(club.timer); club.timer = 0; }
+      club.level = level;
+    };
+
     // two siren voices that follow the nearest police cars: a wailing oscillator driven by a slow LFO
     const sirenV = [];
     A.sirens = function (list) {

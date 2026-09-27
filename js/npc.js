@@ -6,6 +6,7 @@
   const { U } = NB;
   const rand = U.rand, pick = a => a[(Math.random() * a.length) | 0];
   const chance = p => Math.random() < p;
+  const CLUB_BPS = 118 / 60;
 
   /* ---------- body layout ---------- */
   // joints: 0 root, 1 hips, 2 torso, 3 head, 4 shoulderL, 5 elbowL, 6 shoulderR, 7 elbowR, 8 hipL, 9 kneeL, 10 hipR, 11 kneeR
@@ -146,6 +147,8 @@
     beach: [['beach_f', .48], ['beach_m', .4], ['tourist_f', .07], ['tourist_m', .05]],
     cop: [['cop', 1]],
     medic: [['medic', 1]],
+    club: [['tourist_f', .34], ['tourist_m', .28], ['business_f', .2], ['business_m', .18]],
+    guard: [['business_m', 1]],
     town: [['tourist_m', .22], ['tourist_f', .24], ['business_m', .12], ['business_f', .1], ['elderly', .16], ['jogger', .08], ['beach_f', .04], ['beach_m', .04]]
   };
   function typeFor(mix) { let r = Math.random(); for (const [t, w] of mix) { if ((r -= w) <= 0) return t; } return mix[0][0]; }
@@ -230,7 +233,18 @@
         spots.push({ kind: 'talk', x, z, y: 0, heading: Math.atan2(g.x - x, g.z - z), mix: g.mix, seed, idx: k, n, grp: g });
       }
     }
-    for (const s of spots) { s.person = null; s.y = s.kind === 'talk' ? floorAt(s.x, s.z, 5) : s.y; }
+    // the club: dancers, the DJ, bartenders, the bouncer and people in the booths
+    const club = world.club;
+    if (club) for (const s of club.spots) spots.push(Object.assign({}, s));
+    for (const s of spots) { s.person = null; s.y = s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 5); }
+    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1 };
+    // someone going between the club and the street walks through the door instead of into a wall
+    function viaDoor(p, gx, gz) {
+      if (!club) return null;
+      const a = club.inside(p.x, p.z);
+      if (a === club.inside(gx, gz)) return null;
+      return a ? club.exitStep(p.x, p.z) : club.entryStep(p.x, p.z);
+    }
 
     /* ---------- physics helpers ---------- */
     function floorAt(x, z, fromY) {
@@ -309,7 +323,12 @@
     }
     // back to normal life after fleeing, fighting or chasing
     function resumeRoute(p) {
-      p.running = false; p.chasing = false; p.fightT = 0; p.fleeT = 0;
+      p.running = false; p.chasing = false; p.fightT = 0; p.fleeT = 0; p.clubExit = false;
+      if (club && club.inside(p.x, p.z)) {   // leave the club through the door, then join the sidewalks
+        const ni = nearestNode(club.door.out[0], club.door.out[1]);
+        p.mode = 'graph'; p.node = ni; p.prev = ni; p.clubExit = true;
+        const w = club.exitStep(p.x, p.z); p.target = { x: w[0], z: w[1] }; return;
+      }
       if (p.x > CITY + 4 && !p.cop) { p.mode = 'beach'; p.target = { x: U.clamp(p.x + rand(-10, 10), 112, 137), z: U.clamp(p.z + rand(-10, 10), -100, 100) }; return; }
       const ni = nearestNode(p.x, p.z); p.mode = 'graph'; p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
     }
@@ -354,10 +373,21 @@
         p.stuckT = 0; p.lastX = p.x; p.lastZ = p.z;
       }
     }
+    // run to a waypoint (the club door)
+    function runTo(p, w, speed, dt) {
+      const wx = w[0] - p.x, wz = w[1] - p.z, wd = Math.hypot(wx, wz) || .001;
+      let vx = wx / wd, vz = wz / wd;
+      if (p.sideT > 0) { p.sideT -= dt; vx += p.sideX; vz += p.sideZ; const l = Math.hypot(vx, vz) || 1; vx /= l; vz /= l; }
+      stepMove(p, vx, vz, speed, dt); p.running = speed > 3; p.anim = 'walk';
+      p.heading += U.angDiff(p.heading, Math.atan2(vx, vz)) * Math.min(1, dt * 10);
+      unstick(p, dt, wx / wd, wz / wd);
+    }
     // police officer while the hero is wanted: 1 star — run up and arrest; 2+ stars — keep distance and shoot
     function copChase(p, dt, player) {
       const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
       p.chasing = true;
+      const door = viaDoor(p, player.x, player.z);
+      if (door) { p.los = false; runTo(p, door, 4.6, dt); return; }
       p.losT -= dt;
       if (p.losT <= 0) {
         p.losT = .22 + Math.random() * .08;
@@ -384,6 +414,7 @@
     }
     function flee(p, dt) {
       p.fleeT -= dt;
+      if (club && club.inside(p.x, p.z)) { runTo(p, club.exitStep(p.x, p.z), 4.3, dt); if (p.fleeT < 1) p.fleeT = 1; return; }   // run out of the club first
       let vx = p.x - p.fleeX, vz = p.z - p.fleeZ; const l = Math.hypot(vx, vz) || 1; vx /= l; vz /= l;
       if (p.sideT > 0) { p.sideT -= dt; vx += p.sideX; vz += p.sideZ; }
       vx += Math.sin(p.seed + p.fleeT * 1.3) * .3; vz += Math.cos(p.seed * 1.7 + p.fleeT) * .3;
@@ -398,6 +429,8 @@
       p.fightT -= dt; p.punchT -= dt;
       const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
       if (d > 16 || player.inCar || player.dead || p.fightT <= 0) { resumeRoute(p); return; }
+      const door = viaDoor(p, player.x, player.z);
+      if (door) { runTo(p, door, 3.8, dt); return; }
       p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
       if (d > 1.05) { stepMove(p, dx / d, dz / d, 3.8, dt); p.running = true; p.anim = 'walk'; unstick(p, dt, dx / d, dz / d); }
       else {
@@ -408,7 +441,8 @@
     // walk (or jog when far) to m.goal, then turn to m.face; paramedics and taxi passengers
     function goalStep(p, m, dt, idleAnim) {
       if (!m.goal) { p.speed = 0; p.anim = idleAnim; if (m.face != null) p.heading += U.angDiff(p.heading, m.face) * Math.min(1, dt * 6); return; }
-      const dx = m.goal[0] - p.x, dz = m.goal[1] - p.z, d = Math.hypot(dx, dz);
+      const w = viaDoor(p, m.goal[0], m.goal[1]), gx = w ? w[0] : m.goal[0], gz = w ? w[1] : m.goal[1];
+      const dx = gx - p.x, dz = gz - p.z, d = w ? Math.max(1, Math.hypot(dx, dz)) : Math.hypot(dx, dz);
       if (d > .35) {
         m.arrived = false;
         let vx = dx / d, vz = dz / d;
@@ -444,6 +478,15 @@
         return;
       }
       let dx = p.target.x - p.x, dz = p.target.z - p.z, d = Math.hypot(dx, dz);
+      if (d < .6 && p.clubExit) {
+        if (!club.inside(p.x, p.z) && p.x > club.door.x) { p.clubExit = false; const n = nodes[p.node]; p.target = { x: n.x, z: n.z }; }
+        else {
+          let w = club.exitStep(p.x, p.z);
+          if (Math.hypot(w[0] - p.x, w[1] - p.z) < .7) w = club.door.out;   // never re-aim at the point we're standing on
+          p.target = { x: w[0], z: w[1] };
+        }
+        return;
+      }
       if (d < .6) {
         if (p.mode === 'graph') {
           if (chance(.12)) { p.pauseT = rand(2, 6); p.pauseFace = p.heading + (chance(.5) ? Math.PI / 2 : -Math.PI / 2); }
@@ -479,7 +522,8 @@
       p.stuckT += dt;
       if (p.stuckT > 2) {
         if (Math.hypot(p.x - p.lastX, p.z - p.lastZ) < .6) {
-          if (p.mode === 'graph') { const t = p.node; p.node = p.prev; p.prev = t; const b = nodes[p.node]; p.target = { x: b.x, z: b.z }; }
+          if (p.clubExit) { const w = club.exitStep(p.x, p.z); p.target = { x: w[0] + rand(-.3, .3), z: w[1] + rand(-.3, .3) }; }
+          else if (p.mode === 'graph') { const t = p.node; p.node = p.prev; p.prev = t; const b = nodes[p.node]; p.target = { x: b.x, z: b.z }; }
           else p.target = { x: U.clamp(p.x + rand(-10, 10), 112, 137), z: U.clamp(p.z + rand(-10, 10), -100, 100) };
         }
         p.stuckT = 0; p.lastX = p.x; p.lastZ = p.z;
@@ -505,6 +549,17 @@
           break;
         }
         case 'idle': P.bob = breathe; aL = .05; aR = .05; P.twist = Math.sin(t * .4 + p.seed) * .08; break;
+        case 'dance': {
+          // three dance styles, all on the club's beat
+          const b = t * CLUB_BPS * Math.PI * 2 + p.seed * .7, s = Math.sin(b), s2 = Math.sin(b * .5), style = (p.seed * 7 | 0) % 3;
+          P.bob = Math.abs(s) * .06; kL = .18 + Math.max(0, s) * .25; kR = .18 + Math.max(0, -s) * .25;
+          if (style === 0) { aR = -2.55 + s2 * .45; eR = -.25; aL = .35 + s * .2; eL = -1.1; P.twist = s2 * .28; P.headP = s * .05; }
+          else if (style === 1) { aL = aR = -1.25 + s * .45; eL = eR = -1.7; P.lean = L.lean + .06; P.twist = s * .12; P.headP = Math.abs(s) * .1; }
+          else { tL = s2 * .28; tR = -s2 * .28; aL = -.55 + s2 * .65; aR = -.55 - s2 * .65; eL = eR = -1.05; P.twist = s2 * .35; }
+          break;
+        }
+        case 'dj': { const b = t * CLUB_BPS * Math.PI * 2; P.bob = Math.abs(Math.sin(b)) * .03; aR = -1.05 + Math.sin(t * 5) * .08; eR = -.95; aL = Math.sin(t * .7) > .6 ? -2.6 : -.95; eL = aL < -2 ? -.2 : -1.15; P.headP = .1 + Math.sin(b) * .12; P.lean = .12; break; }
+        case 'guard': P.bob = breathe; aL = aR = -.6; eL = eR = -1.95; P.spread = -.3; P.twist = Math.sin(t * .35 + p.seed) * .15; break;
         case 'hail': { const w = Math.sin(t * 7 + p.seed); P.bob = breathe; aR = -2.7 + w * .22; eR = -.3 + w * .3; aL = .05; P.headP = -.06; P.twist = -.1; break; }
         case 'talk': {
           P.bob = breathe;
@@ -612,8 +667,8 @@
           }
           if (p.spot && p.cop && pol.wanted > 0 && d < 90) detachSpot(p);
           if (!p.spot) updateWalker(p, dt, player, people);
-          else if (p.spot.kind === 'talk' && p.stumbleT > 0) { p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : 'talk'; }
-          else if (p.spot.kind === 'talk' && p.dodge) { p.dodge.t -= dt; p.anim = 'dodge'; p.x += p.dodge.vx * dt; p.z += p.dodge.vz * dt; collide(p); if (p.dodge.t <= 0) { p.dodge = null; p.anim = 'talk'; } }
+          else if (STAND[p.spot.kind] && p.stumbleT > 0) { p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : p.spot.kind; }
+          else if (STAND[p.spot.kind] && p.dodge) { p.dodge.t -= dt; p.anim = 'dodge'; p.x += p.dodge.vx * dt; p.z += p.dodge.vz * dt; collide(p); if (p.dodge.t <= 0) { p.dodge = null; p.anim = p.spot.kind; } }
           // cars: jump out of the way, or get shoved if too late
           if (dangers && p.anim !== 'lie' && p.anim !== 'sit') for (const c of dangers) {
             const cx = p.x - c.x, cz = p.z - c.z;

@@ -89,8 +89,17 @@
     const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 5 + .006, (c + 1) / 4 - .004, 1 - r / 5 - .006]; };
 
     /* ---------- builders ---------- */
-    const bFacade = new GeoBuilder(), bPlain = new GeoBuilder(), bPaving = new GeoBuilder(), bAsphalt = new GeoBuilder(), bSand = new GeoBuilder();
-    const bNeon = new GeoBuilder(), bGlow = new GeoBuilder(), bSign = new GeoBuilder();
+    let bFacade = new GeoBuilder(), bPlain = new GeoBuilder(), bNeon = new GeoBuilder(), bGlow = new GeoBuilder(), bSign = new GeoBuilder();
+    const bPaving = new GeoBuilder(), bAsphalt = new GeoBuilder(), bSand = new GeoBuilder();
+    // Builds a block "into the void": the seeded random calls still happen, so the rest of the city
+    // stays exactly as it was, but nothing is drawn or collides. Returns a function that undoes it.
+    function mute() {
+      const saved = { bFacade, bPlain, bNeon, bGlow, bSign }, shapes = mapShapes.length, sink = new GeoBuilder();
+      bFacade = bPlain = bNeon = bGlow = bSign = sink;
+      col.add = () => ({});
+      return () => { ({ bFacade, bPlain, bNeon, bGlow, bSign } = saved); delete col.add; mapShapes.length = shapes; };
+    }
+    let club = null;
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
     let station = null, hospital = null, gunShop = null;
@@ -213,6 +222,8 @@
       }
 
       if (t === 'hotel') {
+        // the block in front of the spawn point becomes the NEOLOXO 21 club instead of two hotels
+        const unmute = j === 2 ? mute() : null;
         const mz = (lz0 + lz1) / 2;
         for (const [z0, z1] of [[lz0, mz - 1], [mz + 1, lz1]]) {
           const hex = pick(PASTEL), neon = pick(NEON), h = 4 * Math.round(rr(3, 5.6)) + .6;
@@ -236,6 +247,7 @@
         // low shops on the back (west) street
         const b = building(lx0, lz0, lx1 - 23, lz1, rr(5, 7), pick(PASTEL));
         awning('-x', b, pick(NEON), 6); sign('-x', b, 3.5, 4.9, 1.5, pick(['PIZZA', 'SURF', 'TATTOO', 'VIDEO', 'DINER']), 6); rooftop(b);
+        if (unmute) { unmute(); club = NB.buildClub({ scene, col, C, bPlain, bNeon, bGlow, neonRing, mapShapes, palms }); }
       } else if (t === 'downtown') {
         const splitX = R() < .5;
         const halves = splitX ? [[lx0, lz0, (lx0 + lx1) / 2 - 1.5, lz1], [(lx0 + lx1) / 2 + 1.5, lz0, lx1, lz1]]
@@ -386,7 +398,7 @@
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);
-    const lampList = lamps.filter(([x, z]) => !inRoad(x) && !inRoad(z) && Math.abs(x) < CITY && Math.abs(z) < CITY);
+    const lampList = lamps.filter(([x, z]) => !inRoad(x) && !inRoad(z) && Math.abs(x) < CITY && Math.abs(z) < CITY && !(club && club.blocksLamp(x, z)));
     for (const [x, z] of lampList) col.add(x - .15, 0, z - .15, x + .15, 6, z + .15);
 
     /* ---------- meshes ---------- */
@@ -509,6 +521,7 @@
     function shade(hex, k) { const c = C(hex).multiplyScalar(k); return '#' + c.getHexString(); }
 
     function districtAt(x, z) {
+      if (club && club.inside(x, z)) return club.name;
       if (x > CITY) return 'Пляж Санрайз';
       if (x > 52) return 'Коралловая полоса';
       if (Math.abs(x) < 52 && Math.abs(z) < 52) return 'Даунтаун';
@@ -517,7 +530,7 @@
     }
 
     return {
-      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -525,6 +538,7 @@
         const glow = env ? env.glow : .24;
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
+        if (club) club.update(t, env, env.px, env.pz);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);
