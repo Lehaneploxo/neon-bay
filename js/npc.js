@@ -227,7 +227,7 @@
       for (let k = 0; k < n; k++) {
         const a = k / n * Math.PI * 2 + (g.along === 'x' ? 0 : Math.PI / 2);
         const x = g.x + Math.sin(a) * .55, z = g.z + Math.cos(a) * .55;
-        spots.push({ kind: 'talk', x, z, y: 0, heading: Math.atan2(g.x - x, g.z - z), mix: g.mix, seed, idx: k, n });
+        spots.push({ kind: 'talk', x, z, y: 0, heading: Math.atan2(g.x - x, g.z - z), mix: g.mix, seed, idx: k, n, grp: g });
       }
     }
     for (const s of spots) { s.person = null; s.y = s.kind === 'talk' ? floorAt(s.x, s.z, 5) : s.y; }
@@ -313,9 +313,12 @@
       if (p.x > CITY + 4 && !p.cop) { p.mode = 'beach'; p.target = { x: U.clamp(p.x + rand(-10, 10), 112, 137), z: U.clamp(p.z + rand(-10, 10), -100, 100) }; return; }
       const ni = nearestNode(p.x, p.z); p.mode = 'graph'; p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
     }
+    // a spot someone was scared or knocked off stays empty until the hero has gone far away,
+    // otherwise a fresh person would pop up in the same place right in front of them
     function detachSpot(p) {
       if (!p.spot) return;
-      const s = p.spot; s.person = null; p.spot = null;
+      const s = p.spot; s.person = null; s.vacated = true; p.spot = null;
+      if (s.grp) for (const o of spots) if (o.grp === s.grp) o.vacated = true;   // nobody joins a group that just broke up
       if (s.kind === 'lie') p.x += .9;
       p.y = floorAt(p.x, p.z, 5);
       if (p.anim === 'sit' || p.anim === 'lie' || p.anim === 'talk') p.anim = 'idle';
@@ -402,9 +405,9 @@
         if (p.punchCD <= 0) { p.punchCD = rand(.8, 1.3); p.punchT = .35; call('onHitPlayer', rand(5, 9), p); }
       }
     }
-    function medicStep(p, dt) {
-      const m = p.medic;
-      if (!m.goal) { p.anim = 'idle'; return; }
+    // walk (or jog when far) to m.goal, then turn to m.face; paramedics and taxi passengers
+    function goalStep(p, m, dt, idleAnim) {
+      if (!m.goal) { p.speed = 0; p.anim = idleAnim; if (m.face != null) p.heading += U.angDiff(p.heading, m.face) * Math.min(1, dt * 6); return; }
       const dx = m.goal[0] - p.x, dz = m.goal[1] - p.z, d = Math.hypot(dx, dz);
       if (d > .35) {
         m.arrived = false;
@@ -416,9 +419,10 @@
       } else {
         m.arrived = true; p.speed = 0; p.running = false;
         if (m.face != null) p.heading += U.angDiff(p.heading, m.face) * Math.min(1, dt * 8);
-        p.anim = m.kneel ? 'cpr' : 'idle';
+        p.anim = idleAnim;
       }
     }
+    function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : 'idle'); }
     function updateWalker(p, dt, player, others) {
       if (p.dead || p.down) return;
       if (p.medic) { if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; return; } medicStep(p, dt); return; }
@@ -429,6 +433,7 @@
         return;
       }
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
+      if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
       if (p.cop && p.chasing) resumeRoute(p);
       if (p.fleeT > 0) { flee(p, dt); return; }
@@ -500,6 +505,7 @@
           break;
         }
         case 'idle': P.bob = breathe; aL = .05; aR = .05; P.twist = Math.sin(t * .4 + p.seed) * .08; break;
+        case 'hail': { const w = Math.sin(t * 7 + p.seed); P.bob = breathe; aR = -2.7 + w * .22; eR = -.3 + w * .3; aL = .05; P.headP = -.06; P.twist = -.1; break; }
         case 'talk': {
           P.bob = breathe;
           const speaking = (((t + p.seed * 3) / 2.6) | 0) % p.spot.n === p.spot.idx;
@@ -564,10 +570,11 @@
       for (const p of people.slice()) {
         const far = Math.hypot(p.x - px, p.z - pz) > (p.cop && p.chasing ? 130 : 100);
         const lying = p.dead || p.down;
-        if ((!p.spot && !lying && far) || (lying && (far || (p.deadT > 30 && !p.ems)))) despawn(p);
+        if ((!p.spot && !lying && far && !p.keep) || (lying && (far || (p.deadT > 30 && !p.ems)))) despawn(p);
       }
       for (const s of spots) {
         const d = Math.hypot(s.x - px, s.z - pz);
+        if (s.vacated) { if (d > lim.spotRange + 12) s.vacated = false; else continue; }
         if (s.person && d > lim.spotRange + 12) despawn(s.person);
         else if (!s.person && d < lim.spotRange && free.length) {
           const kindType = s.kind === 'lie' ? (chance(.55) ? 'beach_f' : 'beach_m') : typeFor(TYPE_MIX[s.mix]);
@@ -651,15 +658,28 @@
       },
       setShadows(on) { mesh.castShadow = on; },
       // the driver the hero pulled out of a car: lands on the road, complains, then walks off
-      ejectDriver(x, z, h) {
-        const p = spawn(makeLook(typeFor(TYPE_MIX.town)), x, z, 'graph');
-        if (!p) return;
-        let ni = 0, nd = Infinity;
-        nodes.forEach((n, i) => { const d = Math.hypot(n.x - x, n.z - z); if (d < nd) { nd = d; ni = i; } });
+      ejectDriver(x, z, h) { api.dropOff(x, z, h + Math.PI / 2, null, pick(CARJACK_PHRASES), true); },
+      // someone gets out of a car at (x, z) and walks off along the sidewalks
+      dropOff(x, z, h, look, text, stumble) {
+        const p = spawn(look || makeLook(typeFor(TYPE_MIX.town)), x, z, 'graph');
+        if (!p) return null;
+        const ni = nearestNode(x, z);
         p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
-        p.heading = h + Math.PI / 2; p.stumbleT = 1.1; p.bumpT = -9;
-        bumpCallback(p, pick(CARJACK_PHRASES));
+        p.heading = h; p.bumpT = -9;
+        if (stumble) p.stumbleT = 1.1;
+        if (text) bumpCallback(p, text);
+        return p;
       },
+      // a taxi fare waiting at the kerb, waving at the hero's cab
+      spawnFare(x, z, face) {
+        const area = x > 52 ? 'strip' : Math.abs(x) < 52 && Math.abs(z) < 52 ? 'downtown' : 'town';
+        let type = typeFor(TYPE_MIX[area]); if (type === 'jogger') type = 'tourist_m';
+        const p = spawn(makeLook(type), x, z, 'fare');
+        if (!p) return null;
+        p.fare = { goal: null, face, hail: true, arrived: false }; p.keep = true; p.heading = face; p.anim = 'hail';
+        return p;
+      },
+      releaseFare(p) { if (people.includes(p)) { p.fare = null; p.keep = false; if (!p.dead && !p.down) resumeRoute(p); } },
       count: () => people.length,
       people,
       // first living person hit by a ray (bodies are upright cylinders); head = top 28 cm
@@ -680,7 +700,16 @@
       damage(p, dmg, src) {
         if (p.dead) return;
         p.hp -= dmg;
+        const grp = p.spot && p.spot.grp;
         detachSpot(p);
+        // the rest of a chatting group doesn't keep talking to thin air: they run or stand up for their friend
+        if (grp && src && src.byPlayer) for (const s of spots) {
+          const o = s.person;
+          if (s.grp !== grp || !o || o.cop || o.medic) continue;
+          detachSpot(o);
+          if (src.kind === 'melee' && !o.look.female && o.look.type !== 'elderly' && chance(.3)) { o.fightT = 10; o.punchCD = .8; bumpCallback(o, pick(FIGHT_PHRASES)); }
+          else { o.fleeT = rand(6, 10); o.fleeX = src.x; o.fleeZ = src.z; if (chance(.5)) bumpCallback(o, pick(FLEE_PHRASES)); }
+        }
         if (p.hp <= 0) {
           p.dead = true; p.hp = 0; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.running = false;
           if (src && src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);

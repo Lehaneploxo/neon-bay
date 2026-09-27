@@ -22,34 +22,15 @@
   const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, .1, 330);
 
   const hemi = new THREE.HemisphereLight(0xffc2d6, 0x4b3a6b, .78); scene.add(hemi);
-  const LIGHT_DIR = new THREE.Vector3(1, .42, .2).normalize();
   const sun = new THREE.DirectionalLight(0xffb27a, 1.05);
   sun.shadow.mapSize.set(1024, 1024);
   Object.assign(sun.shadow.camera, { left: -38, right: 38, top: 38, bottom: -38, near: 1, far: 220 });
   sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.bias = -.0008; sun.shadow.normalBias = .04;
   scene.add(sun, sun.target);
-
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(480, 32, 16), new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { uSun: { value: new THREE.Vector3(1, .1, .12).normalize() } },
-    vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-    fragmentShader: `varying vec3 vD; uniform vec3 uSun;
-      void main(){
-        vec3 d = normalize(vD); float h = d.y;
-        vec3 hor = vec3(1.0,0.62,0.42), pink = vec3(0.95,0.42,0.62), top = vec3(0.19,0.14,0.40);
-        vec3 c = h < 0.14 ? mix(hor, pink, clamp(h/0.14,0.0,1.0)) : mix(pink, top, pow(clamp((h-0.14)/0.86,0.0,1.0), 0.65));
-        float s = dot(d, uSun);
-        c += vec3(1.0,0.55,0.3) * pow(max(s,0.0), 6.0) * 0.45;
-        float disc = smoothstep(0.9965, 0.9975, s);
-        float stripes = step(0.5, fract((d.y - uSun.y) * 160.0 + 0.25));
-        if (d.y < uSun.y - 0.01) disc *= stripes;
-        c = mix(c, mix(vec3(1.0,0.35,0.55), vec3(1.0,0.9,0.45), clamp((d.y - uSun.y + 0.06)/0.12,0.0,1.0)), disc);
-        if (h < 0.0) c = mix(hor, vec3(0.91,0.54,0.52), clamp(-h*8.0,0.0,1.0));
-        gl_FragColor = vec4(c, 1.0);
-      }`
-  }));
-  scene.add(sky);
+  // sky, sun, moon and the colour of the light through the day; the clock starts at 19:12, one game minute per second
+  const dn = NB.createDayNight(scene, hemi, sun), sky = dn.sky;
+  const START_MIN = 19 * 60 + 12, MENU_HOUR = 19.35;
 
   const world = NB.buildWorld(scene, renderer);
   const player = new NB.Player(scene, world.col);
@@ -83,7 +64,7 @@
 
   /* ---------- cars ---------- */
   const audio = NB.createAudio();
-  const vehOpts = { audio, onImpact: s => { shake = Math.min(.6, shake + s * .025); } };
+  const vehOpts = { audio, onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
   const carLimits = () => lowCrowd() ? { traffic: 6, carRange: 90, patrols: 1 } : { traffic: 12, carRange: 130, patrols: 2 };
   let shake = 0, promptCar = null;
@@ -115,9 +96,34 @@
     onWanted: (n, prev) => { if (n > prev) audio.starUp(); if (n > 0 && prev === 0) flashTip(n === 1 ? 'Полиция это видела!' : 'Полиция открыла на вас охоту!', 2.2); },
     onBust: () => endLife('busted')
   });
-  const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d) });
+  const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано') });
+
+  /* ---------- money, armour and the saved game ---------- */
+  const progress = { money: 150, armor: 0, inv: null };
+  try { Object.assign(progress, JSON.parse(localStorage.getItem('nb_save') || '{}')); } catch (e) {}
+  progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, 100);
+  combat.load(progress.inv);
+  let saveT = 0;
+  function saveProgress() { try { localStorage.setItem('nb_save', JSON.stringify({ money: progress.money, armor: Math.round(progress.armor), inv: combat.inv })); } catch (e) {} saveT = 0; }
+  addEventListener('pagehide', saveProgress);
+  let popTimer = 0;
+  function moneyPop(text, sub, neg) {
+    const el = $('moneyPop');
+    el.textContent = text; if (sub) { const s = document.createElement('small'); s.textContent = sub; el.appendChild(s); }
+    el.className = neg ? 'neg' : ''; void el.offsetWidth; el.className = (neg ? 'neg ' : '') + 'on';
+    clearTimeout(popTimer); popTimer = setTimeout(() => { el.className = ''; }, 2300);
+  }
+  function addMoney(n, sub) { if (n <= 0) return; progress.money += n; audio.cash(n >= 100); moneyPop('+$' + n, sub); saveProgress(); }
+  function spend(n, sub) { n = Math.min(n, progress.money); if (n <= 0) return 0; progress.money -= n; moneyPop('−$' + n, sub, true); saveProgress(); return n; }
+
   Object.assign(crowdOpts, {
-    onKill: (p, src) => { combat.bloodPool(p.x, p.y, p.z); audio.scream([p.x, 1, p.z]); if (src.byPlayer) police.reportCrime(p.cop ? 'copKill' : 'kill', p.x, p.z); },
+    onKill: (p, src) => {
+      combat.bloodPool(p.x, p.y, p.z); audio.scream([p.x, 1, p.z]);
+      if (src.byPlayer) {
+        police.reportCrime(p.cop ? 'copKill' : 'kill', p.x, p.z);
+        if (!p.medic && (p.cop || Math.random() < .7)) combat.dropCash(p.x, p.z, p.cop ? 40 + (Math.random() * 40 | 0) : 5 + (Math.random() * 40 | 0));
+      }
+    },
     onHurt: (p, src) => { if (src.byPlayer && p.cop && src.kind !== 'car') police.reportCrime('copAttack', p.x, p.z); },
     onCopShoot: p => combat.copShoot(p, police.wanted),
     onHitPlayer: dmg => { heroDamage(dmg); audio.punch(null); },
@@ -133,9 +139,18 @@
     onHeroHit: v => heroDamage(v * 2.2),
     onCopsExit: car => { const rx = -Math.cos(car.h), rz = Math.sin(car.h); for (const s of [-1, 1]) crowd.spawnCop(0, 0, 0, 0, 0, 0, car.x + rx * s * (car.model.w / 2 + .8), car.z + rz * s * (car.model.w / 2 + .8)); }
   });
+
+  /* ---------- jobs and shopping ---------- */
+  const taxi = NB.createTaxi(scene, world, { crowd, vehicles, audio, police, flash: (t, s) => flashTip(t, s), onPay: (n, note) => addMoney(n, note || 'Поездка на такси') });
+  const shop = NB.createShop(scene, world, {
+    combat, audio, police, flash: (t, s) => flashTip(t, s),
+    getMoney: () => progress.money, spend: n => spend(n, 'Покупка'),
+    getArmor: () => progress.armor, setArmor: v => { progress.armor = v; }
+  });
   function heroDamage(d) {
     if (player.dead || respawnT > 0) return;
-    player.hp = Math.max(0, player.hp - d); vignette = Math.min(1, vignette + .45); audio.hurt();
+    if (progress.armor > 0) { const a = Math.min(progress.armor, d); progress.armor -= a; d -= a; }   // the vest takes the hit first
+    player.hp = Math.max(0, player.hp - d); vignette = Math.min(1, vignette + (d > 0 ? .45 : .2)); audio.hurt();
     if (player.hp <= 0) endLife('wasted');
   }
   function leaveCar() {
@@ -143,9 +158,12 @@
     vehicles.exit(player, true);
     player.inCar = false; player.m.root.visible = true; document.body.classList.remove('driving');
   }
+  let bill = 0;
   function endLife(kind) {
     if (respawnT > 0) return;
     respawnT = 3.6; endKind = kind;
+    // the hospital charges for treatment, the police fine you more the more stars you had
+    bill = kind === 'wasted' ? 100 : 100 * Math.max(1, police.wanted);
     input.reset(); leaveCar();
     if (kind === 'wasted') { player.dead = true; player.deadT = 0; }
     audio.sting(kind);
@@ -157,9 +175,13 @@
     if (busted && st) player.place(st.x, st.z, st.heading); else if (hs) player.place(hs.x, hs.z, hs.heading); else player.place(world.spawn.x, world.spawn.z, world.spawn.heading);
     player.dead = false; player.deadT = 0; player.hp = 100; player.m.root.rotation.x = 0; player.aimT = 0;
     if (busted) combat.onBust(); else combat.onDeath();
+    progress.armor = 0;
     police.clear(); rig.snap(player);
     $('bigmsg').className = '';
-    flashTip(busted ? 'Вас отпустили из участка. Оружие изъято.' : 'Вас подлатали в больнице. Половина патронов потеряна.', 3.2);
+    const paid = spend(bill, busted ? 'Штраф' : 'Лечение');
+    flashTip(busted ? 'Вас отпустили из участка' + (paid ? ', штраф $' + paid : '') + '. Оружие изъято.'
+      : 'Вас подлатали в больнице' + (paid ? ' за $' + paid : '') + '. Половина патронов потеряна.', 3.4);
+    saveProgress();
   }
   // where the hero is aiming: a person near the crosshair (desktop) or the best target in front (touch), else what the camera looks at
   const camDir = new THREE.Vector3(), aimV = new THREE.Vector3();
@@ -263,7 +285,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 
   function show(which) {
-    $('menu').hidden = which !== 'menu'; $('pause').hidden = which !== 'pause'; $('hud').hidden = which !== 'hud';
+    $('menu').hidden = which !== 'menu'; $('pause').hidden = which !== 'pause'; $('hud').hidden = which !== 'hud'; $('shop').hidden = which !== 'shop';
     document.body.classList.toggle('playing', which === 'hud');
   }
   function fullscreen() {
@@ -286,10 +308,21 @@
     onResize();
   }
   function pause() {
+    saveProgress();
     if (state !== 'playing') return;
     state = 'paused'; input.reset(); show('pause');
     if (document.pointerLockElement) document.exitPointerLock();
   }
+  // the gun shop counter: the city waits while you shop
+  function openShop() {
+    state = 'shop'; input.reset(); shop.open(); show('shop');
+    if (document.pointerLockElement) document.exitPointerLock();
+    audio.door();
+    setTimeout(() => { const b = document.querySelector('#shopList .buy:not(:disabled)'); if (b && !input.touch) b.focus({ preventScroll: true }); }, 0);
+  }
+  function closeShop() { if (state !== 'shop') return; saveProgress(); play(); }
+  $('shopClose').addEventListener('click', closeShop);
+  addEventListener('keydown', e => { if (state === 'shop' && e.code === 'Escape') { e.preventDefault(); closeShop(); } });
   $('playBtn').addEventListener('click', play);
   $('resumeBtn').addEventListener('click', play);
   $('btnPause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pause(); });
@@ -322,6 +355,15 @@
     g.fillStyle = '#2a2140'; g.fillRect(0, 0, W, W);
     g.translate(Rr, Rr); g.rotate(rig.yaw); g.scale(pxPerM / M.s, pxPerM / M.s);
     g.drawImage(M.canvas, -(player.x - M.x0) * M.s, -(player.z - M.z0) * M.s);
+    // taxi route along the streets
+    const route = taxi.route;
+    if (route.length > 1) {
+      const k = M.s / pxPerM;
+      g.lineJoin = g.lineCap = 'round';
+      g.beginPath(); route.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo']((x - player.x) * M.s, (z - player.z) * M.s));
+      g.strokeStyle = 'rgba(30,18,40,.8)'; g.lineWidth = W * .05 * k; g.stroke();
+      g.strokeStyle = '#ffd84f'; g.lineWidth = W * .026 * k; g.stroke();
+    }
     g.restore();
     // north marker
     const nr = Rr - W * .08, nx = Rr + Math.sin(rig.yaw) * nr, ny = Rr - Math.cos(rig.yaw) * nr;
@@ -341,6 +383,7 @@
     };
     const dot = (p, r, c) => { if (!p) return; g.fillStyle = c; g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fill(); };
     for (const pk of combat.pickups) if (pk.active) dot(toMap(pk.x, pk.z), W * .02, pk.type === 'health' ? '#ff4f6a' : '#ffd84f');
+    for (const c of combat.cashDrops) if (c.active) dot(toMap(c.x, c.z), W * .018, '#6bff8a');
     if (police.wanted > 0) {
       for (const p of crowd.people) if (p.cop && !p.dead) dot(toMap(p.x, p.z), W * .025, '#4f8cff');
       for (const c of vehicles.cars) if (c.pursuit) { const q = toMap(c.x, c.z); if (q) { g.fillStyle = (time * 4 | 0) % 2 ? '#ff3355' : '#4f8cff'; g.fillRect(q[0] - W * .03, q[1] - W * .03, W * .06, W * .06); } }
@@ -354,10 +397,22 @@
       const q = toMap(world.station.cx, world.station.cz, true);
       dot(q, W * .06, '#2f5fb0'); g.fillStyle = '#fff'; g.font = `800 ${Math.round(W * .075)}px Rubik, sans-serif`; g.fillText('П', q[0], q[1] + 1);
     }
+    if (shop.place) {
+      // orange disc with a little pistol
+      const q = toMap(shop.place.cx, shop.place.cz, true), u = W * .012;
+      dot(q, W * .06, '#ff8a3d'); g.fillStyle = '#2a1405';
+      g.fillRect(q[0] - 3 * u, q[1] - 1.6 * u, 5.4 * u, 1.6 * u); g.fillRect(q[0] - 3 * u, q[1] - .2 * u, 1.6 * u, 2.6 * u);
+    }
+    // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
+    for (const m of taxi.markers) {
+      const q = toMap(m.x, m.z, true);
+      if (m.kind === 'fare') { if ((time * 3 | 0) % 2 === 0) dot(q, W * .045, '#ffd84f'); dot(q, W * .022, '#2a1c05'); }
+      else { dot(q, W * .055, '#ffd84f'); dot(q, W * .03, '#2a1c05'); dot(q, W * .016, '#ffd84f'); }
+    }
     g.strokeStyle = 'rgba(255,241,228,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.stroke();
   }
   function updateHUD(dt) {
-    const mins = Math.floor(19 * 60 + 12 + time) % (24 * 60);
+    const mins = Math.floor(START_MIN + time) % (24 * 60);
     const clock = String((mins / 60) | 0).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
     if ($('clock').textContent !== clock) $('clock').textContent = clock;
     hudT += dt;
@@ -373,6 +428,16 @@
     // health, stars, weapon, crosshair, lock-on ring, damage flash
     const hpw = Math.round(player.hp) + '%'; if ($('hpFill').style.width !== hpw) $('hpFill').style.width = hpw;
     $('hp').classList.toggle('low', player.hp <= 30);
+    $('armor').hidden = progress.armor <= 0;
+    const aw = Math.round(progress.armor) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
+    const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;
+    const job = taxi.hud;
+    $('job').hidden = !job;
+    if (job) {
+      if ($('jobText').textContent !== job.text) $('jobText').textContent = job.text;
+      if ($('jobTime').textContent !== job.time) $('jobTime').textContent = job.time;
+      $('job').classList.toggle('warn', job.warn);
+    }
     const stars = $('stars').children, w = police.wanted;
     for (let i = 0; i < 5; i++) stars[i].classList.toggle('on', i < w);
     $('stars').classList.toggle('blink', police.searching);
@@ -414,6 +479,8 @@
       combat.update(dt, input, aim, !!vehicles.driving);
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
+      taxi.update(dt);
+      if ((saveT += dt) > 5) saveProgress();
       const drv = vehicles.driving;
       if (drv) { player.x = drv.x; player.z = drv.z; player.y = drv.y; player.heading = drv.h; player.vx = drv.vx; player.vz = drv.vz; }
       crowd.update(dt, time, player, rig.yaw, vehicles.dangers(), police);
@@ -428,6 +495,7 @@
       updateBubbles(dt);
       updateHUD(dt);
       if (raw < .5) adapt(raw);
+      if (shop.update(player, !drv && !player.dead && respawnT <= 0)) openShop();
   }
   let last = performance.now(), frameNo = 0, menuT = 0;
   const snapV = v => Math.round(v / 2) * 2;
@@ -445,12 +513,14 @@
       camera.position.set(136, 7 + Math.sin(menuT * .13), z);
       camera.lookAt(70, 11, z * .7);
     }
+    const env = dn.update(state === 'menu' ? MENU_HOUR : (START_MIN + time) / 60, now / 1000);
     const fx = state === 'menu' ? camera.position.x - 40 : player.x, fz = state === 'menu' ? camera.position.z : player.z;
     sun.target.position.set(snapV(fx), 0, snapV(fz)); sun.target.updateMatrixWorld();
-    sun.position.copy(sun.target.position).addScaledVector(LIGHT_DIR, 90);
+    sun.position.copy(sun.target.position).addScaledVector(env.lightDir, 90);
     if (shadowsOn && (++frameNo & 1)) renderer.shadowMap.needsUpdate = true;
     sky.position.copy(camera.position);
-    world.update(now / 1000);
+    world.update(now / 1000, env);
+    vehicles.setNight(env.night);
     renderer.render(scene, camera);
   }
 
@@ -459,6 +529,9 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, crowd, rig, toggleCar, input, play, police, combat, heroDamage, ems, simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) stepPlaying(dt, dt); }, get promptCar() { return promptCar; } };
+  NB.debug = { player, vehicles, crowd, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop,
+    simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
+    setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
+    get state() { return state; }, get promptCar() { return promptCar; } };
   requestAnimationFrame(frame);
 })(window.NB);

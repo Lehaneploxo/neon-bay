@@ -20,7 +20,7 @@
     }
     function setRun(on) { runOn = on; btnRun.classList.toggle('on', on); }
 
-    const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyF', 'KeyH', 'KeyE', 'KeyQ', 'Digit1', 'Digit2', 'Digit3', 'Digit4'];
+    const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyF', 'KeyH', 'KeyE', 'KeyQ', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'];
     addEventListener('keydown', e => {
       if (!hooks.active()) return;
       if (GAME_KEYS.includes(e.code)) { e.preventDefault(); setTouch(false); }
@@ -28,7 +28,7 @@
       if (e.code === 'Space' && !e.repeat) I.jump = true;
       if ((e.code === 'KeyF' || e.code === 'KeyE') && !e.repeat) I.action = true;
       if (e.code === 'KeyQ' && !e.repeat) I.cycle = 1;
-      if (/^Digit[1-4]$/.test(e.code)) I.select = +e.code.slice(5) - 1;
+      if (/^Digit[1-6]$/.test(e.code)) I.select = +e.code.slice(5) - 1;
       if (e.code === 'Escape' && hooks.onEscape) hooks.onEscape();
     });
     addEventListener('keyup', e => { keys[e.code] = false; });

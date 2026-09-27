@@ -83,7 +83,7 @@
       const g = AC.createGain(); env(g, t, .003, peak, dur); o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + .05);
     };
     // gunshots: a noise crack, a low thump, and a filtered tail; each weapon has its own weight
-    const GUN = { pistol: [1, 150, .7], smg: [.7, 190, .45], shotgun: [1.4, 110, 1], cop: [.9, 160, .6] };
+    const GUN = { pistol: [1, 150, .7], smg: [.7, 190, .45], shotgun: [1.4, 110, 1], rifle: [1.1, 135, .75], cop: [.9, 160, .6] };
     A.shot = function (kind, pos) {
       if (!ok()) return;
       const [w, thump, len] = GUN[kind] || GUN.pistol, t = AC.currentTime, d = out(pos);
@@ -92,10 +92,20 @@
       tone(d, t, .14 * len, 'sine', thump, .8 * w, 42);
     };
     A.dry = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .02, 'highpass', 4000, .7, .3); };
-    A.punch = function (pos) {
+    A.punch = function (pos, heavy) {
       if (!ok()) return; const t = AC.currentTime, d = out(pos);
       noise(d, t, .12, 'lowpass', 700, 1, .7, 150); tone(d, t, .1, 'sine', 110, .5, 55);
+      if (heavy) { noise(d, t, .08, 'bandpass', 1200, 3, .5); tone(d, t, .16, 'triangle', 190, .35, 70); }   // wooden crack of the bat
     };
+    // money: a cash-register ring; bigger sums ring twice
+    A.cash = function (big) {
+      if (!ok()) return; const t = AC.currentTime, d = out(null);
+      noise(d, t, .05, 'highpass', 5000, .7, .18);
+      [1568, 2093].forEach((f, i) => tone(d, t + .04 + i * .07, .35, 'triangle', f, .12));
+      if (big) [2637, 3136].forEach((f, i) => tone(d, t + .22 + i * .07, .4, 'triangle', f, .09));
+    };
+    A.deny = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); tone(d, t, .12, 'square', 220, .07); tone(d, t + .13, .18, 'square', 165, .07); };
+    A.fare = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); [784, 988, 1175].forEach((f, i) => tone(d, t + i * .09, .16, 'square', f, .05)); };
     A.hurt = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); noise(d, t, .2, 'lowpass', 500, 1, .5, 90); tone(d, t, .18, 'sine', 90, .4, 45); };
     A.scream = function (pos) {
       if (!ok()) return; const t = AC.currentTime, d = out(pos), f = 500 + Math.random() * 500;

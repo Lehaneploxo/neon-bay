@@ -14,6 +14,7 @@
   --sun:#ffb35c;
   --panel:rgba(21,15,38,.62);
   --line:rgba(255,241,228,.2);
+  --cash:#6bff8a;
   --safe-t:env(safe-area-inset-top,0px);
   --safe-b:env(safe-area-inset-bottom,0px);
   --safe-l:env(safe-area-inset-left,0px);
@@ -47,8 +48,24 @@ body.playing:not(.touch) #game{cursor:none;}
 #hp .bar{flex:1;height:8px;border-radius:4px;background:rgba(21,15,38,.7);box-shadow:0 0 0 1px var(--line);overflow:hidden;}
 #hpFill{height:100%;width:100%;background:linear-gradient(90deg,#ff4f6a,#ff9a5c);transition:width .2s;}
 #hp.low #hpFill{background:#ff2f45;}
+#armor{display:flex;align-items:center;gap:6px;}
+#armor .shield{color:#7fb2ff;font-size:14px;width:16px;text-align:center;text-shadow:0 0 6px rgba(127,178,255,.7);}
+#armor .bar{flex:1;height:6px;border-radius:3px;background:rgba(21,15,38,.7);box-shadow:0 0 0 1px var(--line);overflow:hidden;}
+#armorFill{height:100%;width:0;background:linear-gradient(90deg,#4f8cff,#9fd0ff);transition:width .2s;}
 #weapon{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6);}
 #wAmmo{font-size:17px;font-variant-numeric:tabular-nums;color:var(--cyan);}
+#money{position:relative;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 8px rgba(107,255,138,.55),0 1px 2px rgba(0,0,0,.7);letter-spacing:.01em;}
+#moneyPop{position:absolute;left:0;top:100%;font-size:16px;font-weight:800;white-space:nowrap;color:var(--cash);text-shadow:0 0 8px rgba(107,255,138,.7),0 1px 2px rgba(0,0,0,.7);opacity:0;}
+#moneyPop.neg{color:#ff7a8a;text-shadow:0 0 8px rgba(255,79,106,.6),0 1px 2px rgba(0,0,0,.7);}
+#moneyPop.on{animation:pop 2.2s ease-out forwards;}
+@keyframes pop{0%{opacity:0;transform:translateY(8px);}12%{opacity:1;transform:none;}75%{opacity:1;}100%{opacity:0;transform:translateY(-6px);}}
+#moneyPop small{display:block;font-size:12px;font-weight:600;color:var(--ink);text-shadow:0 1px 3px rgba(0,0,0,.8);}
+#job{position:absolute;left:50%;top:calc(96px + var(--safe-t));transform:translateX(-50%);max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--panel);box-shadow:0 0 0 1px rgba(255,216,79,.45);border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap;}
+#job .tag{font-size:11px;font-weight:800;letter-spacing:.14em;color:#2a1c05;background:#ffd84f;border-radius:6px;padding:3px 7px;}
+#jobText{overflow:hidden;text-overflow:ellipsis;}
+#jobTime{font-weight:800;font-variant-numeric:tabular-nums;color:#ffd84f;}
+#job.warn #jobTime{color:#ff6b7a;}
+#job.warn{box-shadow:0 0 0 1px rgba(255,107,122,.6);}
 #cross{position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.85),0 0 0 3px rgba(0,0,0,.35);display:none;}
 #cross::after{content:"";position:absolute;left:7px;top:7px;width:4px;height:4px;border-radius:50%;background:#fff;}
 #cross.on{display:block;}
@@ -126,6 +143,23 @@ body.touch .forDesk{display:none;}
 .seg button{font:600 13px/1 Rubik,sans-serif;color:var(--ink);background:transparent;border:0;padding:9px 14px;cursor:pointer;touch-action:manipulation;}
 .seg button[aria-pressed="true"]{background:var(--pink);color:#2a0c1c;}
 .note{font-size:13px;color:var(--dim);max-width:48ch;line-height:1.45;}
+/* gun shop counter */
+.shopHead{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+#shopMoney{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 10px rgba(107,255,138,.5);}
+#shopList{display:flex;flex-direction:column;gap:8px;}
+#shopList .item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border-radius:12px;background:rgba(21,15,38,.55);box-shadow:0 0 0 1px var(--line);}
+#shopList .item.owned{box-shadow:0 0 0 1px rgba(255,138,61,.5);}
+#shopList .info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#shopList .info b{font-size:16px;}
+#shopList .info span{font-size:13px;color:var(--dim);}
+#shopList .info em{font-style:normal;font-size:12px;font-weight:700;color:var(--cyan);}
+.buy{flex:none;font:800 13px/1 Rubik,sans-serif;letter-spacing:.04em;color:#2a0c1c;background:linear-gradient(90deg,#ff9a55,#ffd84f);border:0;border-radius:999px;padding:11px 16px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
+.buy:hover{filter:brightness(1.08);}
+.buy:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+.buy[aria-disabled="true"]{background:rgba(255,241,228,.18);color:var(--dim);}
+.buy:disabled{background:transparent;color:var(--dim);box-shadow:0 0 0 1px var(--line);cursor:default;}
+#shopNote{min-height:1.45em;}
+#shop .card{max-width:600px;}
 .fsOnly{display:none;}
 body.touch .fsOnly{display:inline-block;}
 @media (max-width:640px),(max-height:480px){
@@ -134,6 +168,10 @@ body.touch .fsOnly{display:inline-block;}
   #status{top:calc(130px + var(--safe-t));width:120px;}
   #clock{font-size:24px;}
   #portrait{top:calc(130px + var(--safe-t));}
+  #money{font-size:18px;}
+  #job{top:calc(84px + var(--safe-t));font-size:13px;}
+  #shopList .item{padding:8px 10px;}
+  #shopList .info span{display:none;}
   .card{gap:14px;}
   .lede{font-size:15px;}
 }
@@ -151,8 +189,11 @@ body.touch .fsOnly{display:inline-block;}
   <div id="status">
     <div id="stars" class="none"><i>★</i><i>★</i><i>★</i><i>★</i><i>★</i></div>
     <div id="hp"><span class="heart">♥</span><div class="bar"><div id="hpFill"></div></div></div>
+    <div id="armor" hidden><span class="shield">◆</span><div class="bar"><div id="armorFill"></div></div></div>
     <div id="weapon"><span id="wName">Кулаки</span><b id="wAmmo"></b></div>
+    <div id="money">$<span id="moneyNum">0</span><div id="moneyPop"></div></div>
   </div>
+  <div id="job" hidden><span class="tag">ТАКСИ</span><span id="jobText"></span><b id="jobTime"></b></div>
   <div id="cross"></div>
   <div id="lock"></div>
   <div id="bigmsg" class="script"></div>
@@ -177,9 +218,9 @@ body.touch .fsOnly{display:inline-block;}
 
 <div id="menu" class="screen">
   <div class="card">
-    <div class="eyebrow">Этап 5 · Скорая помощь</div>
+    <div class="eyebrow">Этап 6 · Деньги, такси и ночь</div>
     <h1 class="script">Neon Bay</h1>
-    <p class="lede" id="lede">Приморский район в духе 80-х: пастельные отели, неон, пальмы и океан на закате. Город живёт своей жизнью, а полиция патрулирует улицы. Нарушите закон на глазах у копов — получите звёзды розыска. Оружие лежит по городу: ищите светящиеся столбы на мини-карте. Участок отмечен буквой «П», больница — красным крестом. Если кого-то избили или сбили, приедет скорая и поставит его на ноги.</p>
+    <p class="lede" id="lede">Приморский район в духе 80-х: неон, пальмы и океан. Солнце садится, город зажигает окна и фонари, а к утру снова светает. Садитесь в жёлтое такси и развозите пассажиров за деньги, а тратьте их в оружейном магазине (оранжевый значок на карте). Полиция следит за порядком: нарушите закон на её глазах — получите звёзды розыска.</p>
     <button id="playBtn" class="btn" type="button">Играть</button>
     <div class="controls forDesk">
       <div><kbd>W A S D</kbd>Ходьба</div>
@@ -194,7 +235,8 @@ body.touch .fsOnly{display:inline-block;}
       <div><kbd>H</kbd>Сигнал</div>
       <div><kbd>ЛКМ</kbd>Удар / выстрел</div>
       <div><kbd>ПКМ</kbd>Прицелиться</div>
-      <div><kbd>Q, 1–4</kbd>Сменить оружие</div>
+      <div><kbd>Q, 1–6</kbd>Сменить оружие</div>
+      <div><kbd>Такси</kbd>Сядьте в жёлтое такси</div>
     </div>
     <div class="controls forTouch">
       <div><kbd>Левый палец</kbd>Ходьба</div>
@@ -205,6 +247,7 @@ body.touch .fsOnly{display:inline-block;}
       <div><kbd>ГАЗ / ТОРМОЗ</kbd>Ехать, джойстик — руль</div>
       <div><kbd>УДАР / ОГОНЬ</kbd>Автоприцел по ближайшему</div>
       <div><kbd>ОРУЖ.</kbd>Сменить оружие</div>
+      <div><kbd>Такси</kbd>Сядьте в жёлтое такси</div>
     </div>
     <div class="row">Графика
       <div class="seg" role="group" aria-label="Качество графики">
@@ -232,6 +275,16 @@ body.touch .fsOnly{display:inline-block;}
   </div>
 </div>
 
+<div id="shop" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow">Оружейный магазин</div>
+    <div class="shopHead"><h2 class="script">Ammo Bay</h2><div id="shopMoney">$0</div></div>
+    <div id="shopList"></div>
+    <div id="shopNote" class="note"></div>
+    <button id="shopClose" class="btn" type="button">Выйти</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/world.js"></script>
@@ -243,5 +296,8 @@ body.touch .fsOnly{display:inline-block;}
 <script src="js/combat.js"></script>
 <script src="js/police.js"></script>
 <script src="js/ems.js"></script>
+<script src="js/daynight.js"></script>
+<script src="js/taxi.js"></script>
+<script src="js/shop.js"></script>
 <script src="js/input.js"></script>
 <script src="js/main.js"></script>

@@ -23,18 +23,39 @@
     const mapShapes = [];   // for the minimap
 
     /* ---------- textures ---------- */
-    const facadeTex = U.canvasTex(128, 128, (g, s) => {
-      g.fillStyle = '#f6f3ee'; g.fillRect(0, 0, s, s);
-      U.speckle(g, s, s, 900, ['#d8d2c8', '#ffffff'], .15, .5, 1, 2);
-      g.fillStyle = '#d6cfc4'; g.fillRect(0, s - 8, s, 8);
-      for (const x of [14, 74]) {
-        g.fillStyle = '#d2cbc0'; g.fillRect(x - 4, 24, 48, 76);
-        const gr = g.createLinearGradient(0, 28, 0, 96); gr.addColorStop(0, '#46527a'); gr.addColorStop(1, '#1f2540');
-        g.fillStyle = gr; g.fillRect(x, 28, 40, 68);
-        g.fillStyle = 'rgba(255,180,150,.22)'; g.beginPath(); g.moveTo(x, 60); g.lineTo(x + 22, 28); g.lineTo(x + 32, 28); g.lineTo(x, 76); g.fill();
-        g.fillStyle = '#d2cbc0'; g.fillRect(x + 19, 28, 2, 68);
+    // One facade texture covers 4 x 4 bays (16 m), so the lit windows at night don't repeat every floor.
+    const FT = 16, BAYS = 4;
+    const facadeTex = U.canvasTex(512, 512, (g) => {
+      for (let by = 0; by < BAYS; by++) for (let bx = 0; bx < BAYS; bx++) {
+        g.save(); g.translate(bx * 128, by * 128);
+        const s = 128;
+        g.fillStyle = '#f6f3ee'; g.fillRect(0, 0, s, s);
+        U.speckle(g, s, s, 900, ['#d8d2c8', '#ffffff'], .15, .5, 1, 2);
+        g.fillStyle = '#d6cfc4'; g.fillRect(0, s - 8, s, 8);
+        for (const x of [14, 74]) {
+          g.fillStyle = '#d2cbc0'; g.fillRect(x - 4, 24, 48, 76);
+          const gr = g.createLinearGradient(0, 28, 0, 96); gr.addColorStop(0, '#46527a'); gr.addColorStop(1, '#1f2540');
+          g.fillStyle = gr; g.fillRect(x, 28, 40, 68);
+          g.fillStyle = 'rgba(255,180,150,.22)'; g.beginPath(); g.moveTo(x, 60); g.lineTo(x + 22, 28); g.lineTo(x + 32, 28); g.lineTo(x, 76); g.fill();
+          g.fillStyle = '#d2cbc0'; g.fillRect(x + 19, 28, 2, 68);
+        }
+        g.restore();
       }
     }, true, aniso);
+    // what glows at night: a random mix of lit rooms, TVs and dark windows
+    const windowsTex = U.canvasTex(512, 512, (g) => {
+      const WR = U.rng(4242), LIT = ['#ffd58a', '#ffe4b0', '#ffc878', '#fff0d0', '#9fe6ff', '#ff9fd2'];
+      g.fillStyle = '#000'; g.fillRect(0, 0, 512, 512);
+      for (let by = 0; by < BAYS; by++) for (let bx = 0; bx < BAYS; bx++) for (const x of [14, 74]) {
+        if (WR() > .46) continue;
+        const X = bx * 128 + x, Y = by * 128 + 28, c = LIT[(WR() * (WR() < .8 ? 4 : 6)) | 0];
+        const gr = g.createLinearGradient(0, Y, 0, Y + 68); gr.addColorStop(0, c); gr.addColorStop(1, shadeHex(c, .55 + WR() * .3));
+        g.fillStyle = gr; g.fillRect(X, Y, 40, 68);
+        g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(X + 19, Y, 2, 68);
+        if (WR() < .4) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(X, Y, 40, 12 + WR() * 30); }   // half-drawn blinds
+      }
+    }, true, aniso);
+    function shadeHex(hex, k) { const c = new THREE.Color(hex).multiplyScalar(k); return '#' + c.getHexString(); }
     const pavingTex = U.canvasTex(128, 128, (g, s) => {
       g.fillStyle = '#ddd5ca'; g.fillRect(0, 0, s, s);
       U.speckle(g, s, s, 1500, ['#bdb3a6', '#f2ece3'], .2, .5, 1, 2);
@@ -72,7 +93,7 @@
     const bNeon = new GeoBuilder(), bGlow = new GeoBuilder(), bSign = new GeoBuilder();
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
-    let station = null, hospital = null;
+    let station = null, hospital = null, gunShop = null;
 
     function neonRing(x0, z0, x1, z1, y, hex) {
       const c = C(hex);
@@ -107,7 +128,7 @@
     }
     function building(x0, z0, x1, z1, h, hex, y0 = .15) {
       const c = C(hex);
-      bFacade.box(x0, y0, z0, x1, h, z1, c, { tile: 4, top: c.clone().multiplyScalar(.82) });
+      bFacade.box(x0, y0, z0, x1, h, z1, c, { tile: FT, top: c.clone().multiplyScalar(.82) });
       bPlain.box(x0 - .18, h, z0 - .18, x1 + .18, h + .35, z1 + .18, c.clone().multiplyScalar(.72));
       col.add(x0, 0, z0, x1, h + .35, z1);
       mapShapes.push({ x0, z0, x1, z1, c: hex, k: 'b' });
@@ -123,6 +144,20 @@
     function awning(face, b, hex, hw) {
       const [x0, z0, x1, z1] = faceRect(face, b, 1.5, hw);
       bPlain.box(x0, 3.0, z0, x1, 3.22, z1, C(hex));
+    }
+    // gun shop: dark door with an orange neon frame, orange trim on the roof, and the trigger spot on the sidewalk
+    function gunShopFront(face, b, h) {
+      const ORANGE = C('#ff8a3d');
+      const [dx0, dz0, dx1, dz1] = faceRect(face, b, .06, .75, 2.4);
+      bPlain.box(dx0, .15, dz0, dx1, 2.5, dz1, C('#24182e'));
+      const [fx0, fz0, fx1, fz1] = faceRect(face, b, .1, .95, 2.4);
+      bNeon.box(fx0, 2.5, fz0, fx1, 2.62, fz1, ORANGE);
+      bGlow.box(fx0 - .2, 2.2, fz0 - .2, fx1 + .2, 2.9, fz1 + .2, ORANGE.clone().multiplyScalar(.9), { noTop: true });
+      neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff8a3d');
+      const [px, pz] = facePoint(face, b, 1.35, 2.4);
+      const n = { '+x': [1, 0], '-x': [-1, 0], '+z': [0, 1], '-z': [0, -1] }[face];
+      gunShop = { x: px, z: pz, y: .15, heading: Math.atan2(n[0], n[1]), cx: (b.x0 + b.x1) / 2, cz: (b.z0 + b.z1) / 2 };
+      mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#ff9a55', k: 'b' });
     }
     function faceToward(b, cx, cz) { // the face of b that looks towards (cx, cz)'s opposite, i.e. away from block centre
       const dx = (b.x0 + b.x1) / 2 - cx, dz = (b.z0 + b.z1) / 2 - cz;
@@ -184,11 +219,11 @@
           const b = building(lx1 - 20, z0, lx1, z1, h, hex);
           const zc = (z0 + z1) / 2;
           // stepped crown
-          bFacade.box(b.x0 + 3, h + .35, z0 + 2.5, b.x1 - 2, h + 3.4, z1 - 2.5, C(hex), { tile: 4, top: C(hex).multiplyScalar(.82) });
+          bFacade.box(b.x0 + 3, h + .35, z0 + 2.5, b.x1 - 2, h + 3.4, z1 - 2.5, C(hex), { tile: FT, top: C(hex).multiplyScalar(.82) });
           neonRing(b.x0 + 3, z0 + 2.5, b.x1 - 2, z1 - 2.5, h + 3.25, neon);
           // art-deco fin facing the ocean
           const accent = pick(PASTEL);
-          bFacade.box(b.x1, .15, zc - 1.2, b.x1 + .9, h + 4.5, zc + 1.2, C(accent), { tile: 4 });
+          bFacade.box(b.x1, .15, zc - 1.2, b.x1 + .9, h + 4.5, zc + 1.2, C(accent), { tile: FT });
           col.add(b.x1, 0, zc - 1.2, b.x1 + .9, h + 4.5, zc + 1.2);
           bNeon.box(b.x1 + .9, 1.8, zc - .1, b.x1 + .98, h + 4.2, zc + .1, C(neon));
           bGlow.box(b.x1 + .9, 1.5, zc - .45, b.x1 + 1.3, h + 4.5, zc + .45, C(neon).multiplyScalar(.9), { noTop: true });
@@ -209,7 +244,7 @@
           const hex = pick(COOL), h1 = rr(18, 32), h2 = h1 + rr(8, 22);
           const b = building(x0 + .5, z0 + .5, x1 - .5, z1 - .5, h1, hex);
           const ub = { x0: b.x0 + 2.5, z0: b.z0 + 2.5, x1: b.x1 - 2.5, z1: b.z1 - 2.5, h: h2 };
-          bFacade.box(ub.x0, h1 + .35, ub.z0, ub.x1, h2, ub.z1, C(hex).multiplyScalar(.95), { tile: 4, top: C(hex).multiplyScalar(.78) });
+          bFacade.box(ub.x0, h1 + .35, ub.z0, ub.x1, h2, ub.z1, C(hex).multiplyScalar(.95), { tile: FT, top: C(hex).multiplyScalar(.78) });
           bPlain.box(ub.x0 + 2, h2, ub.z0 + 2, ub.x1 - 2, h2 + 2, ub.z1 - 2, C('#7f788a'));
           bPlain.box((ub.x0 + ub.x1) / 2 - .1, h2 + 2, (ub.z0 + ub.z1) / 2 - .1, (ub.x0 + ub.x1) / 2 + .1, h2 + rr(6, 12), (ub.z0 + ub.z1) / 2 + .1, C('#5d566a'));
           if (R() < .6) neonRing(ub.x0, ub.z0, ub.x1, ub.z1, h2 - .6, pick(NEON));
@@ -224,9 +259,13 @@
           const ix = x0 < mx ? 0 : 1, iz = z0 < mz ? 0 : 1;
           const b = building(ix ? x0 + rr(0, 2) : x0, iz ? z0 + rr(0, 2) : z0, ix ? x1 : x1 - rr(0, 2), iz ? z1 : z1 - rr(0, 2), h, pick(PASTEL));
           const f = faceToward(b, cx, cz);
+          // the gun shop takes one of these buildings; the seeded random calls stay the same so the city doesn't change
+          const isGun = i === 2 && j === 3 && ix === 1 && iz === 0;
           awning(f, b, pick(['#ff7eb6', '#4fd1c5', '#ffcf5c', '#b388ff', '#ff9966']), 5.5);
-          sign(f, b, 3.45, 4.95, 1.5, (R() * 16) | 0);
+          const word = (R() * 16) | 0;
+          sign(f, b, 3.45, 4.95, 1.5, isGun ? 'AMMO' : word);
           if (R() < .35) neonRing(b.x0, b.z0, b.x1, b.z1, h - .3, pick(NEON));
+          if (isGun) gunShopFront(f, b, h);
           rooftop(b);
         }
       } else if (t === 'park') {
@@ -342,7 +381,7 @@
     for (let k = 0; k < 26; k++) {
       const a = rr(Math.PI * .55, Math.PI * 1.45), d = rr(170, 250), w = rr(12, 26);
       const x = Math.cos(a) * d, z = Math.sin(a) * d * 1.2;
-      bFacade.box(x - w / 2, 0, z - w / 2, x + w / 2, rr(40, 95), z + w / 2, C(pick(MUTED)).multiplyScalar(.9), { tile: 4 });
+      bFacade.box(x - w / 2, 0, z - w / 2, x + w / 2, rr(40, 95), z + w / 2, C(pick(MUTED)).multiplyScalar(.9), { tile: FT });
     }
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
@@ -356,7 +395,8 @@
     add(bAsphalt.build(), lam(asphaltTex), false, true);
     add(bSand.build(), lam(sandTex), false, true);
     add(bPaving.build(), lam(pavingTex), false, true);
-    add(bFacade.build(), lam(facadeTex), true, true);
+    const facadeMat = lam(facadeTex, { emissive: 0xffffff, emissiveMap: windowsTex, emissiveIntensity: 0 });
+    add(bFacade.build(), facadeMat, true, true);
     add(bPlain.build(), lam(null), true, true);
     add(bNeon.build(), new THREE.MeshBasicMaterial({ vertexColors: true }));
     add(bSign.build(), new THREE.MeshBasicMaterial({ map: signTex, transparent: true, alphaTest: .05 }));
@@ -396,12 +436,24 @@
       [new THREE.CylinderGeometry(.07, .1, 6, 6), M4().makeTranslation(0, 3, 0), C('#2b2735')],
       [new THREE.BoxGeometry(.08, .08, 1.5), M4().makeTranslation(0, 5.9, .7), C('#2b2735')]]);
     const lampMesh = new THREE.InstancedMesh(lampGeo, new THREE.MeshLambertMaterial({ vertexColors: true }), lampList.length);
-    const headMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.32, .12, .55).translate(0, 5.82, 1.35), new THREE.MeshBasicMaterial({ color: 0xffe2b0 }), lampList.length);
+    const headMat = new THREE.MeshBasicMaterial({ color: 0xffe2b0 });
+    const headMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(.32, .12, .55).translate(0, 5.82, 1.35), headMat, lampList.length);
+    // warm pools of light on the pavement under each lamp, faded in at night
+    const poolTex = U.canvasTex(64, 64, (g, s) => {
+      const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      gr.addColorStop(0, 'rgba(255,214,150,1)'); gr.addColorStop(.45, 'rgba(255,190,120,.45)'); gr.addColorStop(1, 'rgba(255,170,100,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, s, s);
+    }, false);
+    const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const poolMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(9, 9).rotateX(-Math.PI / 2), poolMat, lampList.length);
     lampList.forEach(([x, z, r], i) => {
       dummy.position.set(x, .15, z); dummy.rotation.set(0, r, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
       lampMesh.setMatrixAt(i, dummy.matrix); headMesh.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(x + Math.sin(r) * 1.6, .17, z + Math.cos(r) * 1.6); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+      poolMesh.setMatrixAt(i, dummy.matrix);
     });
-    lampMesh.castShadow = true; scene.add(lampMesh, headMesh);
+    lampMesh.castShadow = true; poolMesh.visible = false; scene.add(lampMesh, headMesh, poolMesh);
+    const LAMP_OFF = C('#8f887e'), LAMP_ON = C('#ffe2b0');
 
     // beach umbrellas
     const poleMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(.04, .04, 2.4, 5).translate(0, 1.2, 0), new THREE.MeshLambertMaterial({ color: 0xf3efe6 }), umbrellas.length);
@@ -415,23 +467,24 @@
 
     // sea
     const seaMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uFog: { value: scene.fog.color }, uNear: { value: scene.fog.near }, uFar: { value: scene.fog.far }, uSun: { value: new THREE.Vector3(1, .22, .12).normalize() } },
+      uniforms: { uTime: { value: 0 }, uFog: { value: scene.fog.color }, uNear: { value: scene.fog.near }, uFar: { value: scene.fog.far }, uSun: { value: new THREE.Vector3(1, .22, .12).normalize() },
+        uShallow: { value: C('#3dc2c7') }, uDeep: { value: C('#244d8c') }, uSpec: { value: C('#ffb880') }, uRim: { value: C('#ff8c99') }, uFoam: { value: 1 } },
       vertexShader: `varying vec3 vW; varying float vD;
         void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: `uniform float uTime, uNear, uFar; uniform vec3 uFog, uSun; varying vec3 vW; varying float vD;
+      fragmentShader: `uniform float uTime, uNear, uFar, uFoam; uniform vec3 uFog, uSun, uShallow, uDeep, uSpec, uRim; varying vec3 vW; varying float vD;
         void main(){
           float far = clamp((vW.x - ${SHORE.toFixed(1)}) / 70.0, 0.0, 1.0);
-          vec3 c = mix(vec3(0.24,0.76,0.78), vec3(0.14,0.30,0.55), far);
+          vec3 c = mix(uShallow, uDeep, far);
           float w1 = sin(vW.x*0.35 + uTime*1.2) * 0.5 + sin(vW.z*0.23 - uTime*0.8 + vW.x*0.1) * 0.5;
           float w2 = sin((vW.x+vW.z)*0.9 + uTime*2.0) * sin(vW.z*1.3 - uTime*1.4);
           vec3 n = normalize(vec3(w2*0.12, 1.0, w1*0.12));
           vec3 v = normalize(cameraPosition - vW);
           float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 70.0);
-          c += vec3(1.0,0.72,0.5) * spec * 1.6;
-          c += vec3(1.0,0.55,0.6) * (1.0 - max(dot(v, vec3(0.,1.,0.)), 0.0)) * 0.25;
+          c += uSpec * spec * 1.6;
+          c += uRim * (1.0 - max(dot(v, vec3(0.,1.,0.)), 0.0)) * 0.25;
           float line = ${SHORE.toFixed(1)} + sin(vW.z*0.15 + uTime*0.9)*0.8 + sin(uTime*0.7)*0.7;
           float foam = smoothstep(2.6, 0.0, abs(vW.x - line - 1.2)) * (0.6 + 0.4*sin(vW.z*1.7 + uTime*3.0));
-          c = mix(c, vec3(1.0,0.97,0.94), clamp(foam,0.0,1.0) * 0.75);
+          c = mix(c, vec3(1.0,0.97,0.94) * uFoam, clamp(foam,0.0,1.0) * 0.75);
           c = mix(c, uFog, smoothstep(uNear, uFar, vD));
           gl_FragColor = vec4(c, 1.0);
         }`
@@ -464,9 +517,19 @@
     }
 
     return {
-      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
-      update(t) { seaMat.uniforms.uTime.value = t; glowMat.opacity = .24 + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0); },
+      // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
+      update(t, env) {
+        const u = seaMat.uniforms; u.uTime.value = t;
+        const glow = env ? env.glow : .24;
+        glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
+        if (!env) return;
+        u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
+        facadeMat.emissiveIntensity = env.windows;
+        headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);
+        poolMat.opacity = env.lamps * .5; poolMesh.visible = env.lamps > .02;
+      },
       setFog(near, far) { seaMat.uniforms.uNear.value = near; seaMat.uniforms.uFar.value = far; }
     };
   };

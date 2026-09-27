@@ -66,8 +66,14 @@
     gun('pistol', [[.05, .07, .2, metal, 0, -.02, .08], [.045, .1, .05, metal, 0, -.07, 0]], [0, -.02, .19]);
     gun('smg', [[.06, .08, .3, metal, 0, -.02, .1], [.04, .16, .05, metal, 0, -.1, .08], [.04, .08, .05, metal, 0, -.06, -.02]], [0, -.02, .26]);
     gun('shotgun', [[.05, .06, .7, metal, 0, -.01, .2], [.06, .08, .28, wood, 0, -.04, -.18], [.06, .05, .25, wood, 0, -.06, .3]], [0, -.01, .56]);
+    gun('rifle', [[.05, .07, .62, metal, 0, -.01, .2], [.045, .14, .05, metal, 0, -.1, .12], [.05, .09, .26, metal, 0, -.03, -.2], [.035, .05, .16, metal, 0, .05, .08]], [0, -.01, .52]);
+    const batWood = L({ color: 0xc9a06a }), grip = L({ color: 0x1e1e22 });
+    // the bat hangs down from the fist and swings forward with the punch animation
+    gun('bat', [[.045, .2, .045, grip, 0, -.04, .01], [.06, .38, .06, batWood, 0, -.32, .03], [.08, .3, .08, batWood, 0, -.64, .05]], [0, -.78, .05]);
     return { root, hips, torso, head, aL, aR, lL, lR, guns };
   }
+
+  const MELEE = { fists: true, bat: true };
 
   class Player {
     constructor(scene, col) {
@@ -156,7 +162,7 @@
 
       // face the direction of travel
       const sp = this.speed;
-      if (this.aimT > 0 && this.weapon !== 'fists') this.heading += U.angDiff(this.heading, this.aimYaw) * Math.min(1, dt * 16);
+      if (this.aimT > 0 && !MELEE[this.weapon]) this.heading += U.angDiff(this.heading, this.aimYaw) * Math.min(1, dt * 16);
       else if (sp > .4) this.heading += U.angDiff(this.heading, Math.atan2(this.vx, this.vz)) * Math.min(1, dt * 12);
       this.animate(dt, sp);
     }
@@ -182,7 +188,7 @@
       m.aL.el.rotation.x = L(m.aL.el.rotation.x, elb); m.aR.el.rotation.x = L(m.aR.el.rotation.x, elb);
       m.aL.sh.rotation.z = -.07; m.aR.sh.rotation.z = .07;
       // arms: aiming a gun, or throwing a punch
-      if (this.aimT > 0 && this.weapon !== 'fists') {
+      if (this.aimT > 0 && !MELEE[this.weapon]) {
         const up = -Math.PI / 2 - this.aimPitch - this.recoil * .15;
         m.aR.sh.rotation.x = up; m.aR.el.rotation.x = -.05; m.aR.sh.rotation.z = .05;
         if (this.weapon !== 'pistol') { m.aL.sh.rotation.x = up + .25; m.aL.el.rotation.x = -.7; m.aL.sh.rotation.z = .55; }

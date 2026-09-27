@@ -30,6 +30,19 @@
       g.computeBoundingSphere(); m.lightGeo = g; m.geo.attributes.position.needsUpdate = true;
     }
 
+    // headlight beams: a soft cone painted on the road ahead of every car that has a driver, only after dark
+    const beamTex = U.canvasTex(64, 128, (g, w, h) => {
+      for (let y = 0; y < h; y++) {
+        const t = y / h, half = w * (.16 + .34 * t), a = Math.pow(1 - t, 1.6) * .95;
+        const gr = g.createLinearGradient(w / 2 - half, 0, w / 2 + half, 0);
+        gr.addColorStop(0, 'rgba(255,240,205,0)'); gr.addColorStop(.5, `rgba(255,240,205,${a})`); gr.addColorStop(1, 'rgba(255,240,205,0)');
+        g.fillStyle = gr; g.fillRect(w / 2 - half, y, half * 2, 1);
+      }
+    }, false);
+    const beamGeo = new THREE.PlaneGeometry(4.2, 11).rotateX(-Math.PI / 2).translate(0, 0, 5.5);
+    const beamMat = new THREE.MeshBasicMaterial({ map: beamTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 });
+    let night = 0;
+
     /* ---------- a car ---------- */
     const tc = new THREE.Color();
     function makeCar(model, x, z, h) {
@@ -46,6 +59,7 @@
         const w = new THREE.Mesh(model.wheelGeo, matWheel); g.add(w); car.root.add(g);
         return { g, w, front };
       });
+      car.beam = new THREE.Mesh(beamGeo, beamMat); car.beam.position.set(0, .07, model.l / 2 - .1); car.beam.visible = false; car.root.add(car.beam);
       car.root.rotation.y = h;
       car.y = floorAt(x, z, 1);
       car.root.position.set(x, car.y, z);
@@ -500,6 +514,7 @@
             physics(c, dt, { throttle: 0, steer: 0, handbrake: true });
             if (Math.hypot(c.vx, c.vz) < .05) { c.vx = c.vz = 0; c.awake = false; }
           }
+          c.beam.visible = night > .05 && !!c.driver && c.visible;
           // ride height over kerbs, body lean, wheels
           if (!c.visible) continue;
           const fy = floorAt(c.x, c.z, c.y);
@@ -583,6 +598,7 @@
       },
       driveTo(car, x, z, speed) { car.goto = { x, z, speed, arrived: false }; car.parked = false; car.awake = true; },
       remove(car) { if (cars.includes(car)) removeCar(car); },
+      setNight(n) { night = n; beamMat.opacity = n * .5; },
       speedKmh() { return driving ? Math.abs(speedOf(driving)) * 3.6 : 0; }
     };
     return api;

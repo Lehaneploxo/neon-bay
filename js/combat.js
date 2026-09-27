@@ -5,18 +5,21 @@
   const rand = U.rand;
 
   const WEAPONS = {
-    fists: { id: 'fists', name: 'Кулаки', melee: true, rate: .42, dmg: 18 },
+    fists: { id: 'fists', name: 'Кулаки', melee: true, rate: .42, dmg: 18, reach: 1.6 },
+    bat: { id: 'bat', name: 'Бита', melee: true, rate: .6, dmg: 34, reach: 2.0 },
     pistol: { id: 'pistol', name: 'Пистолет', rate: .28, dmg: 34, spread: .012, pellets: 1, auto: false, range: 70, give: 36 },
     smg: { id: 'smg', name: 'Узи', rate: .085, dmg: 16, spread: .032, pellets: 1, auto: true, range: 55, give: 90 },
-    shotgun: { id: 'shotgun', name: 'Дробовик', rate: .85, dmg: 12, spread: .07, pellets: 7, auto: false, range: 30, give: 16 }
+    shotgun: { id: 'shotgun', name: 'Дробовик', rate: .85, dmg: 12, spread: .07, pellets: 7, auto: false, range: 30, give: 16 },
+    rifle: { id: 'rifle', name: 'Винтовка', rate: .11, dmg: 27, spread: .014, pellets: 1, auto: true, range: 85, give: 60 }
   };
-  const ORDER = ['fists', 'pistol', 'smg', 'shotgun'];
+  const ORDER = ['fists', 'bat', 'pistol', 'smg', 'shotgun', 'rifle'];
+  NB.WEAPON_ORDER = ORDER;
   NB.WEAPONS = WEAPONS;
 
   NB.createCombat = function (scene, world, o) {
     const { crowd, vehicles, player, audio } = o;
     const col = world.col;
-    const inv = { fists: 1, pistol: 0, smg: 0, shotgun: 0 };
+    const inv = { fists: 1, bat: 0, pistol: 0, smg: 0, shotgun: 0, rifle: 0 };
     let cur = 'fists', cd = 0, lastFire = false;
     const V = new THREE.Vector3();
 
@@ -69,7 +72,7 @@
     function muzzleFlash(x, y, z, size) { const s = flashes[fHead]; fHead = (fHead + 1) % flashes.length; s.position.set(x, y, z); s.scale.setScalar(size); s.visible = true; s.life = .05; }
 
     /* ---------- pickups ---------- */
-    const PICK_COL = { pistol: 0xffd84f, smg: 0x3fe6e0, shotgun: 0xff8a3d, health: 0xff4f6a };
+    const PICK_COL = { pistol: 0xffd84f, smg: 0x3fe6e0, shotgun: 0xff8a3d, rifle: 0xc28bff, bat: 0xe8c89a, health: 0xff4f6a, cash: 0x6bff8a };
     const beamGeo = new THREE.CylinderGeometry(.35, .35, 2.6, 12, 1, true);
     const pickups = [];
     function makePickupMesh(type) {
@@ -80,16 +83,30 @@
       if (type === 'health') { box(.5, .16, .16, 0, 0, 0); box(.16, .5, .16, 0, 0, 0); }
       else if (type === 'pistol') { box(.08, .14, .34, 0, .05, 0); box(.07, .2, .09, 0, -.1, -.1); }
       else if (type === 'smg') { box(.09, .16, .44, 0, .05, 0); box(.07, .26, .08, 0, -.14, .02); }
+      else if (type === 'rifle') { box(.07, .12, .95, 0, .05, 0); box(.07, .22, .08, 0, -.12, .12); box(.08, .16, .28, 0, -.02, -.56); }
+      else if (type === 'bat') { box(.08, .08, .5, 0, 0, .15); box(.12, .12, .42, 0, 0, -.28); }
+      else if (type === 'cash') { box(.36, .1, .2, 0, -.2, 0); box(.36, .1, .2, .04, -.08, .02); box(.1, .02, .21, 0, -.02, .02); }
       else { box(.07, .09, .9, 0, .05, 0); box(.08, .14, .3, 0, 0, -.5); }
       const beam = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
       beam.position.y = 1.3; g.add(beam);
       g.icon = icon; scene.add(g); return g;
     }
+    const groundY = (x, z) => world.col.query(x - .1, z - .1, x + .1, z + .1, []).reduce((m, b) => (b.maxY < .5 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ ? Math.max(m, b.maxY) : m), 0);
     for (const [type, x, z] of [['pistol', 108.6, -12], ['pistol', -7.6, 25], ['pistol', 92.4, 30], ['smg', 25, -25], ['smg', -57.6, 30], ['shotgun', -65, 36], ['shotgun', 57.6, -70],
-      ['health', 108.6, 40], ['health', 7.6, -30], ['health', -57.6, -25], ['health', 42.4, 70]]) {
-      const y = world.col.query(x - .1, z - .1, x + .1, z + .1, []).reduce((m, b) => (b.maxY < .5 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ ? Math.max(m, b.maxY) : m), 0);
+      ['bat', -75, 16.6], ['rifle', 25, -75],
+      ['health', 108.6, 40], ['health', 7.6, -30], ['health', -57.6, -25], ['health', 42.4, 84]]) {
+      const y = groundY(x, z);
       const mesh = makePickupMesh(type); mesh.position.set(x, y, z);
       pickups.push({ type, x, y, z, mesh, active: true, t: 0 });
+    }
+    // money dropped by people the hero knocks out: a small pool of banknote stacks that vanish after a while
+    const cashDrops = [];
+    for (let i = 0; i < 8; i++) { const mesh = makePickupMesh('cash'); mesh.visible = false; cashDrops.push({ type: 'cash', mesh, active: false, t: 0, amount: 0, x: 0, z: 0 }); }
+    let cashHead = 0;
+    function dropCash(x, z, amount) {
+      const c = cashDrops[cashHead]; cashHead = (cashHead + 1) % cashDrops.length;
+      c.x = x + rand(-.4, .4); c.z = z + rand(-.4, .4); c.amount = amount; c.active = true; c.t = 40;
+      c.mesh.position.set(c.x, groundY(c.x, c.z), c.z); c.mesh.visible = true;
     }
 
     /* ---------- tracing ---------- */
@@ -130,9 +147,10 @@
       crowd.panic(player.x, player.z, 40);
     }
     function punch() {
+      const w = WEAPONS[cur];
       player.punch();
       const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
-      let best = null, bd = 1.6;
+      let best = null, bd = w.reach;
       for (const p of crowd.people) {
         if (p.dead || p.down || p.anim === 'lie') continue;
         const dx = p.x - player.x, dz = p.z - player.z, d = Math.hypot(dx, dz);
@@ -140,8 +158,8 @@
       }
       if (!best) return;
       player.heading = Math.atan2(best.x - player.x, best.z - player.z);
-      crowd.damage(best, WEAPONS.fists.dmg, { byPlayer: true, kind: 'melee', x: player.x, z: player.z });
-      audio.punch([best.x, 1.5, best.z]); burst(best.x, best.y + 1.5, best.z, 3, BLOOD, 1.2);
+      crowd.damage(best, w.dmg, { byPlayer: true, kind: 'melee', x: player.x, z: player.z });
+      audio.punch([best.x, 1.5, best.z], cur === 'bat'); burst(best.x, best.y + 1.5, best.z, cur === 'bat' ? 6 : 3, BLOOD, 1.2);
       if (!best.cop) o.police.reportCrime('punch', best.x, best.z);
     }
 
@@ -176,13 +194,23 @@
 
     return {
       get weapon() { return WEAPONS[cur]; },
-      get ammo() { return cur === 'fists' ? null : inv[cur]; },
-      isMelee: () => cur === 'fists',
-      cycle, copShoot, bloodPool,
+      get ammo() { return WEAPONS[cur].melee ? null : inv[cur]; },
+      isMelee: () => !!WEAPONS[cur].melee,
+      cycle, copShoot, bloodPool, dropCash,
       select(i) { const id = ORDER[i]; if (id && inv[id] > 0) { cur = id; player.setWeapon(cur); } },
-      pickups,
-      // death costs half the ammo, an arrest costs every gun
-      onDeath() { for (const k of ORDER) if (k !== 'fists') inv[k] = Math.floor(inv[k] / 2); if (!inv[cur]) { cur = 'fists'; player.setWeapon(cur); } },
+      pickups, cashDrops,
+      inv,
+      // a purchase: melee weapons are simply owned, guns come with a clip of ammo; picks the new weapon
+      give(id, ammo) {
+        if (WEAPONS[id].melee) inv[id] = 1; else inv[id] += ammo;
+        cur = id; player.setWeapon(cur);
+      },
+      load(saved) {
+        if (!saved) return;
+        for (const k of ORDER) if (k !== 'fists' && saved[k] > 0) inv[k] = Math.floor(saved[k]);
+      },
+      // death costs half the ammo, an arrest costs every weapon
+      onDeath() { for (const k of ORDER) if (!WEAPONS[k].melee) inv[k] = Math.floor(inv[k] / 2); if (!inv[cur]) { cur = 'fists'; player.setWeapon(cur); } },
       onBust() { for (const k of ORDER) if (k !== 'fists') inv[k] = 0; cur = 'fists'; player.setWeapon(cur); },
       update(dt, input, aim, driving) {
         cd -= dt;
@@ -215,12 +243,25 @@
           if (pk.type === 'health') {
             if (player.hp >= 100) continue;
             player.hp = Math.min(100, player.hp + 50); o.flash('Аптечка: +50 здоровья', 1.8);
+          } else if (WEAPONS[pk.type].melee) {
+            if (inv[pk.type] > 0) continue;
+            inv[pk.type] = 1; if (cur === 'fists') { cur = pk.type; player.setWeapon(cur); }
+            o.flash(WEAPONS[pk.type].name + ' подобрана' + (input.touch ? '' : ' · Q — сменить оружие'), 2.4);
           } else {
             const w = WEAPONS[pk.type]; inv[pk.type] += w.give;
-            if (cur === 'fists') { cur = pk.type; player.setWeapon(cur); }
+            if (WEAPONS[cur].melee) { cur = pk.type; player.setWeapon(cur); }
             o.flash(w.name + ': +' + w.give + ' патронов' + (input.touch ? '' : ' · Q — сменить оружие'), 2.4);
           }
           audio.pickup(); pk.active = false; pk.mesh.visible = false; pk.t = 40;
+        }
+        for (const c of cashDrops) {
+          if (!c.active) continue;
+          c.t -= dt;
+          c.mesh.icon.rotation.y = tt * 2.5; c.mesh.icon.position.y = .9 + Math.sin(tt * 3 + c.x) * .1;
+          if (c.t <= 0) { c.active = false; c.mesh.visible = false; continue; }
+          if (driving || player.dead || Math.hypot(c.x - player.x, c.z - player.z) > 1.3) continue;
+          c.active = false; c.mesh.visible = false;
+          if (o.onCash) o.onCash(c.amount);
         }
       }
     };
