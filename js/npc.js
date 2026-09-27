@@ -43,7 +43,7 @@
   const PHRASES = ['Эй, смотри куда идёшь!', 'Осторожнее!', 'Ай!', 'Ну ты даёшь!', 'Полегче, приятель!', 'Куда ты так несёшься?', 'Извините?!', 'Совсем уже…'];
 
   function makeLook(type) {
-    const female = /_f$/.test(type) || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
+    const female = /_f$/.test(type) || type === 'waitress' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
     const L = { type, female, hs: female ? rand(.9, 1) : rand(.96, 1.08), ws: rand(.92, 1.18), col: {}, hide: new Set(['tie', 'top', 'brim', 'crown', 'shades', 'bag', 'skirt']),
       long: false, skirt: 0, purse: false, speed: rand(1.1, 1.4), lean: 0, run: false };
     const skin = pick(SKIN), hair = type === 'elderly' ? pick(['#9a9a9a', '#c9c9c9', '#e5e5e5']) : pick(HAIR);
@@ -106,6 +106,27 @@
         show('brim crown tie bag'); set('crown', '#18223c'); set('brim', '#111111'); set('tie', '#e8c547'); set('bag', '#151515');
         if (chance(.4)) { show('shades'); set('shades', '#141018'); }
         L.speed = rand(1.2, 1.4); break;
+      }
+      case 'security': { // bank guard: grey shirt, dark trousers, cap, armed like the police
+        set('torso', '#6f7684'); sleeves('short', '#6f7684'); legs('pants', '#23262e'); set('shoeL shoeR', '#111111');
+        show('brim crown tie bag'); set('crown', '#23262e'); set('brim', '#111111'); set('tie', '#c9a04a'); set('bag', '#151515');
+        L.speed = rand(1.2, 1.35); break;
+      }
+      case 'cook': {
+        set('torso', '#f4f4f0'); sleeves('short', '#f4f4f0'); legs('pants', '#2a2a30'); set('shoeL shoeR', '#1a1a1a');
+        show('crown'); set('crown', '#ffffff'); L.speed = 1.2; break;
+      }
+      case 'waitress': { // diner uniform: pink dress, white apron, white skates
+        set('torso', '#ff7eb6'); sleeves('short', '#ff7eb6'); legs('bare', '#ff7eb6'); show('skirt'); set('skirt', '#ff7eb6'); L.skirt = 1;
+        show('tie'); set('tie', '#ffffff'); set('shoeL shoeR', '#ffffff'); L.speed = 2.2; break;
+      }
+      case 'croupier': {
+        set('torso', '#141418'); sleeves('long', '#f4f4f0'); legs('pants', '#141418'); set('shoeL shoeR', '#0c0c0e');
+        show('tie'); set('tie', '#c81e2a'); L.speed = 1.2; break;
+      }
+      case 'bellboy': {
+        set('torso', '#b0203a'); sleeves('long', '#b0203a'); legs('pants', '#1a1a22'); set('shoeL shoeR', '#0c0c0e');
+        show('brim crown'); set('crown', '#b0203a'); set('brim', '#c9a04a'); L.speed = 1.5; break;
       }
       case 'bouncer': { // club security: tall, very broad, black tank top, shaved head, shades
         L.hs = rand(1.1, 1.15); L.ws = rand(1.4, 1.5);
@@ -231,7 +252,11 @@
       else { z = b.bz1 - inset; x = b.bx0 + (b.bx1 - b.bx0) * t; }
       groups.push({ x, z, mix: areaOf(b), along: side < 2 ? 'z' : 'x' });
     }
-    for (let g = 0; g < 7; g++) groups.push({ x: rand(114, 134), z: rand(-95, 95), mix: 'beach', along: 'x' });
+    // beach plots that belong to someone (the villa, the tiki bar)
+    const RES = world.reserved || [];
+    const onPlot = (x, z, m = 1) => RES.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
+    const beachPoint = (x, z) => { for (let k = 0; k < 6 && onPlot(x, z); k++) { x = rand(112, 137); z = rand(-100, 76); } return { x, z }; };
+    for (let g = 0; g < 7; g++) { const b = beachPoint(rand(114, 134), rand(-95, 95)); groups.push({ x: b.x, z: b.z, mix: 'beach', along: 'x' }); }
     if (world.station) groups.push({ x: world.station.x + 1.4, z: world.station.z + 4.5, mix: 'cop', along: 'z' });
     if (world.hospital) groups.push({ x: world.hospital.x + .6, z: world.hospital.z + 5.5, mix: 'medic', along: 'z' });
     for (const g of groups) {
@@ -245,8 +270,9 @@
     // the club: dancers, the DJ, bartenders, the bouncer and people in the booths
     const club = world.club;
     if (club) for (const s of club.spots) spots.push(Object.assign({}, s));
+    if (world.places) for (const s of world.places.spots) spots.push(Object.assign({}, s));
     for (const s of spots) { s.person = null; s.y = s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
-    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1 };
+    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1 };
     // trouble in or at the club: both bouncers drop what they're doing and go for the hero
     function alertBouncers() {
       for (const b of people) {
@@ -291,7 +317,7 @@
       const p = { slot, look, x, z, y: floorAt(x, z, 1), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
         phase: rand(0, 6), headY: 0, pauseT: 0, target: null, node: -1, prev: -1, off: rand(-.45, .45), blocked: 0,
         stuckT: 0, lastX: x, lastZ: z, bumpT: -9, stumbleT: 0, frame: (Math.random() * 3) | 0, seed: Math.random() * 10,
-        cop: look.type === 'cop', bouncer: look.type === 'bouncer', hp: look.type === 'cop' ? 100 : look.type === 'bouncer' ? 260 : 60, dead: false, fallT: 0, deadT: 0,
+        cop: look.type === 'cop' || look.type === 'security', bouncer: look.type === 'bouncer', hp: look.type === 'cop' || look.type === 'security' ? 100 : look.type === 'bouncer' ? 260 : 60, dead: false, fallT: 0, deadT: 0,
         fleeT: 0, fleeX: 0, fleeZ: 0, fightT: 0, punchCD: 0, punchT: 0, running: false,
         los: false, losT: Math.random() * .2, shootT: rand(.5, 1.2), sideT: 0, sideX: 0, sideZ: 0, chasing: false,
         pose: { bob: 0, lean: 0, twist: 0, headP: 0, headY: 0, aL: 0, aR: 0, eL: 0, eR: 0, tL: 0, tR: 0, kL: 0, kR: 0, spread: 0 } };
@@ -307,6 +333,8 @@
       free.push(p.slot);
       people.splice(people.indexOf(p), 1);
       if (p.spot) p.spot.person = null;
+      if (p.homeSpot && p.homeSpot.person === p) p.homeSpot.person = null;
+      if (p.home && p.home.spot.person === p) p.home.spot.person = null;
       if (p.bubble) p.bubble.owner = null;
     }
     function nextNode(p) {
@@ -347,7 +375,7 @@
         p.mode = 'graph'; p.node = ni; p.prev = ni; p.clubExit = true;
         const w = club.exitStep(p.x, p.z); p.target = { x: w[0], z: w[1] }; return;
       }
-      if (p.x > CITY + 4 && !p.cop) { p.mode = 'beach'; p.target = { x: U.clamp(p.x + rand(-10, 10), 112, 137), z: U.clamp(p.z + rand(-10, 10), -100, 100) }; return; }
+      if (p.x > CITY + 4 && !p.cop) { p.mode = 'beach'; p.target = beachPoint(U.clamp(p.x + rand(-10, 10), 112, 137), U.clamp(p.z + rand(-10, 10), -100, 100)); return; }
       const ni = nearestNode(p.x, p.z); p.mode = 'graph'; p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
     }
     // a spot someone was scared or knocked off stays empty until the hero has gone far away,
@@ -367,10 +395,11 @@
         const x = jog ? SHORE - rand(1.5, 3.5) : rand(112, 136), z = rand(-100, 100), d = Math.hypot(x - px, z - pz);
         if (d > 88 || d < (near ? 6 : 28)) continue;
         if (!near && d < 55 && ((x - px) * fx + (z - pz) * fz) / d > .2) continue;
+        if (!jog && onPlot(x, z, 2)) continue;
         const p = spawn(makeLook(jog ? 'jogger' : typeFor(TYPE_MIX.beach)), x, z, jog ? 'jog' : 'beach');
         if (!p) return;
         p.dir = chance(.5) ? 1 : -1;
-        p.target = jog ? { x: SHORE - rand(1.5, 3.5), z: 100 * p.dir } : { x: U.clamp(x + rand(-15, 15), 112, 137), z: U.clamp(z + rand(-20, 20), -100, 100) };
+        p.target = jog ? { x: SHORE - rand(1.5, 3.5), z: 100 * p.dir } : beachPoint(U.clamp(x + rand(-15, 15), 112, 137), U.clamp(z + rand(-20, 20), -100, 100));
         return;
       }
     }
@@ -475,6 +504,26 @@
       }
     }
     function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : 'idle'); }
+    // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
+    // to the window, a guest to the sofa); a waitress or a bellboy keeps doing rounds
+    function homeStep(p, dt) {
+      if (p.patrol) {
+        const R = p.patrol, g = R.pts[R.k], d = Math.hypot(g[0] - p.x, g[1] - p.z);
+        if (d < .5) { R.k = (R.k + 1) % R.pts.length; return; }
+        const vx = (g[0] - p.x) / d, vz = (g[1] - p.z) / d;
+        stepMove(p, vx, vz, p.look.speed, dt); p.running = false; p.anim = R.anim;
+        p.heading += U.angDiff(p.heading, Math.atan2(vx, vz)) * Math.min(1, dt * 6);
+        unstick(p, dt, vx, vz); return;
+      }
+      const H = p.home, s = H.spot, seat = s.kind === 'sit' || s.kind === 'lie';
+      if (s.person && s.person !== p) { p.home = null; resumeRoute(p); return; }
+      if (Math.hypot(s.x - p.x, s.z - p.z) < (seat ? 1.2 : .4)) {
+        s.person = p; s.vacated = false; p.spot = s; p.x = s.x; p.z = s.z; p.heading = s.heading; p.anim = s.kind; p.speed = 0;
+        p.y = s.kind === 'sit' ? s.y - .95 * p.look.hs : s.y;
+        return;
+      }
+      goalStep(p, H, dt, 'idle');
+    }
     function updateWalker(p, dt, player, others) {
       if (p.dead || p.down) return;
       if (p.medic) { if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; return; } medicStep(p, dt); return; }
@@ -486,15 +535,9 @@
       }
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
-      // a bouncer with nothing to do walks back to the door and takes up the post again
-      if (p.home && p.fleeT <= 0 && p.fightT <= 0) {
-        const H = p.home, s = H.spot;
-        goalStep(p, H, dt, 'bouncer');
-        if (H.arrived && !s.person) { s.person = p; s.vacated = false; p.spot = s; p.x = s.x; p.z = s.z; p.heading = s.heading; p.anim = 'bouncer'; H.arrived = false; }
-        return;
-      }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
       if (p.cop && p.chasing) resumeRoute(p);
+      if ((p.home || p.patrol) && p.fleeT <= 0 && p.fightT <= 0) { homeStep(p, dt); return; }
       if (p.fleeT > 0) { flee(p, dt); return; }
       if (p.fightT > 0) { fight(p, dt, player); return; }
       if (p.pauseT > 0) {
@@ -520,7 +563,7 @@
           p.dir = -p.dir; p.target = { x: SHORE - rand(1.5, 3.5), z: 100 * p.dir };
         } else {
           if (chance(.35)) { p.pauseT = rand(3, 9); p.pauseFace = Math.PI / 2 + rand(-.6, .6); }
-          p.target = { x: U.clamp(p.x + rand(-18, 18), 112, 137), z: U.clamp(p.z + rand(-25, 25), -100, 100) };
+          p.target = beachPoint(U.clamp(p.x + rand(-18, 18), 112, 137), U.clamp(p.z + rand(-25, 25), -100, 100));
         }
         return;
       }
@@ -549,7 +592,7 @@
         if (Math.hypot(p.x - p.lastX, p.z - p.lastZ) < .6) {
           if (p.clubExit) { const w = club.exitStep(p.x, p.z); p.target = { x: w[0] + rand(-.3, .3), z: w[1] + rand(-.3, .3) }; }
           else if (p.mode === 'graph') { const t = p.node; p.node = p.prev; p.prev = t; const b = nodes[p.node]; p.target = { x: b.x, z: b.z }; }
-          else p.target = { x: U.clamp(p.x + rand(-10, 10), 112, 137), z: U.clamp(p.z + rand(-10, 10), -100, 100) };
+          else p.target = beachPoint(U.clamp(p.x + rand(-10, 10), 112, 137), U.clamp(p.z + rand(-10, 10), -100, 100));
         }
         p.stuckT = 0; p.lastX = p.x; p.lastZ = p.z;
       }
@@ -574,6 +617,8 @@
           break;
         }
         case 'idle': P.bob = breathe; aL = .05; aR = .05; P.twist = Math.sin(t * .4 + p.seed) * .08; break;
+        case 'play': { const j = Math.sin(t * 11 + p.seed), k2 = Math.sin(t * 7.3 + p.seed * 2); P.bob = breathe; aL = -1.0 + j * .06; aR = -1.05 + k2 * .08; eL = -.7; eR = -.65 + j * .1; P.headP = .18; P.lean = .08; P.twist = k2 * .05; break; }
+        case 'skate': { const s = Math.sin(t * 3 + p.seed); tL = s * .3; tR = -s * .3; kL = kR = .25; P.lean = .16; aR = -1.35; eR = -1.45; aL = -s * .35; eL = -.3; P.bob = Math.abs(s) * .03; P.twist = s * .1; break; }
         case 'dance': {
           // three dance styles, all on the club's beat
           const b = t * CLUB_BPS * Math.PI * 2 + p.seed * .7, s = Math.sin(b), s2 = Math.sin(b * .5), style = (p.seed * 7 | 0) % 3;
@@ -657,10 +702,11 @@
         if (s.vacated) { if (d > lim.spotRange + 12) s.vacated = false; else continue; }
         if (s.person && d > lim.spotRange + 12) despawn(s.person);
         else if (!s.person && d < lim.spotRange && free.length) {
-          const kindType = s.kind === 'lie' ? (chance(.55) ? 'beach_f' : 'beach_m') : typeFor(TYPE_MIX[s.mix]);
+          const kindType = s.type || (s.kind === 'lie' ? (chance(.55) ? 'beach_f' : 'beach_m') : typeFor(TYPE_MIX[s.mix]));
           const p = spawn(makeLook(kindType === 'jogger' ? 'tourist_m' : kindType), s.x, s.z, 'spot');
-          if (p && s.kind === 'bouncer') p.home = { spot: s, goal: [s.x, s.z], face: s.heading, arrived: false };
-          if (p) { p.spot = s; s.person = p; p.anim = s.kind; p.heading = s.heading; p.y = s.kind === 'sit' ? s.y - .95 * p.look.hs : s.y; p.seed = s.seed != null ? s.seed + s.idx : p.seed; }
+          if (p && (s.kind === 'bouncer' || s.home)) p.home = { spot: s, goal: [s.x, s.z], face: s.heading, arrived: false };
+          if (p && s.patrol) { p.patrol = { pts: s.patrol, k: 0, anim: s.kind }; p.homeSpot = s; s.person = p; p.mode = 'patrol'; p.heading = s.heading; p.anim = 'walk'; }
+          else if (p) { p.spot = s; s.person = p; p.anim = s.kind; p.heading = s.heading; p.y = s.kind === 'sit' ? s.y - .95 * p.look.hs : s.y; p.seed = s.seed != null ? s.seed + s.idx : p.seed; }
         }
       }
       const walkers = people.filter(p => p.mode === 'graph' && !p.cop && !p.dead).length, beach = people.filter(p => (p.mode === 'beach' || p.mode === 'jog') && !p.dead).length;

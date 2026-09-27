@@ -33,7 +33,11 @@
     const api = {
       get wanted() { return S.wanted; },
       get searching() { return S.wanted > 0 && !S.seen; },
+      // a bank robbery: the alarm goes straight to the station
+      robbery() { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, 3)); },
       reportCrime(kind, x, z) {
+        // in a police uniform the officers take you for one of their own and let small things slide
+        if (o.disguised && o.disguised() && (kind === 'punch' || kind === 'carjack' || kind === 'copcar')) return;
         const direct = kind === 'copAttack' || kind === 'copKill';
         if (!direct && !(S.wanted > 0 && S.seen) && !witnessed(x, z, RANGE[kind] || 25)) return;
         S.searchT = 0; S.seen = true;
@@ -72,7 +76,12 @@
         if (S.dispatchT <= 0) {
           S.dispatchT = 1.2;
           const near = o.crowd.cops().filter(p => Math.hypot(p.x - player.x, p.z - player.z) < 80).length;
-          if (near < FOOT[S.wanted]) o.crowd.spawnCop(player.x, player.z, -Math.sin(camYaw), -Math.cos(camYaw), 30, 65);
+          if (near < FOOT[S.wanted]) {
+            // inside a building the officers come in through the front door
+            const door = o.spawnAt && o.spawnAt();
+            if (door) o.crowd.spawnCop(0, 0, 0, 0, 0, 0, door.x + (Math.random() - .5) * 1.2, door.z + (Math.random() - .5) * .6);
+            else o.crowd.spawnCop(player.x, player.z, -Math.sin(camYaw), -Math.cos(camYaw), 30, 65);
+          }
         }
       }
     };

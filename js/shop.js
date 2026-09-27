@@ -14,17 +14,7 @@
   ];
 
   NB.createShop = function (scene, world, o) {
-    const shop = world.gunShop;
-    let armed = true;
-    // the trigger circle and a short beam, orange like the shop's neon
-    const mark = new THREE.Group();
-    if (shop) {
-      const add = (geo, opacity) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff8a3d, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); mark.add(m); return m; };
-      add(new THREE.RingGeometry(.75, .95, 32).rotateX(-Math.PI / 2).translate(0, .03, 0), .9);
-      add(new THREE.CircleGeometry(.75, 32).rotateX(-Math.PI / 2).translate(0, .02, 0), .18);
-      add(new THREE.CylinderGeometry(.85, .85, 1.6, 24, 1, true).translate(0, .8, 0), .12);
-      mark.position.set(shop.x, shop.y, shop.z); scene.add(mark);
-    }
+    const shop = world.gunShop;   // the door leads into the Ammo Bay interior; the counter in there opens this
     const list = $('shopList');
 
     function row(it) {
@@ -63,15 +53,8 @@
     }
 
     return {
-      // true when the hero just stepped into the circle and the counter should open
-      update(player, onFoot) {
-        if (!shop) return false;
-        const t = performance.now() / 1000;
-        mark.children[2].material.opacity = .1 + Math.sin(t * 3) * .04;
-        const d = Math.hypot(player.x - shop.x, player.z - shop.z);
-        if (d > 1.8) armed = true;
-        if (!armed || !onFoot || d > .95) return false;
-        armed = false;
+      // the clerk won't sell to someone the police are after
+      canServe() {
         if (o.police.wanted > 0) { o.flash('Продавец: «Уходите, за вами полиция!»', 2.2); o.audio.deny(); return false; }
         return true;
       },

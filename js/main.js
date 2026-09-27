@@ -91,20 +91,40 @@
 
   /* ---------- fights and the police ---------- */
   let respawnT = 0, endKind = '', vignette = 0;
+  const places = world.places;
   const police = NB.createPolice(world, {
     crowd, vehicles, flash: (t, s) => flashTip(t, s),
     onWanted: (n, prev) => { if (n > prev) audio.starUp(); if (n > 0 && prev === 0) flashTip(n === 1 ? 'Полиция это видела!' : 'Полиция открыла на вас охоту!', 2.2); },
-    onBust: () => endLife('busted')
+    onBust: () => endLife('busted'),
+    disguised: () => progress.outfit === 'cop',
+    spawnAt: () => places.current ? places.current.copEntry : null
   });
-  const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано') });
+  const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'),
+    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
 
   /* ---------- money, armour and the saved game ---------- */
-  const progress = { money: 150, armor: 0, inv: null };
+  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0 };
   try { Object.assign(progress, JSON.parse(localStorage.getItem('nb_save') || '{}')); } catch (e) {}
   progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, 100);
+  if (!progress.records || typeof progress.records !== 'object') progress.records = {};
+  if (!Array.isArray(progress.garage)) progress.garage = [];
   combat.load(progress.inv);
+  player.setOutfit(progress.outfit);
   let saveT = 0;
-  function saveProgress() { try { localStorage.setItem('nb_save', JSON.stringify({ money: progress.money, armor: Math.round(progress.armor), inv: combat.inv })); } catch (e) {} saveT = 0; }
+  function saveProgress() {
+    progress.garage = garageCars();
+    const { money, villa, outfit, prevOutfit, records, bankT, garage } = progress;
+    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, time: Math.round(time) })); } catch (e) {}
+    saveT = 0;
+  }
+  // cars standing in the villa garage are kept between visits
+  function garageCars() {
+    const G = places.garage; if (!G || !progress.villa) return [];
+    const r = G.rect;
+    return vehicles.cars.filter(c => !c.ai && c.driver !== 'player' && c.x > r.x0 && c.x < r.x1 && c.z > r.z0 && c.z < r.z1).slice(0, 2)
+      .map(c => ({ id: c.model.id, color: c.color, accent: c.accent, x: +c.x.toFixed(2), z: +c.z.toFixed(2), h: +c.h.toFixed(3) }));
+  }
+  if (progress.villa) for (const g of progress.garage) vehicles.spawnParked(g.id, g.x, g.z, g.h, g.color, g.accent);
   addEventListener('pagehide', saveProgress);
   let popTimer = 0;
   function moneyPop(text, sub, neg) {
@@ -147,6 +167,63 @@
     getMoney: () => progress.money, spend: n => spend(n, 'Покупка'),
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; }
   });
+
+  /* ---------- places: doors, interiors, and the things to do in them ---------- */
+  function setOutfit(id) { progress.outfit = id; player.setOutfit(id); saveProgress(); }
+  // a short blink to black, then the hero is somewhere else (through a door, up a lift)
+  let fading = false;
+  function blink(fn) {
+    if (fading) return; fading = true;
+    $('fade').classList.add('on'); input.reset();
+    setTimeout(() => { fn(); $('fade').classList.remove('on'); fading = false; }, 240);
+  }
+  function teleport(x, z, heading, place, title, y) {
+    blink(() => {
+      if (places.current && places.current !== place && places.current.onLeave) places.current.onLeave();
+      places.current = place || null;
+      player.place(x, z, heading); if (y != null) player.y = y;
+      player.vx = player.vz = 0; rig.snap(player); places.disarm();
+      if (title) showDistrict(title);
+    });
+  }
+  function enterPlace(p) { teleport(p.inside.x, p.inside.z, p.inside.heading, p, p.name); }
+  function exitPlace(p) { const d = p.door; teleport(d.x + d.nx * .9, d.z + d.nz * .9, d.heading, null, world.districtAt(d.x, d.z)); }
+  function leavePlace() { if (places.current && places.current.onLeave) places.current.onLeave(); places.current = null; }
+  // a night's sleep: time jumps to the next morning (or to the evening if it's already day), full health, saved
+  function sleep(msg) {
+    blink(() => {
+      const h = ((START_MIN + time) / 60) % 24, target = h >= 6 && h < 18 ? 20 : 8;
+      time += ((target - h + 24) % 24) * 60;
+      player.hp = 100; saveProgress(); flashTip(msg + ' Сейчас ' + String(target).padStart(2, '0') + ':00', 3);
+    });
+  }
+  const ui = NB.createUI({
+    money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
+    audio, progress, save: saveProgress, setOutfit,
+    onOpen: () => { if (state === 'playing') { state = 'panel'; input.reset(); if (document.pointerLockElement) document.exitPointerLock(); show('panelOnly'); } },
+    onClose: () => { if (state === 'panel') play(); }
+  });
+  places.attach({
+    player, combat, crowd, police, audio, vehicles, progress, ui,
+    money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
+    flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport,
+    getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
+    openShop: () => { if (shop.canServe()) openShop(); }
+  });
+  // the nearest thing to use (F / the action button), if any
+  let interact = null;
+  function findInteraction() {
+    interact = null;
+    if (vehicles.driving || player.dead || respawnT > 0) return;
+    let bd = Infinity;
+    for (const it of places.interactions()) {
+      if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
+      const d = Math.hypot(player.x - it.x, player.z - it.z);
+      if (d > it.r || d >= bd) continue;
+      const label = it.label(); if (!label) continue;
+      bd = d; interact = { it, label };
+    }
+  }
   function heroDamage(d) {
     if (player.dead || respawnT > 0) return;
     if (progress.armor > 0) { const a = Math.min(progress.armor, d); progress.armor -= a; d -= a; }   // the vest takes the hit first
@@ -176,6 +253,9 @@
     player.dead = false; player.deadT = 0; player.hp = 100; player.m.root.rotation.x = 0; player.aimT = 0;
     if (busted) combat.onBust(); else combat.onDeath();
     progress.armor = 0;
+    // you wake up outside, whatever building you were in; the uniform is taken away
+    leavePlace(); places.disarm();
+    if (progress.outfit === 'cop') setOutfit(progress.prevOutfit || 'hawaii');
     police.clear(); rig.snap(player);
     $('bigmsg').className = '';
     const paid = spend(bill, busted ? 'Штраф' : 'Лечение');
@@ -261,7 +341,7 @@
   addEventListener('resize', onResize);
 
   /* ---------- game state ---------- */
-  let state = 'menu', locked = false, everLocked = false, noLock = false, time = 0;
+  let state = 'menu', locked = false, everLocked = false, noLock = false, time = Math.max(0, +progress.time || 0);   // the clock carries on from the last visit
   const input = NB.createInput(canvas, {
     active: () => state === 'playing',
     locked: () => locked,
@@ -373,6 +453,15 @@
   function drawMap() {
     const g = mapCtx, W = mapCv.width, Rr = W / 2, M = world.map, pxPerM = W / 120;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, W);
+    if (places.current) {   // indoors the map just says where you are
+      g.fillStyle = '#1a1226'; g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.fill();
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,241,228,.6)'; g.font = `700 ${Math.round(W * .075)}px Rubik, sans-serif`; g.fillText('ВНУТРИ', Rr, Rr - W * .14);
+      g.fillStyle = '#fff1e4'; g.font = `800 ${Math.round(W * .09)}px Rubik, sans-serif`;
+      const words = places.current.name.split(' '), half = Math.ceil(words.length / 2);
+      if (words.length > 2) { g.fillText(words.slice(0, half).join(' '), Rr, Rr + W * .02); g.fillText(words.slice(half).join(' '), Rr, Rr + W * .13); } else g.fillText(places.current.name, Rr, Rr + W * .04);
+      g.strokeStyle = 'rgba(255,241,228,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.stroke();
+      return;
+    }
     g.save(); g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.clip();
     g.fillStyle = '#2a2140'; g.fillRect(0, 0, W, W);
     g.translate(Rr, Rr); g.rotate(rig.yaw); g.scale(pxPerM / M.s, pxPerM / M.s);
@@ -430,6 +519,13 @@
       dot(q, W * .06, '#ff8a3d'); g.fillStyle = '#2a1405';
       g.fillRect(q[0] - 3 * u, q[1] - 1.6 * u, 5.4 * u, 1.6 * u); g.fillRect(q[0] - 3 * u, q[1] - .2 * u, 1.6 * u, 2.6 * u);
     }
+    // places you can go into: a letter on a coloured disc; the villa always shows at the edge
+    const icon = (x, z, bg, fg, ch, edge) => { const q = toMap(x, z, edge); if (!q) return; dot(q, W * .05, bg); g.fillStyle = fg; g.font = `800 ${Math.round(W * .058)}px Rubik, sans-serif`; g.fillText(ch, q[0], q[1] + 1); };
+    for (const [id, bg, ch] of [['bank', '#1a8a5a', '$'], ['casino', '#c9a04a', '♦'], ['arcade', '#8a5ad8', '★'], ['diner', '#e0286a', 'D'], ['hotel', '#2fa8a0', 'H']]) {
+      const p = places.byId(id); if (p && p.door) icon(p.door.cx, p.door.cz, bg, '#fff', ch, false);
+    }
+    icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
+    icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
     for (const m of taxi.markers) {
       const q = toMap(m.x, m.z, true);
@@ -447,20 +543,21 @@
     if (districtT > 0) { districtT -= dt; if (districtT <= 0) $('district').classList.remove('on'); }
     const drv = vehicles.driving;
     if (drv) { const kmh = String(Math.round(vehicles.speedKmh())); if ($('speedNum').textContent !== kmh) $('speedNum').textContent = kmh; }
-    const promptText = drv || !promptCar || input.touch ? '' : 'F — сесть в ' + promptCar.model.name;
+    const promptText = input.touch || drv ? '' : interact ? 'F — ' + interact.label : promptCar ? 'F — сесть в ' + promptCar.model.name : '';
     if ($('prompt').textContent !== promptText) $('prompt').textContent = promptText;
     $('prompt').hidden = !promptText;
-    const enter = $('btnEnter'), label = drv ? 'ВЫЙТИ' : 'СЕСТЬ';
-    enter.classList.toggle('avail', !!(drv || promptCar)); if (enter.textContent !== label) enter.textContent = label;
+    const enter = $('btnEnter'), label = drv ? 'ВЫЙТИ' : interact ? interact.it.short : 'СЕСТЬ';
+    enter.classList.toggle('avail', !!(drv || promptCar || interact)); if (enter.textContent !== label) enter.textContent = label;
     // health, stars, weapon, crosshair, lock-on ring, damage flash
     const hpw = Math.round(player.hp) + '%'; if ($('hpFill').style.width !== hpw) $('hpFill').style.width = hpw;
     $('hp').classList.toggle('low', player.hp <= 30);
     $('armor').hidden = progress.armor <= 0;
     const aw = Math.round(progress.armor) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
     const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;
-    const job = taxi.hud;
+    const job = places.hud || taxi.hud;
     $('job').hidden = !job;
     if (job) {
+      const tag = job.tag || 'ТАКСИ'; if ($('jobTag').textContent !== tag) $('jobTag').textContent = tag;
       if ($('jobText').textContent !== job.text) $('jobText').textContent = job.text;
       if ($('jobTime').textContent !== job.time) $('jobTime').textContent = job.time;
       $('job').classList.toggle('warn', job.warn);
@@ -498,7 +595,7 @@
       if (input.select >= 0) { combat.select(input.select); input.select = -1; }
       const [lx, ly] = input.takeLook(settings.sens);
       rig.look(lx, ly);
-      if (input.action) { input.action = false; toggleCar(); }
+      if (input.action) { input.action = false; if (interact && !vehicles.driving) interact.it.use(); else toggleCar(); }
       const aim = computeAim();
       rig.aimBlend = U.damp(rig.aimBlend, input.aim && !combat.isMelee() && !vehicles.driving && !player.dead ? 1 : 0, 10, dt);
       if (!vehicles.driving) player.update(dt, input, rig.yaw); else input.jump = false;
@@ -507,6 +604,7 @@
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       taxi.update(dt);
+      places.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       const drv = vehicles.driving;
       if (drv) { player.x = drv.x; player.z = drv.z; player.y = drv.y; player.heading = drv.h; player.vx = drv.vx; player.vz = drv.vz; }
@@ -522,7 +620,9 @@
       updateBubbles(dt);
       updateHUD(dt);
       if (raw < .5) adapt(raw);
-      if (shop.update(player, !drv && !player.dead && respawnT <= 0)) openShop();
+      findInteraction();
+      // walking into a door circle takes you inside (or back out)
+      if (!fading) { const m = places.doors(player, !drv && !player.dead && respawnT <= 0); if (m) { if (m.dir === 'in') enterPlace(m.place); else exitPlace(m.place); } }
   }
   let last = performance.now(), frameNo = 0, menuT = 0;
   const snapV = v => Math.round(v / 2) * 2;
@@ -541,6 +641,9 @@
       camera.lookAt(70, 11, z * .7);
     }
     const env = dn.update(state === 'menu' ? MENU_HOUR : (START_MIN + time) / 60, now / 1000);
+    // indoors the light is the building's own, whatever the time of day
+    const inside = state !== 'menu' && places.current;
+    if (inside && inside.light) { hemi.color.copy(inside.light.sky); hemi.groundColor.copy(inside.light.ground); hemi.intensity = inside.light.i; sun.intensity = .15; sun.color.setHex(0xffffff); }
     const fx = state === 'menu' ? camera.position.x - 40 : player.x, fz = state === 'menu' ? camera.position.z : player.z;
     sun.target.position.set(snapV(fx), 0, snapV(fz)); sun.target.updateMatrixWorld();
     sun.position.copy(sun.target.position).addScaledVector(env.lightDir, 90);
@@ -548,12 +651,21 @@
     sky.position.copy(camera.position);
     env.px = fx; env.pz = fz;
     world.update(now / 1000, env);
-    // club music: full inside, muffled through the walls nearby
-    const club = world.club;
-    if (club) {
-      const inside = state === 'playing' && club.inside(player.x, player.z);
-      const d = Math.hypot(player.x - club.door.out[0], player.z - club.door.z);
-      audio.club(state !== 'playing' ? 0 : inside ? 1 : Math.max(0, 1 - d / 55) * .5, inside);
+    // venue music: the building you're in, else the club or the tiki bar if you're close (muffled through walls)
+    if (state === 'menu') audio.venue(null, 0, false);
+    else {
+      let name = null, level = 0, full = false;
+      const club = world.club, active = state === 'playing' || state === 'panel' || state === 'shop';
+      if (inside) { name = inside.music; level = name && active ? 1 : 0; full = true; }
+      else if (club) {
+        const cin = club.inside(player.x, player.z), d = Math.hypot(player.x - club.door.out[0], player.z - club.door.z);
+        name = 'club'; level = cin ? 1 : Math.max(0, 1 - d / 55) * .5; full = cin;
+        const tv = places.venueAt(player.x, player.z);
+        if (tv && tv.level > level) { name = tv.name; level = tv.level; full = true; }
+      }
+      audio.venue(name, active ? level : 0, full);
+      const bank = places.byId('bank');
+      audio.alarm(active && bank && bank.alarm() && (places.current === bank || Math.hypot(player.x - bank.door.x, player.z - bank.door.z) < 70));
     }
     vehicles.setNight(env.night);
     renderer.render(scene, camera);
@@ -564,7 +676,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, crowd, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop,
+  NB.debug = { player, vehicles, crowd, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };

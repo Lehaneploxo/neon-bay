@@ -5,19 +5,29 @@
   const STEP = .42, RADIUS = .34, HEIGHT = 1.8;
   const JOG = 4.6, SPRINT = 7.6, GRAVITY = 20, JUMP = 7.2;
 
-  function shirtTexture() {
+  function flowerShirt(base, leaf, petals) {
     return U.canvasTex(128, 128, (g, s) => {
-      g.fillStyle = '#17b3a6'; g.fillRect(0, 0, s, s);
+      g.fillStyle = base; g.fillRect(0, 0, s, s);
       const flower = (x, y, r, c) => {
         g.fillStyle = c;
         for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; g.beginPath(); g.arc(x + Math.cos(a) * r * .55, y + Math.sin(a) * r * .55, r * .5, 0, 7); g.fill(); }
         g.fillStyle = '#ffe36e'; g.beginPath(); g.arc(x, y, r * .25, 0, 7); g.fill();
       };
-      g.fillStyle = '#0d7f6f';
+      g.fillStyle = leaf;
       for (let k = 0; k < 14; k++) { g.save(); g.translate(Math.random() * s, Math.random() * s); g.rotate(Math.random() * 6); g.fillRect(-10, -3, 20, 6); g.restore(); }
-      for (let k = 0; k < 9; k++) flower(Math.random() * s, Math.random() * s, U.rand(9, 15), k % 2 ? '#ff5fa2' : '#ffffff');
+      for (let k = 0; k < 9; k++) flower(Math.random() * s, Math.random() * s, U.rand(9, 15), petals[k % petals.length]);
     }, true, 4);
   }
+  const shirtTexture = () => flowerShirt('#17b3a6', '#0d7f6f', ['#ffffff', '#ff5fa2']);
+  // outfits from the wardrobe (and the police uniform from the station lockers): shirt texture, trousers, cap
+  const OUTFITS = {
+    hawaii: { name: 'Гавайская рубашка', tex: shirtTexture, pants: 0x3b5a8a },
+    vice: { name: 'Белый костюм', tex: () => U.canvasTex(128, 128, (g, s) => { g.fillStyle = '#f4f1ea'; g.fillRect(0, 0, s, s); g.fillStyle = '#ff9fc3'; g.fillRect(s * .36, 0, s * .28, s); g.fillStyle = '#d8d2c6'; g.fillRect(s * .33, 0, 3, s); g.fillRect(s * .66, 0, 3, s); }, true, 4), pants: 0xf2efe6 },
+    pink: { name: 'Розовая рубашка', tex: () => flowerShirt('#ff7eb6', '#2f8a44', ['#ffffff', '#ffe36e']), pants: 0xe8dcc0 },
+    sport: { name: 'Спортивный костюм', tex: () => U.canvasTex(128, 128, (g, s) => { g.fillStyle = '#1a1a22'; g.fillRect(0, 0, s, s); g.fillStyle = '#3fe6e0'; g.fillRect(0, s * .3, s, 10); g.fillStyle = '#ff4fa3'; g.fillRect(0, s * .3 + 12, s, 6); g.fillStyle = '#ffffff'; g.fillRect(s * .48, 0, 4, s); }, true, 4), pants: 0x1a1a22 },
+    cop: { name: 'Полицейская форма', tex: () => U.canvasTex(128, 128, (g, s) => { g.fillStyle = '#23407a'; g.fillRect(0, 0, s, s); g.fillStyle = '#e8c547'; g.beginPath(); g.moveTo(34, 30); g.lineTo(44, 36); g.lineTo(40, 48); g.lineTo(28, 48); g.lineTo(24, 36); g.closePath(); g.fill(); g.fillStyle = '#1a2f5a'; g.fillRect(s * .49, 0, 3, s); for (let y = 12; y < s; y += 22) { g.fillStyle = '#d9d9e2'; g.beginPath(); g.arc(s * .5 + 7, y, 3, 0, 7); g.fill(); } }, true, 4), pants: 0x18223c, cap: true }
+  };
+  NB.OUTFITS = OUTFITS;
 
   function makeHero() {
     const L = c => new THREE.MeshLambertMaterial(c);
@@ -39,6 +49,9 @@
     B(.235, .07, .245, hair, 0, .33, -.005, head);
     B(.235, .17, .07, hair, 0, .24, -.095, head);
     B(.21, .055, .02, shades, 0, .225, .122, head);
+    // police cap, only with the uniform
+    const cap = G(0, 0, 0, head); cap.visible = false;
+    B(.25, .09, .26, L({ color: 0x18223c }), 0, .38, -.005, cap); B(.25, .03, .16, L({ color: 0x111111 }), 0, .34, .1, cap); B(.06, .05, .02, L({ color: 0xe8c547 }), 0, .39, .13, cap);
     const arm = side => {
       const sh = G(side * .255, .46, 0, torso);
       B(.13, .2, .14, shirt, 0, -.08, 0, sh);
@@ -70,7 +83,7 @@
     const batWood = L({ color: 0xc9a06a }), grip = L({ color: 0x1e1e22 });
     // the bat hangs down from the fist and swings forward with the punch animation
     gun('bat', [[.045, .2, .045, grip, 0, -.04, .01], [.06, .38, .06, batWood, 0, -.32, .03], [.08, .3, .08, batWood, 0, -.64, .05]], [0, -.78, .05]);
-    return { root, hips, torso, head, aL, aR, lL, lR, guns };
+    return { root, hips, torso, head, aL, aR, lL, lR, guns, shirt, jeans, cap };
   }
 
   const MELEE = { fists: true, bat: true };
@@ -88,6 +101,13 @@
     }
     place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; }
     get speed() { return Math.hypot(this.vx, this.vz); }
+    setOutfit(id) {
+      const o = OUTFITS[id] || OUTFITS.hawaii, m = this.m;
+      if (!o.map) o.map = o.tex();
+      m.shirt.map = o.map; m.shirt.needsUpdate = true;
+      m.jeans.color.setHex(o.pants); m.cap.visible = !!o.cap;
+      this.outfit = OUTFITS[id] ? id : 'hawaii';
+    }
     setWeapon(id) { this.weapon = id; for (const k in this.m.guns) this.m.guns[k].visible = k === id; }
     punch() { this.punchT = .3; }
     fired() { this.recoil = 1; this.aimT = Math.max(this.aimT, .8); }

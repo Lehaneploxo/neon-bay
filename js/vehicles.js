@@ -599,6 +599,13 @@
       driveTo(car, x, z, speed) { car.goto = { x, z, speed, arrived: false }; car.parked = false; car.awake = true; },
       remove(car) { if (cars.includes(car)) removeCar(car); },
       setNight(n) { night = n; beamMat.opacity = n * .5; },
+      // a car kept in the hero's garage, put back where it was parked
+      spawnParked(id, x, z, h, color, accent) {
+        const model = byId[id]; if (!model) return null;
+        const car = makeCar(model, x, z, h); car.parked = true; car.garage = true;
+        if (color) car.color = color; if (accent) car.accent = accent; paint(car);
+        return car;
+      },
       speedKmh() { return driving ? Math.abs(speedOf(driving)) * 3.6 : 0; }
     };
     return api;

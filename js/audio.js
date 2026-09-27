@@ -137,8 +137,8 @@
     // Outside the club it is quieter and muffled through the walls.
     let club = null;
     const CHORDS = [[55, [220, 261.63, 329.63]], [43.65, [174.61, 220, 261.63]], [65.41, [261.63, 329.63, 392]], [49, [196, 246.94, 293.66]]];
-    function clubStep(step, t) {
-      const bus = club.bus, s = step % 16, bar = ((step / 16) | 0) % 4, [root, chord] = CHORDS[bar];
+    function clubStep(step, t, bus) {
+      const s = step % 16, bar = ((step / 16) | 0) % 4, [root, chord] = CHORDS[bar];
       if (s % 4 === 0) {   // kick
         const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
         env(g, t, .002, .9, .28); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .3);
@@ -156,27 +156,119 @@
       }
       { const f = chord[s % 3] * (s % 6 < 3 ? 2 : 4), o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.value = f; env(g, t, .003, .03, .09); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .12); }
     }
-    A.club = function (level, inside) {
+    /* ---------- music for every venue, one at a time ---------- */
+    // small instruments shared by the tracks below
+    const kick = (bus, t, v = .8) => { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(45, t + .1); env(g, t, .002, v, .22); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .25); };
+    const snare = (bus, t, v = .3) => { noise(bus, t, .14, 'bandpass', 1800, .8, v); tone(bus, t, .08, 'triangle', 190, v * .6, 150); };
+    const hat = (bus, t, v = .08, len = .03) => noise(bus, t, len, 'highpass', 8000, .7, v);
+    const pluck = (bus, t, f, type, v, dur, cut) => {
+      const o = AC.createOscillator(), g = AC.createGain(), flt = AC.createBiquadFilter(); o.type = type; o.frequency.value = f;
+      flt.type = 'lowpass'; flt.frequency.value = cut || 3000; env(g, t, .004, v, dur); o.connect(flt); flt.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + .05);
+    };
+    const pad = (bus, t, fs, dur, v, type = 'triangle') => { for (const f of fs) { const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.value = f; o.detune.value = (Math.random() - .5) * 10; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .08); g.gain.exponentialRampToValueAtTime(.0001, t + dur); o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + .05); } };
+    const steel = (bus, t, f, v) => { pluck(bus, t, f, 'sine', v, .35); pluck(bus, t, f * 2.76, 'sine', v * .35, .18); };
+    const PENTA = [0, 2, 4, 7, 9, 12, 14, 16];
+    const TRACKS = {
+      club: { bpm: 118, step: clubStep },
+      // rock'n'roll: walking bass, backbeat, piano stabs on the offbeat (A–D–E–A)
+      diner: { bpm: 150, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, root = [110, 146.83, 164.81, 110][bar];
+        if (s === 0 || s === 8) kick(bus, t, .6); if (s === 4 || s === 12) snare(bus, t, .28); if (s % 2 === 0) hat(bus, t, .06);
+        if (s % 2 === 0) pluck(bus, t, root / 2 * [1, 1.26, 1.5, 1.68, 2, 1.68, 1.5, 1.26][(s / 2) | 0], 'sawtooth', .22, .18, 700);
+        if (s % 4 === 2) for (const k of [1, 1.26, 1.5]) pluck(bus, t, root * 2 * k, 'square', .035, .12, 2200);
+      } },
+      // surf rock: tremolo guitar on Em–C–D–Em
+      diner2: { bpm: 168, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, root = [164.81, 130.81, 146.83, 164.81][bar];
+        if (s % 8 === 0) kick(bus, t, .55); if (s === 4 || s === 12) snare(bus, t, .25); hat(bus, t, .04);
+        pluck(bus, t, root * [1, 1.5, 2, 1.5][((s / 4) | 0)] * (s % 2 ? 1 : 2), 'sawtooth', .06, .09, 1800);
+        if (s % 4 === 0) pluck(bus, t, root / 2, 'triangle', .3, .3, 600);
+      } },
+      // slow doo-wop in 12/8: C–Am–F–G
+      diner3: { bpm: 72, step(step, t, bus) {
+        const s = step % 12, bar = ((step / 12) | 0) % 4, ch = [[261.6, 329.6, 392], [220, 261.6, 329.6], [174.6, 220, 261.6], [196, 246.9, 293.7]][bar];
+        if (s % 3 === 0) pad(bus, t, ch, .5, .045);
+        if (s === 0 || s === 6) pluck(bus, t, ch[0] / 2, 'triangle', .3, .5, 500);
+        if (s === 3 || s === 9) snare(bus, t, .15);
+        if (s === 0) kick(bus, t, .5);
+      } },
+      // lounge bossa for the casino: soft maj7 chords, root–fifth bass, rim clicks
+      casino: { bpm: 100, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, ch = [[261.6, 329.6, 392, 493.9], [220, 261.6, 329.6, 392], [293.7, 349.2, 440, 523.3], [196, 246.9, 293.7, 349.2]][bar];
+        if (s === 0 || s === 8) pad(bus, t, ch, 1.1, .03, 'sine');
+        if (s === 0 || s === 6) pluck(bus, t, ch[0] / 2, 'triangle', .28, .4, 500); if (s === 8 || s === 14) pluck(bus, t, ch[2] / 2, 'triangle', .22, .35, 500);
+        if ([0, 3, 6, 10, 12].includes(s)) noise(bus, t, .03, 'bandpass', 2600, 4, .12);
+        hat(bus, t, .025, .05);
+        if (s % 4 === 2 && Math.random() < .5) pluck(bus, t, ch[(Math.random() * 4) | 0] * 2, 'sine', .05, .4);
+      } },
+      // chiptune for the arcade
+      arcade: { bpm: 140, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, ch = [[220, 261.6, 329.6], [174.6, 220, 261.6], [261.6, 329.6, 392], [196, 246.9, 293.7]][bar];
+        pluck(bus, t, ch[s % 3] * 2, 'square', .045, .07, 5000);
+        if (s % 2 === 0) pluck(bus, t, ch[0] / 2, 'square', .09, .1, 1200);
+        if (s % 4 === 0) kick(bus, t, .5); if (s === 4 || s === 12) noise(bus, t, .08, 'highpass', 3000, .7, .15); if (s % 2) hat(bus, t, .04);
+        if (s === 0 || s === 6 || s === 10) pluck(bus, t, ch[(bar + s) % 3] * 4, 'square', .03, .18, 6000);
+      } },
+      // elevator-style lounge in the hotel lobby
+      lounge: { bpm: 84, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, ch = [[261.6, 329.6, 392, 493.9], [293.7, 349.2, 440, 523.3], [220, 277.2, 329.6, 415.3], [246.9, 293.7, 370, 440]][bar];
+        if (s === 0) pad(bus, t, ch, 2.6, .025, 'sine');
+        if (s % 4 === 0) pluck(bus, t, ch[0] / 2, 'sine', .2, .6, 400);
+        if (s % 4 === 2 && Math.random() < .6) pluck(bus, t, 523.3 * Math.pow(2, PENTA[(Math.random() * PENTA.length) | 0] / 12), 'sine', .05, .5);
+      } },
+      // tropical: steel drum melody, marimba chords, shaker and bongos
+      tiki: { bpm: 104, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, root = [392, 523.3, 440, 392][bar];
+        if ([0, 3, 6, 8, 11, 14].includes(s)) steel(bus, t, root * Math.pow(2, PENTA[(s + bar * 3) % 6] / 12), .12);
+        if (s % 4 === 2) for (const k of [1, 1.26, 1.5]) pluck(bus, t, root / 2 * k, 'sine', .05, .15);
+        hat(bus, t, s % 2 ? .05 : .025, .05);
+        if (s === 0 || s === 10) pluck(bus, t, 180, 'sine', .3, .12); if (s === 7 || s === 13) pluck(bus, t, 260, 'sine', .22, .1);
+        if (s === 0 || s === 8) pluck(bus, t, root / 4, 'triangle', .25, .35, 500);
+      } }
+    };
+    let venue = null;
+    // name: which track; level 0..1; inside: full sound, otherwise muffled as if through walls
+    A.venue = function (name, level, inside) {
       if (!ok()) return;
       const t = AC.currentTime;
-      if (!club) {
+      if (!venue) {
         const bus = AC.createGain(), flt = AC.createBiquadFilter(), out = AC.createGain();
         bus.gain.value = .55; flt.type = 'lowpass'; flt.frequency.value = 600; out.gain.value = 0;
         bus.connect(flt); flt.connect(out); out.connect(master);
-        club = { bus, flt, out, timer: 0, next: 0, step: 0, level: 0 };
+        venue = { bus, flt, out, timer: 0, next: 0, step: 0, level: 0, name: null };
       }
-      club.out.gain.setTargetAtTime(level * .8, t, .25);
-      club.flt.frequency.setTargetAtTime(inside ? 15000 : 380 + level * 900, t, .25);
-      if (level > .005 && !club.timer) {
-        club.next = t + .06;
-        club.timer = setInterval(() => {
-          if (!AC || AC.state !== 'running') return;
-          const step = 60 / 118 / 4;
-          while (club.next < AC.currentTime + .18) { clubStep(club.step++, club.next); club.next += step; }
+      if (!TRACKS[name]) level = 0;
+      if (name && name !== venue.name && TRACKS[name]) { venue.name = name; venue.step = 0; venue.next = t + .08; }
+      venue.out.gain.setTargetAtTime(level * .8, t, .25);
+      venue.flt.frequency.setTargetAtTime(inside ? 15000 : 380 + level * 900, t, .25);
+      if (level > .005 && !venue.timer) {
+        venue.next = Math.max(venue.next, t + .06);
+        venue.timer = setInterval(() => {
+          if (!AC || AC.state !== 'running' || !TRACKS[venue.name]) return;
+          const tr = TRACKS[venue.name], step = 60 / tr.bpm / 4;
+          if (venue.next < AC.currentTime) venue.next = AC.currentTime + .02;
+          while (venue.next < AC.currentTime + .18) { tr.step(venue.step++, venue.next, venue.bus); venue.next += step; }
         }, 40);
-      } else if (level <= .005 && club.timer && club.level <= .005) { clearInterval(club.timer); club.timer = 0; }
-      club.level = level;
+      } else if (level <= .005 && venue.timer && venue.level <= .005) { clearInterval(venue.timer); venue.timer = 0; }
+      venue.level = level;
     };
+    A.club = (level, inside) => A.venue('club', level, inside);
+    // bank alarm bell: a hard ringing tone chopped by a fast tremolo
+    let alarm = null;
+    A.alarm = function (on) {
+      if (!ok()) return;
+      if (!alarm && on) {
+        const o = AC.createOscillator(), trem = AC.createOscillator(), depth = AC.createGain(), am = AC.createGain(), g = AC.createGain(), f = AC.createBiquadFilter();
+        o.type = 'square'; o.frequency.value = 1150; trem.type = 'square'; trem.frequency.value = 14;
+        depth.gain.value = .5; am.gain.value = .5; g.gain.value = 0;   // am swings 0..1, g is the on/off level
+        f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2;
+        trem.connect(depth); depth.connect(am.gain); o.connect(f); f.connect(am); am.connect(g); g.connect(master); o.start(); trem.start();
+        alarm = { g };
+      }
+      if (alarm) alarm.g.gain.setTargetAtTime(on ? .05 : 0, AC.currentTime, .05);
+    };
+    // slot machine reel tick and roulette ball
+    A.tick = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .015, 'bandpass', 3500, 3, .25); };
 
     // two siren voices that follow the nearest police cars: a wailing oscillator driven by a slow LFO
     const sirenV = [];

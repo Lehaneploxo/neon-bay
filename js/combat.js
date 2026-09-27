@@ -20,7 +20,7 @@
     const { crowd, vehicles, player, audio } = o;
     const col = world.col;
     const inv = { fists: 1, bat: 0, pistol: 0, smg: 0, shotgun: 0, rifle: 0 };
-    let cur = 'fists', cd = 0, lastFire = false;
+    let cur = 'fists', cd = 0, lastFire = false, range = false;   // range: free ammo while a shooting-range round runs
     const V = new THREE.Vector3();
 
     /* ---------- effects ---------- */
@@ -101,7 +101,7 @@
     }
     // money dropped by people the hero knocks out: a small pool of banknote stacks that vanish after a while
     const cashDrops = [];
-    for (let i = 0; i < 8; i++) { const mesh = makePickupMesh('cash'); mesh.visible = false; cashDrops.push({ type: 'cash', mesh, active: false, t: 0, amount: 0, x: 0, z: 0 }); }
+    for (let i = 0; i < 12; i++) { const mesh = makePickupMesh('cash'); mesh.visible = false; cashDrops.push({ type: 'cash', mesh, active: false, t: 0, amount: 0, x: 0, z: 0 }); }
     let cashHead = 0;
     function dropCash(x, z, amount) {
       const c = cashDrops[cashHead]; cashHead = (cashHead + 1) % cashDrops.length;
@@ -117,6 +117,8 @@
       if (ph) { t = ph.t; kind = 'person'; hit = ph.p; head = ph.head; }
       const ch = vehicles.hitTest(ox, oy, oz, dx, dy, dz, t);
       if (ch) { t = ch.t; kind = 'car'; hit = ch.car; }
+      const tg = o.targets && o.targets();   // pop-up targets in the shooting range
+      if (tg) { const h = tg.hitTest(ox, oy, oz, dx, dy, dz, t); if (h) { t = h.t; kind = 'target'; hit = h; } }
       if (withPlayer && !player.inCar && !player.dead) {
         const fx = ox - player.x, fz = oz - player.z, a = dx * dx + dz * dz, b = 2 * (fx * dx + fz * dz), c = fx * fx + fz * fz - .12;
         const disc = b * b - 4 * a * c;
@@ -138,11 +140,13 @@
           crowd.damage(r.hit, w.dmg * (r.head ? 2.5 : 1), { byPlayer: true, kind: 'gun', x: player.x, z: player.z });
           burst(r.x, r.y, r.z, r.head ? 10 : 6, BLOOD, 2);
         } else if (r.kind === 'car') { vehicles.bulletHit(r.hit, w.dmg, r.x, r.z, -dx, -dz); burst(r.x, r.y, r.z, 4, SPARK, 3); }
+        else if (r.kind === 'target') { o.targets().onHit(r.hit); burst(r.x, r.y, r.z, 5, DUST, 1.5); }
         else if (r.kind === 'world') burst(r.x, r.y, r.z, 4, DUST, 2);
         if (k === 0 || Math.random() < .4) tracer(ox, oy, oz, r.x, r.y, r.z);
       }
       muzzleFlash(ox, oy, oz, cur === 'shotgun' ? .7 : .45);
       audio.shot(cur, null);
+      if (o.quiet && o.quiet()) return;   // the shooting range: nobody panics, nobody calls the police
       o.police.reportCrime('shoot', player.x, player.z);
       crowd.panic(player.x, player.z, 40, true);
     }
@@ -194,7 +198,7 @@
 
     return {
       get weapon() { return WEAPONS[cur]; },
-      get ammo() { return WEAPONS[cur].melee ? null : inv[cur]; },
+      get ammo() { return WEAPONS[cur].melee ? null : range ? '∞' : inv[cur]; },
       isMelee: () => !!WEAPONS[cur].melee,
       cycle, copShoot, bloodPool, dropCash,
       select(i) { const id = ORDER[i]; if (id && inv[id] > 0) { cur = id; player.setWeapon(cur); } },
@@ -205,6 +209,15 @@
         if (WEAPONS[id].melee) inv[id] = 1; else inv[id] += ammo;
         cur = id; player.setWeapon(cur);
       },
+      // shooting range: free ammo; takes out the best gun you own or lends a pistol (returns true if lent)
+      startRange() {
+        range = true;
+        if (!WEAPONS[cur].melee) return false;
+        const own = ORDER.filter(k => !WEAPONS[k].melee && inv[k] > 0);
+        cur = own.length ? own[own.length - 1] : 'pistol'; player.setWeapon(cur);
+        return !own.length;
+      },
+      endRange(lent) { range = false; if (lent && inv[cur] <= 0) { cur = 'fists'; player.setWeapon(cur); } },
       load(saved) {
         if (!saved) return;
         for (const k of ORDER) if (k !== 'fists' && saved[k] > 0) inv[k] = Math.floor(saved[k]);
@@ -217,8 +230,8 @@
         if (!driving && !player.dead && input.fire) {
           const w = WEAPONS[cur];
           if (w.melee) { if (cd <= 0) { cd = w.rate; punch(); } }
-          else if (inv[cur] > 0) {
-            if (cd <= 0 && (w.auto || !lastFire) && aim) { cd = w.rate; inv[cur]--; heroShoot(aim); player.fired(); if (!inv[cur]) o.flash(w.name + ': патроны кончились', 1.6); }
+          else if (range || inv[cur] > 0) {
+            if (cd <= 0 && (w.auto || !lastFire) && aim) { cd = w.rate; if (!range) inv[cur]--; heroShoot(aim); player.fired(); if (!inv[cur]) o.flash(w.name + ': патроны кончились', 1.6); }
           } else if (!lastFire) audio.dry();
         }
         lastFire = input.fire;

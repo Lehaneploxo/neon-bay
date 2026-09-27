@@ -150,16 +150,46 @@ body.touch .forDesk{display:none;}
 .seg button{font:600 13px/1 Rubik,sans-serif;color:var(--ink);background:transparent;border:0;padding:9px 14px;cursor:pointer;touch-action:manipulation;}
 .seg button[aria-pressed="true"]{background:var(--pink);color:#2a0c1c;}
 .note{font-size:13px;color:var(--dim);max-width:48ch;line-height:1.45;}
-/* gun shop counter */
+/* gun shop counter and the menus inside places */
 .shopHead{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-#shopMoney{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 10px rgba(107,255,138,.5);}
-#shopList{display:flex;flex-direction:column;gap:8px;}
-#shopList .item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border-radius:12px;background:rgba(21,15,38,.55);box-shadow:0 0 0 1px var(--line);}
-#shopList .item.owned{box-shadow:0 0 0 1px rgba(255,138,61,.5);}
-#shopList .info{display:flex;flex-direction:column;gap:2px;min-width:0;}
-#shopList .info b{font-size:16px;}
-#shopList .info span{font-size:13px;color:var(--dim);}
+#shopMoney,#panelMoney{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 10px rgba(107,255,138,.5);}
+#shopList,.plist{display:flex;flex-direction:column;gap:8px;}
+#shopList .item,.plist .item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border-radius:12px;background:rgba(21,15,38,.55);box-shadow:0 0 0 1px var(--line);}
+#shopList .item.owned,.plist .item.owned{box-shadow:0 0 0 1px rgba(255,138,61,.5);}
+#shopList .info,.plist .info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#shopList .info b,.plist .info b{font-size:16px;}
+#shopList .info span,.plist .info span{font-size:13px;color:var(--dim);}
 #shopList .info em{font-style:normal;font-size:12px;font-weight:700;color:var(--cyan);}
+#panel .card{max-width:620px;}
+#panelNote{min-height:1.45em;color:var(--ink);font-weight:600;}
+/* casino */
+.slots,.roulette{display:flex;flex-direction:column;gap:14px;}
+.reels{display:flex;gap:10px;}
+.reel{width:92px;height:104px;border-radius:14px;background:linear-gradient(#fffaf0,#e8dfcc);box-shadow:inset 0 6px 12px rgba(0,0,0,.35),0 0 0 3px #c9a04a,0 0 18px rgba(255,216,79,.35);display:flex;align-items:center;justify-content:center;font:900 44px/1 Rubik,sans-serif;text-shadow:0 2px 0 rgba(0,0,0,.25);}
+.bets{gap:8px;}
+.chip{font:700 13px/1 Rubik,sans-serif;color:var(--ink);background:rgba(21,15,38,.6);border:1px solid var(--line);border-radius:999px;padding:9px 13px;cursor:pointer;touch-action:manipulation;}
+.chip[aria-pressed="true"]{background:#ffd84f;color:#2a1c05;border-color:#ffd84f;}
+.chip:focus-visible,.spin:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+.pay{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--dim);}
+.pay b{font-size:14px;letter-spacing:.04em;}
+.roulette{flex-direction:row;flex-wrap:wrap;align-items:flex-start;}
+#wheelCv{width:220px;height:220px;border-radius:50%;box-shadow:0 0 0 3px #c9a04a,0 0 24px rgba(255,216,79,.3);}
+.rside{display:flex;flex-direction:column;gap:12px;flex:1;min-width:220px;}
+.numrow input{width:70px;font:700 15px Rubik,sans-serif;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:rgba(21,15,38,.6);color:var(--ink);}
+/* arcade cabinet */
+#arcadeScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,4,16,.92);padding:16px;}
+.cab{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:16px;border-radius:22px;background:linear-gradient(#2a1a44,#150c26);box-shadow:0 0 0 3px #c28bff,0 0 40px rgba(194,139,255,.45);max-height:100%;}
+#racerCv{display:block;width:auto;height:min(560px,calc(100vh - 150px));aspect-ratio:360/560;border-radius:10px;background:#1a0a30;}
+#racerUi{position:absolute;left:16px;right:16px;top:16px;bottom:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;background:rgba(10,4,20,.72);border-radius:10px;}
+#racerMsg{display:flex;flex-direction:column;gap:8px;}
+#racerMsg b{font:800 34px/1 Rubik,sans-serif;letter-spacing:.06em;color:#ff4fa3;text-shadow:0 0 14px #ff4fa3;}
+#racerMsg span{font-size:15px;line-height:1.5;color:var(--ink);}
+.cabRow{display:flex;gap:12px;align-items:center;}
+.pad{width:64px;height:52px;border-radius:12px;border:2px solid rgba(255,241,228,.5);background:rgba(21,15,38,.6);color:var(--ink);font:800 22px/1 Rubik,sans-serif;touch-action:none;cursor:pointer;}
+.pad:active{background:rgba(255,79,163,.6);}
+/* the blink when walking through a door */
+#fade{position:fixed;inset:0;background:#0a0612;opacity:0;pointer-events:none;transition:opacity .22s;}
+#fade.on{opacity:1;}
 .buy{flex:none;font:800 13px/1 Rubik,sans-serif;letter-spacing:.04em;color:#2a0c1c;background:linear-gradient(90deg,#ff9a55,#ffd84f);border:0;border-radius:999px;padding:11px 16px;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
 .buy:hover{filter:brightness(1.08);}
 .buy:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
@@ -200,7 +230,7 @@ body.touch .fsOnly{display:inline-block;}
     <div id="weapon"><span id="wName">Кулаки</span><b id="wAmmo"></b></div>
     <div id="money">$<span id="moneyNum">0</span><div id="moneyPop"></div></div>
   </div>
-  <div id="job" hidden><span class="tag">ТАКСИ</span><span id="jobText"></span><b id="jobTime"></b></div>
+  <div id="job" hidden><span class="tag" id="jobTag">ТАКСИ</span><span id="jobText"></span><b id="jobTime"></b></div>
   <div id="cross"></div>
   <div id="lock"></div>
   <div id="bigmsg" class="script"></div>
@@ -229,9 +259,9 @@ body.touch .fsOnly{display:inline-block;}
 
 <div id="menu" class="screen">
   <div class="card">
-    <div class="eyebrow">Этап 6 · Деньги, такси и ночь</div>
+    <div class="eyebrow">Этап 7 · Город открыт</div>
     <h1 class="script">Neon Bay</h1>
-    <p class="lede" id="lede">Приморский район в духе 80-х: неон, пальмы и океан. Солнце садится, город зажигает окна и фонари, а к утру снова светает. На набережной гремит диско-клуб NEOLOXO 21 — заходите внутрь. Садитесь в жёлтое такси и развозите пассажиров за деньги, а тратьте их в оружейном магазине (оранжевый значок на карте). Полиция следит за порядком: нарушите закон на её глазах — получите звёзды розыска.</p>
+    <p class="lede" id="lede">Приморский район в духе 80-х: неон, пальмы и океан. В десяток зданий теперь можно зайти — ищите светящиеся круги у дверей: банк (его можно ограбить), казино, зал игровых автоматов, закусочная, отель с бассейном на крыше, больница, полицейский участок, оружейная Ammo Bay. Заработайте на такси и купите виллу на пляже с гаражом. Вечером загляните в клуб NEOLOXO 21 и тики-бар.</p>
     <button id="playBtn" class="btn" type="button">Играть</button>
     <div class="controls forDesk">
       <div><kbd>W A S D</kbd>Ходьба</div>
@@ -240,7 +270,7 @@ body.touch .fsOnly{display:inline-block;}
       <div><kbd>Пробел</kbd>Прыжок</div>
       <div><kbd>Колесо</kbd>Ближе / дальше</div>
       <div><kbd>Esc</kbd>Пауза</div>
-      <div><kbd>F</kbd>Сесть / выйти из машины</div>
+      <div><kbd>F</kbd>Сесть в машину / действие</div>
       <div><kbd>W / S</kbd>Газ / тормоз, задний ход</div>
       <div><kbd>Пробел</kbd>Ручник (в машине)</div>
       <div><kbd>H</kbd>Сигнал</div>
@@ -255,7 +285,7 @@ body.touch .fsOnly{display:inline-block;}
       <div><kbd>Правый палец</kbd>Камера</div>
       <div><kbd>БЕГ</kbd>Включить бег</div>
       <div><kbd>ПРЫЖОК</kbd>Прыгнуть</div>
-      <div><kbd>СЕСТЬ</kbd>Сесть в машину рядом</div>
+      <div><kbd>СЕСТЬ</kbd>Сесть в машину или действие рядом</div>
       <div><kbd>ГАЗ / ТОРМОЗ</kbd>Ехать, джойстик — руль</div>
       <div><kbd>УДАР / ОГОНЬ</kbd>Автоприцел по ближайшему</div>
       <div><kbd>ОРУЖ.</kbd>Сменить оружие</div>
@@ -299,9 +329,30 @@ body.touch .fsOnly{display:inline-block;}
   </div>
 </div>
 
+<div id="panel" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow" id="panelEyebrow"></div>
+    <div class="shopHead"><h2 class="script" id="panelTitle"></h2><div id="panelMoney">$0</div></div>
+    <div id="panelBody"></div>
+    <div id="panelNote" class="note" aria-live="polite"></div>
+    <button id="panelClose" class="btn" type="button">Выйти</button>
+  </div>
+</div>
+
+<div id="arcadeScreen" hidden>
+  <div class="cab">
+    <canvas id="racerCv" width="360" height="560" aria-label="NEON RACER"></canvas>
+    <div id="racerUi"><div id="racerMsg"></div><button id="racerGo" class="btn" type="button">Играть · $5</button></div>
+    <div class="cabRow"><button id="racerL" class="pad" type="button" aria-label="Влево">◀</button><button id="racerExit" class="ghost" type="button">Выйти</button><button id="racerR" class="pad" type="button" aria-label="Вправо">▶</button></div>
+  </div>
+</div>
+
+<div id="fade"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/club.js"></script>
+<script src="js/places.js"></script>
 <script src="js/world.js"></script>
 <script src="js/player.js"></script>
 <script src="js/npc.js"></script>
@@ -314,5 +365,6 @@ body.touch .fsOnly{display:inline-block;}
 <script src="js/daynight.js"></script>
 <script src="js/taxi.js"></script>
 <script src="js/shop.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/input.js"></script>
 <script src="js/main.js"></script>

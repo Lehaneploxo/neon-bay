@@ -102,11 +102,16 @@
     let club = null;
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
-    let station = null, hospital = null, gunShop = null;
+    let station = null, hospital = null, gunShop = null, hotelRoof = null;
+    // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
+    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }];
+    const reserved = (x, z, m = 0) => RESERVED.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
 
-    function neonRing(x0, z0, x1, z1, y, hex) {
+    // hollow: four strips instead of one flat slab, for a roof you can stand on
+    function neonRing(x0, z0, x1, z1, y, hex, hollow) {
       const c = C(hex);
-      bNeon.box(x0 - .07, y, z0 - .07, x1 + .07, y + .14, z1 + .07, c);
+      if (hollow) for (const [a, b, e, d] of [[x0, z0, x1, z0 + .07], [x0, z1 - .07, x1, z1], [x0, z0, x0 + .07, z1], [x1 - .07, z0, x1, z1]]) bNeon.box(a - .07, y, b - .07, e + .07, y + .14, d + .07, c);
+      else bNeon.box(x0 - .07, y, z0 - .07, x1 + .07, y + .14, z1 + .07, c);
       bGlow.box(x0 - .3, y - .3, z0 - .3, x1 + .3, y + .45, z1 + .3, c.clone().multiplyScalar(.9), { noTop: true });
     }
     // Rectangle protruding `out` metres from a face of box b, centred on the face, half-width hw.
@@ -154,18 +159,27 @@
       const [x0, z0, x1, z1] = faceRect(face, b, 1.5, hw);
       bPlain.box(x0, 3.0, z0, x1, 3.22, z1, C(hex));
     }
-    // gun shop: dark door with an orange neon frame, orange trim on the roof, and the trigger spot on the sidewalk
-    function gunShopFront(face, b, h) {
-      const ORANGE = C('#ff8a3d');
-      const [dx0, dz0, dx1, dz1] = faceRect(face, b, .06, .75, 2.4);
-      bPlain.box(dx0, .15, dz0, dx1, 2.5, dz1, C('#24182e'));
-      const [fx0, fz0, fx1, fz1] = faceRect(face, b, .1, .95, 2.4);
-      bNeon.box(fx0, 2.5, fz0, fx1, 2.62, fz1, ORANGE);
-      bGlow.box(fx0 - .2, 2.2, fz0 - .2, fx1 + .2, 2.9, fz1 + .2, ORANGE.clone().multiplyScalar(.9), { noTop: true });
-      neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff8a3d');
-      const [px, pz] = facePoint(face, b, 1.35, 2.4);
+    // an enterable building's front door: dark door, neon frame over it, and the spot on the sidewalk that leads inside
+    const doors = {};
+    function frontDoor(id, face, b, off, hex) {
+      const c = C(hex);
+      const [dx0, dz0, dx1, dz1] = faceRect(face, b, .06, .8, off);
+      bPlain.box(dx0, .15, dz0, dx1, 2.55, dz1, C('#1d1426'));
+      const [fx0, fz0, fx1, fz1] = faceRect(face, b, .1, 1.0, off);
+      bNeon.box(fx0, 2.55, fz0, fx1, 2.67, fz1, c);
+      bGlow.box(fx0 - .2, 2.25, fz0 - .2, fx1 + .2, 2.95, fz1 + .2, c.clone().multiplyScalar(.9), { noTop: true });
+      const [px, pz] = facePoint(face, b, 1.3, off);
       const n = { '+x': [1, 0], '-x': [-1, 0], '+z': [0, 1], '-z': [0, -1] }[face];
-      gunShop = { x: px, z: pz, y: .15, heading: Math.atan2(n[0], n[1]), cx: (b.x0 + b.x1) / 2, cz: (b.z0 + b.z1) / 2 };
+      doors[id] = { x: px, z: pz, y: .15, heading: Math.atan2(n[0], n[1]), nx: n[0], nz: n[1], hex, cx: (b.x0 + b.x1) / 2, cz: (b.z0 + b.z1) / 2 };
+      return doors[id];
+    }
+    // downtown buildings that become places you can walk into
+    const SPECIAL = { '1,1,0': ['bank', 'BANK', '#4fd1ff'], '2,1,0': ['casino', 'CASINO', '#ffd84f'], '1,2,1': ['arcade', 'ARCADE', '#c28bff'], '2,2,1': ['diner', 'DINER', '#ff4fa3'] };
+    // gun shop: orange neon frame over the door, orange trim on the roof
+    function gunShopFront(face, b, h) {
+      neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff8a3d');
+      const d = frontDoor('ammo', face, b, 2.4, '#ff8a3d');
+      gunShop = { x: d.x, z: d.z, y: .15, heading: d.heading, cx: d.cx, cz: d.cz };
       mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#ff9a55', k: 'b' });
     }
     function faceToward(b, cx, cz) { // the face of b that looks towards (cx, cz)'s opposite, i.e. away from block centre
@@ -227,11 +241,13 @@
         const mz = (lz0 + lz1) / 2;
         for (const [z0, z1] of [[lz0, mz - 1], [mz + 1, lz1]]) {
           const hex = pick(PASTEL), neon = pick(NEON), h = 4 * Math.round(rr(3, 5.6)) + .6;
+          const ocean = j === 1 && z0 === lz0;   // Hotel OCEAN: a lobby you can enter and a pool on the roof
           const b = building(lx1 - 20, z0, lx1, z1, h, hex);
           const zc = (z0 + z1) / 2;
-          // stepped crown
-          bFacade.box(b.x0 + 3, h + .35, z0 + 2.5, b.x1 - 2, h + 3.4, z1 - 2.5, C(hex), { tile: FT, top: C(hex).multiplyScalar(.82) });
-          neonRing(b.x0 + 3, z0 + 2.5, b.x1 - 2, z1 - 2.5, h + 3.25, neon);
+          // stepped crown (the OCEAN's top is left open for the roof deck built in places.js)
+          bFacade.box(b.x0 + 3, h + .35, z0 + 2.5, b.x1 - 2, h + 3.4, z1 - 2.5, C(hex), { tile: FT, top: C(hex).multiplyScalar(.82), noTop: ocean });
+          if (ocean) hotelRoof = { x0: b.x0 + 3, x1: b.x1 - 2, z0: z0 + 2.5, z1: z1 - 2.5, y: h + 3.4, hex };
+          neonRing(b.x0 + 3, z0 + 2.5, b.x1 - 2, z1 - 2.5, h + 3.25, neon, ocean);
           // art-deco fin facing the ocean
           const accent = pick(PASTEL);
           bFacade.box(b.x1, .15, zc - 1.2, b.x1 + .9, h + 4.5, zc + 1.2, C(accent), { tile: FT });
@@ -240,9 +256,11 @@
           bGlow.box(b.x1 + .9, 1.5, zc - .45, b.x1 + 1.3, h + 4.5, zc + .45, C(neon).multiplyScalar(.9), { noTop: true });
           neonRing(b.x0, z0, b.x1, z1, 4.35, neon);
           neonRing(b.x0, z0, b.x1, z1, h - .5, pick(NEON));
-          sign('+x', b, h - 3.4, h - .9, 2.5, pick(['HOTEL', 'MOTEL', 'PALMS', 'OCEAN']), -4.3);
+          const name = pick(['HOTEL', 'MOTEL', 'PALMS', 'OCEAN']);
+          sign('+x', b, h - 3.4, h - .9, 2.5, ocean ? 'OCEAN' : name, -4.3);
           sign('+x', b, 3.1, 4.0, .9, pick(['BAR', 'CAFE', 'CLUB', 'DISCO']), 4.3);
           bPlain.box(b.x1, 3.0, zc - 3.5, b.x1 + 2.2, 3.25, zc + 3.5, C(accent).multiplyScalar(.9));
+          if (ocean) { frontDoor('hotel', '+x', b, 2.4, '#3fe6e0'); mapShapes.push({ x0: b.x0, z0, x1: b.x1, z1, c: '#3fe6e0', k: 'b' }); }
         }
         // low shops on the back (west) street
         const b = building(lx0, lz0, lx1 - 23, lz1, rr(5, 7), pick(PASTEL));
@@ -252,7 +270,8 @@
         const splitX = R() < .5;
         const halves = splitX ? [[lx0, lz0, (lx0 + lx1) / 2 - 1.5, lz1], [(lx0 + lx1) / 2 + 1.5, lz0, lx1, lz1]]
                               : [[lx0, lz0, lx1, (lz0 + lz1) / 2 - 1.5], [lx0, (lz0 + lz1) / 2 + 1.5, lx1, lz1]];
-        for (const [x0, z0, x1, z1] of halves) {
+        for (const [hi, [x0, z0, x1, z1]] of halves.entries()) {
+          const sp = SPECIAL[i + ',' + j + ',' + hi];
           const hex = pick(COOL), h1 = rr(18, 32), h2 = h1 + rr(8, 22);
           const b = building(x0 + .5, z0 + .5, x1 - .5, z1 - .5, h1, hex);
           const ub = { x0: b.x0 + 2.5, z0: b.z0 + 2.5, x1: b.x1 - 2.5, z1: b.z1 - 2.5, h: h2 };
@@ -261,8 +280,10 @@
           bPlain.box((ub.x0 + ub.x1) / 2 - .1, h2 + 2, (ub.z0 + ub.z1) / 2 - .1, (ub.x0 + ub.x1) / 2 + .1, h2 + rr(6, 12), (ub.z0 + ub.z1) / 2 + .1, C('#5d566a'));
           if (R() < .6) neonRing(ub.x0, ub.z0, ub.x1, ub.z1, h2 - .6, pick(NEON));
           const f = faceToward(b, cx, cz);
-          sign(f, b, 3.3, 4.8, 1.5, pick(['CASINO', 'RADIO', 'VIDEO', 'ARCADE', 'CAFE', 'DINER']));
+          const word = pick(['CASINO', 'RADIO', 'VIDEO', 'ARCADE', 'CAFE', 'DINER']);
+          sign(f, b, 3.3, 4.8, 1.5, sp ? sp[1] : word);
           awning(f, b, pick(PASTEL), 5);
+          if (sp) { frontDoor(sp[0], f, b, 0, sp[2]); mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: sp[2], k: 'b' }); }
         }
       } else if (t === 'shops') {
         const mx = (lx0 + lx1) / 2, mz = (lz0 + lz1) / 2;
@@ -317,6 +338,7 @@
         neonRing(annexe.x0, annexe.z0, annexe.x1, annexe.z1, 5.6, '#3f8cff');
         for (let z = lz0 + 1; z < lz0 + 20; z += 6.2) bPlain.flat(b.x1 + 5.5, z, lx1, z + .12, .16, PAINT);
         mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#5a86e0', k: 'b' });
+        frontDoor('police', '+x', b, 0, '#3f8cff');
         station = { x: b.x1 + 3.2, z: zc, heading: Math.PI / 2, cx: (b.x0 + b.x1) / 2, cz: zc,
           parking: [[lx1 - 2.6, lz0 + 4.1, 0], [lx1 - 2.6, lz0 + 10.3, 0], [lx1 - 2.6, lz0 + 16.5, Math.PI]] };
       } else if (t === 'hospital') {
@@ -340,7 +362,8 @@
         neonRing(annexe.x0, annexe.z0, annexe.x1, annexe.z1, 6.6, '#ff3344');
         for (let z = lz0 + 1; z < lz0 + 20; z += 6.2) bPlain.flat(b.x1 + 5.5, z, lx1, z + .12, .16, PAINT);
         mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#e8a0a8', k: 'b' });
-        hospital = { x: b.x1 + 1.8, z: zc - 3.5, heading: Math.PI / 2, cx: (b.x0 + b.x1) / 2, cz: zc,
+        frontDoor('hospital', '+x', b, -3.5, '#ff3344');
+        hospital = { x: b.x1 + 3.6, z: zc - 3.5, heading: Math.PI / 2, cx: (b.x0 + b.x1) / 2, cz: zc,
           parking: [[lx1 - 2.6, lz0 + 4.1, 0], [lx1 - 2.6, lz0 + 10.3, 0]] };
       } else if (t === 'parking') {
         bPlain.box(lx0, .15, lz0, lx1, .16, lz1, C('#4a4552'));
@@ -357,9 +380,10 @@
     for (let z = -99; z <= 99; z += 9) palms.push([CITY + 1.8, .15, z + .5]);
     // kept clear of the crossings so people walking to the beach are not blocked
     for (let z = -94; z <= 94; z += 12) if (!ROADS.some(L => Math.abs(z - L) < RH + 3.2)) palms.push([ROADS[4] - RH - .65, .15, z]);
-    for (let k = 0; k < 26; k++) palms.push([rr(113, 134), .02, rr(-100, 100)]);
+    for (let k = 0; k < 26; k++) { const p = [rr(113, 134), .02, rr(-100, 100)]; if (!reserved(p[0], p[2], 1)) palms.push(p); }
     for (let k = 0; k < 16; k++) {
       const x = rr(116, 136), z = rr(-96, 96);
+      if (reserved(x, z, 3)) continue;
       umbrellas.push([x, z]); loungers.push({ x, z });
       col.add(x - .35, 0, z + .9, x + .35, .8, z + 2.7);
       bPlain.box(x - .35, .02, z + .9, x + .35, .35, z + 2.7, C('#f5f0e6'));
@@ -395,6 +419,9 @@
       const x = Math.cos(a) * d, z = Math.sin(a) * d * 1.2;
       bFacade.box(x - w / 2, 0, z - w / 2, x + w / 2, rr(40, 95), z + w / 2, C(pick(MUTED)).multiplyScalar(.9), { tile: FT });
     }
+
+    /* ---------- places you can go into: interiors, the villa, the tiki bar, the hotel roof ---------- */
+    const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, reserved: RESERVED, palms, mapShapes });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);
@@ -522,6 +549,7 @@
 
     function districtAt(x, z) {
       if (club && club.inside(x, z)) return club.name;
+      const pl = places.at(x, z); if (pl) return pl.name;
       if (x > CITY) return 'Пляж Санрайз';
       if (x > 52) return 'Коралловая полоса';
       if (Math.abs(x) < 52 && Math.abs(z) < 52) return 'Даунтаун';
@@ -530,7 +558,7 @@
     }
 
     return {
-      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -539,6 +567,7 @@
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
         if (club) club.update(t, env, env.px, env.pz);
+        places.render(t, env);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);
