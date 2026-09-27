@@ -144,7 +144,7 @@
       muzzleFlash(ox, oy, oz, cur === 'shotgun' ? .7 : .45);
       audio.shot(cur, null);
       o.police.reportCrime('shoot', player.x, player.z);
-      crowd.panic(player.x, player.z, 40);
+      crowd.panic(player.x, player.z, 40, true);
     }
     function punch() {
       const w = WEAPONS[cur];

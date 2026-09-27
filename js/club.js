@@ -226,7 +226,8 @@
     }
     spots.push({ kind: 'dj', x: 65.4, z: DZ, heading: Math.PI / 2, mix: 'club' });
     for (const x of [73.5, 80]) spots.push({ kind: 'guard', x, z: 36.2, heading: Math.PI, mix: 'club' });
-    spots.push({ kind: 'guard', x: X1 + 1.6, z: DZ + 2.4, heading: Math.PI / 2, mix: 'guard' });
+    // two bouncers either side of the entrance, arms crossed, watching the street
+    for (const s of [-1, 1]) spots.push({ kind: 'bouncer', x: X1 + 1.5, z: DZ + s * 1.35, heading: Math.PI / 2 - s * .25, mix: 'bouncer' });
     for (const x of seats) if (R() < .6) spots.push({ kind: 'sit', x, z: IZ0 + .62, y: .66, heading: 0, mix: 'club' });
 
     /* ---------- getting in and out ---------- */

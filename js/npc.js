@@ -39,6 +39,7 @@
   const CARJACK_PHRASES = ['Эй! Это моя машина!', 'Верни машину!', 'Полиция! Угнали!', 'Ты что делаешь?!', 'Ну всё, я звоню копам!'];
   const FLEE_PHRASES = ['Помогите!', 'Он псих!', 'Бежим!', 'Не стреляйте!', 'Полиция!!', 'А-а-а!'];
   const FIGHT_PHRASES = ['Ах ты так?!', 'Ну держись!', 'Сам напросился!', 'Иди сюда!'];
+  const BOUNCER_PHRASES = ['Эй! Здесь так не принято!', 'На выход, приятель!', 'Ты попал.', 'Охрана! Держи его!', 'Сейчас объясню правила.'];
   const PHRASES = ['Эй, смотри куда идёшь!', 'Осторожнее!', 'Ай!', 'Ну ты даёшь!', 'Полегче, приятель!', 'Куда ты так несёшься?', 'Извините?!', 'Совсем уже…'];
 
   function makeLook(type) {
@@ -106,6 +107,13 @@
         if (chance(.4)) { show('shades'); set('shades', '#141018'); }
         L.speed = rand(1.2, 1.4); break;
       }
+      case 'bouncer': { // club security: tall, very broad, black tank top, shaved head, shades
+        L.hs = rand(1.1, 1.15); L.ws = rand(1.4, 1.5);
+        set('torso', '#141418'); sleeves('none'); legs('pants', '#1c1c24'); set('shoeL shoeR', '#0c0c0e');
+        L.hide.add('hairTop'); L.hide.add('hairBack'); show('shades'); set('shades', '#0a0a0e');
+        show('tie'); set('tie', '#e8c547');   // gold chain
+        L.speed = 1.3; break;
+      }
       default: { // elderly
         const s = pick(['#d9c7a6', '#a9c4d8', '#e6b8c2', '#c8d9b0', '#f3efe6']); set('torso', s); sleeves(chance(.5) ? 'long' : 'short', s);
         legs('pants', pick(['#c9b89a', '#8a8f98', '#e8e2d4'])); set('shoeL shoeR', '#5a4030');
@@ -149,6 +157,7 @@
     medic: [['medic', 1]],
     club: [['tourist_f', .34], ['tourist_m', .28], ['business_f', .2], ['business_m', .18]],
     guard: [['business_m', 1]],
+    bouncer: [['bouncer', 1]],
     town: [['tourist_m', .22], ['tourist_f', .24], ['business_m', .12], ['business_f', .1], ['elderly', .16], ['jogger', .08], ['beach_f', .04], ['beach_m', .04]]
   };
   function typeFor(mix) { let r = Math.random(); for (const [t, w] of mix) { if ((r -= w) <= 0) return t; } return mix[0][0]; }
@@ -236,8 +245,17 @@
     // the club: dancers, the DJ, bartenders, the bouncer and people in the booths
     const club = world.club;
     if (club) for (const s of club.spots) spots.push(Object.assign({}, s));
-    for (const s of spots) { s.person = null; s.y = s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 5); }
-    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1 };
+    for (const s of spots) { s.person = null; s.y = s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
+    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1 };
+    // trouble in or at the club: both bouncers drop what they're doing and go for the hero
+    function alertBouncers() {
+      for (const b of people) {
+        if (!b.bouncer || b.dead || b.down) continue;
+        if (b.fightT <= 0) bumpCallback(b, pick(BOUNCER_PHRASES));
+        detachSpot(b); b.fightT = 30; b.fleeT = 0; b.punchCD = Math.min(b.punchCD, .4);
+      }
+    }
+    const nearClub = (x, z, r = 9) => club && (club.inside(x, z) || Math.hypot(x - club.door.out[0], z - club.door.z) < r);
     // someone going between the club and the street walks through the door instead of into a wall
     function viaDoor(p, gx, gz) {
       if (!club) return null;
@@ -270,10 +288,10 @@
     function spawn(look, x, z, mode) {
       if (!free.length) return null;
       const slot = free.pop();
-      const p = { slot, look, x, z, y: floorAt(x, z, 5), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
+      const p = { slot, look, x, z, y: floorAt(x, z, 1), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
         phase: rand(0, 6), headY: 0, pauseT: 0, target: null, node: -1, prev: -1, off: rand(-.45, .45), blocked: 0,
         stuckT: 0, lastX: x, lastZ: z, bumpT: -9, stumbleT: 0, frame: (Math.random() * 3) | 0, seed: Math.random() * 10,
-        cop: look.type === 'cop', hp: look.type === 'cop' ? 100 : 60, dead: false, fallT: 0, deadT: 0,
+        cop: look.type === 'cop', bouncer: look.type === 'bouncer', hp: look.type === 'cop' ? 100 : look.type === 'bouncer' ? 260 : 60, dead: false, fallT: 0, deadT: 0,
         fleeT: 0, fleeX: 0, fleeZ: 0, fightT: 0, punchCD: 0, punchT: 0, running: false,
         los: false, losT: Math.random() * .2, shootT: rand(.5, 1.2), sideT: 0, sideX: 0, sideZ: 0, chasing: false,
         pose: { bob: 0, lean: 0, twist: 0, headP: 0, headY: 0, aL: 0, aR: 0, eL: 0, eR: 0, tL: 0, tR: 0, kL: 0, kR: 0, spread: 0 } };
@@ -339,7 +357,7 @@
       const s = p.spot; s.person = null; s.vacated = true; p.spot = null;
       if (s.grp) for (const o of spots) if (o.grp === s.grp) o.vacated = true;   // nobody joins a group that just broke up
       if (s.kind === 'lie') p.x += .9;
-      p.y = floorAt(p.x, p.z, 5);
+      p.y = floorAt(p.x, p.z, 1);
       if (p.anim === 'sit' || p.anim === 'lie' || p.anim === 'talk') p.anim = 'idle';
       resumeRoute(p);
     }
@@ -428,14 +446,14 @@
     function fight(p, dt, player) {
       p.fightT -= dt; p.punchT -= dt;
       const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
-      if (d > 16 || player.inCar || player.dead || p.fightT <= 0) { resumeRoute(p); return; }
-      const door = viaDoor(p, player.x, player.z);
-      if (door) { runTo(p, door, 3.8, dt); return; }
+      if (d > (p.bouncer ? 60 : 16) || player.inCar || player.dead || p.fightT <= 0) { resumeRoute(p); return; }
+      const run = p.bouncer ? 4.6 : 3.8, door = viaDoor(p, player.x, player.z);
+      if (door) { runTo(p, door, run, dt); return; }
       p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
-      if (d > 1.05) { stepMove(p, dx / d, dz / d, 3.8, dt); p.running = true; p.anim = 'walk'; unstick(p, dt, dx / d, dz / d); }
+      if (d > 1.05) { stepMove(p, dx / d, dz / d, run, dt); p.running = true; p.anim = 'walk'; unstick(p, dt, dx / d, dz / d); }
       else {
         p.speed = 0; p.running = false; p.anim = 'punch'; p.punchCD -= dt;
-        if (p.punchCD <= 0) { p.punchCD = rand(.8, 1.3); p.punchT = .35; call('onHitPlayer', rand(5, 9), p); }
+        if (p.punchCD <= 0) { p.punchCD = p.bouncer ? rand(.9, 1.3) : rand(.8, 1.3); p.punchT = .35; call('onHitPlayer', p.bouncer ? rand(9, 13) : rand(5, 9), p); }
       }
     }
     // walk (or jog when far) to m.goal, then turn to m.face; paramedics and taxi passengers
@@ -468,6 +486,13 @@
       }
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
+      // a bouncer with nothing to do walks back to the door and takes up the post again
+      if (p.home && p.fleeT <= 0 && p.fightT <= 0) {
+        const H = p.home, s = H.spot;
+        goalStep(p, H, dt, 'bouncer');
+        if (H.arrived && !s.person) { s.person = p; s.vacated = false; p.spot = s; p.x = s.x; p.z = s.z; p.heading = s.heading; p.anim = 'bouncer'; H.arrived = false; }
+        return;
+      }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
       if (p.cop && p.chasing) resumeRoute(p);
       if (p.fleeT > 0) { flee(p, dt); return; }
@@ -559,7 +584,7 @@
           break;
         }
         case 'dj': { const b = t * CLUB_BPS * Math.PI * 2; P.bob = Math.abs(Math.sin(b)) * .03; aR = -1.05 + Math.sin(t * 5) * .08; eR = -.95; aL = Math.sin(t * .7) > .6 ? -2.6 : -.95; eL = aL < -2 ? -.2 : -1.15; P.headP = .1 + Math.sin(b) * .12; P.lean = .12; break; }
-        case 'guard': P.bob = breathe; aL = aR = -.6; eL = eR = -1.95; P.spread = -.3; P.twist = Math.sin(t * .35 + p.seed) * .15; break;
+        case 'guard': case 'bouncer': P.bob = breathe; aL = aR = -.6; eL = eR = -1.95; P.spread = -.3; P.twist = Math.sin(t * .35 + p.seed) * .15; break;
         case 'hail': { const w = Math.sin(t * 7 + p.seed); P.bob = breathe; aR = -2.7 + w * .22; eR = -.3 + w * .3; aL = .05; P.headP = -.06; P.twist = -.1; break; }
         case 'talk': {
           P.bob = breathe;
@@ -634,6 +659,7 @@
         else if (!s.person && d < lim.spotRange && free.length) {
           const kindType = s.kind === 'lie' ? (chance(.55) ? 'beach_f' : 'beach_m') : typeFor(TYPE_MIX[s.mix]);
           const p = spawn(makeLook(kindType === 'jogger' ? 'tourist_m' : kindType), s.x, s.z, 'spot');
+          if (p && s.kind === 'bouncer') p.home = { spot: s, goal: [s.x, s.z], face: s.heading, arrived: false };
           if (p) { p.spot = s; s.person = p; p.anim = s.kind; p.heading = s.heading; p.y = s.kind === 'sit' ? s.y - .95 * p.look.hs : s.y; p.seed = s.seed != null ? s.seed + s.idx : p.seed; }
         }
       }
@@ -765,6 +791,7 @@
           if (src.kind === 'melee' && !o.look.female && o.look.type !== 'elderly' && chance(.3)) { o.fightT = 10; o.punchCD = .8; bumpCallback(o, pick(FIGHT_PHRASES)); }
           else { o.fleeT = rand(6, 10); o.fleeX = src.x; o.fleeZ = src.z; if (chance(.5)) bumpCallback(o, pick(FLEE_PHRASES)); }
         }
+        if (src && src.byPlayer && (p.bouncer || nearClub(p.x, p.z))) alertBouncers();
         if (p.hp <= 0) {
           p.dead = true; p.hp = 0; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.running = false;
           if (src && src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
@@ -779,17 +806,18 @@
           return;
         }
         p.stumbleT = Math.max(p.stumbleT, .35);
-        if (!p.cop && src && src.byPlayer) {
+        if (!p.cop && !p.bouncer && src && src.byPlayer) {
           if (src.kind === 'melee' && !p.look.female && p.look.type !== 'elderly' && chance(.35)) { p.fightT = 10; p.punchCD = .5; bumpCallback(p, pick(FIGHT_PHRASES)); }
           else { p.fleeT = rand(7, 11); p.fleeX = src.x; p.fleeZ = src.z; if (chance(.6)) bumpCallback(p, pick(FLEE_PHRASES)); }
         }
         call('onHurt', p, src || {});
       },
       // gunfire nearby: everyone who is not a police officer runs away
-      panic(x, z, r) {
+      panic(x, z, r, byPlayer) {
         let shouted = 0;
+        if (byPlayer && nearClub(x, z, 18)) alertBouncers();   // gunshots carry further than a scuffle
         for (const p of people) {
-          if (p.dead || p.down || p.cop || p.medic || p.fightT > 0) continue;
+          if (p.dead || p.down || p.cop || p.medic || p.bouncer || p.fightT > 0) continue;
           const d = Math.hypot(p.x - x, p.z - z); if (d > r) continue;
           detachSpot(p);
           p.fleeT = rand(6, 10); p.fleeX = x; p.fleeZ = z; p.dodge = null;
