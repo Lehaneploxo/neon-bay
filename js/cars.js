@@ -139,6 +139,28 @@
         B(2.0, .16, .14, 0, .33, 3.52, 'chrome'), B(2.0, .16, .14, 0, .33, -3.52, 'chrome'), B(1.2, .26, .04, 0, .6, 3.51, 'chrome'),
         ...lights(1.95, 7.0, .64, .66, .7)] }
   ];
+  // Boats: an offshore racer straight out of an 80s cop show, and a jet ski. No wheels; they float.
+  const bowSteps = (w, z0, n, h, key, y0 = .1) => Array.from({ length: n }, (_, k) => { const f = (k + 1) / (n + .6); return B(w * (1 - f), h - k * .06, .6, 0, y0 + (h - k * .06) / 2 + k * .08, z0 + k * .6 + .3, key); });
+  MODELS.push(
+    { id: 'speedboat', name: 'Vice Cigarette', boat: true, draft: .42, w: 2.3, l: 9, r: .3, seat: [.45, .82, -1.4],
+      perf: { accel: 9.5, top: 34, grip: 1.3, steer: .42, brake: 6 },
+      palette: ['#f5f5f0', '#141418', '#ff4fa3'], accent: ['#ff4fa3', '#3fe6e0', '#ffd23d', '#8a1f2a'],
+      parts: () => [
+        B(2.3, .7, 6.2, 0, .45, -1.0, 'body'), ...bowSteps(2.3, 2.1, 4, .7, 'body'),
+        B(2.32, .1, 6.2, 0, .6, -1.0, 'accent'), B(2.32, .05, 6.2, 0, .25, -1.0, 'black'),
+        B(1.8, .06, 2.4, 0, .82, -1.7, 'interior'), B(1.6, .3, .55, 0, .95, -2.5, 'seat'), B(1.6, .3, .55, 0, .95, -1.2, 'seat'),
+        P(1.9, .14, 1.5, .08, .42, -.12, 0, .8, -.2, 'glass'), B(1.9, .05, .16, 0, .82, -.2, 'chrome'),
+        B(1.7, .16, 1.5, 0, .88, -3.4, 'body'), B(.14, .14, .5, .5, .5, -4.2, 'chrome'), B(.14, .14, .5, -.5, .5, -4.2, 'chrome'),
+        B(.12, .07, .05, .8, .88, 1.9, '#fff6d8'), B(.12, .07, .05, -.8, .88, 1.9, '#fff6d8'), B(.3, .08, .05, 0, .88, -4.12, '#ff2a3a')] },
+    { id: 'jetski', name: 'Wave Rider', boat: true, draft: .22, w: 1.1, l: 3, r: .2, seat: [0, .5, -.35],
+      perf: { accel: 12, top: 25, grip: 1.8, steer: .72, brake: 8 },
+      palette: ['#ffd23d', '#ff4fa3', '#3fe6e0', '#f5f5f0', '#8cff6b'], accent: ['#141418', '#f5f5f0'],
+      parts: () => [
+        B(1.05, .42, 2.2, 0, .25, -.3, 'body'), ...bowSteps(1.05, .8, 2, .42, 'body'),
+        B(1.07, .06, 2.2, 0, .4, -.3, 'accent'), B(.42, .18, 1.1, 0, .55, -.55, 'seat'),
+        B(.1, .42, .1, 0, .68, .45, 'black'), B(.72, .05, .06, 0, .9, .5, 'black'),
+        B(.14, .06, .05, 0, .5, 1.75, '#fff6d8'), B(.2, .06, .05, 0, .45, -1.42, '#ff2a3a')] }
+  );
   function sedan() {
     return [
       B(1.85, .62, 4.8, 0, .51, 0, 'body'),
@@ -164,6 +186,7 @@
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.computeBoundingSphere();
     model.geo = g; model.ranges = ranges;
+    if (model.boat) { model.wheels = []; model.wheelbase = model.l * .55; return; }
     // wheel: tyre plus hub cap, axis along x
     const tyre = new THREE.CylinderGeometry(model.r, model.r, .26, 14).rotateZ(Math.PI / 2);
     const hub = new THREE.CylinderGeometry(model.r * .55, model.r * .55, .28, 10).rotateZ(Math.PI / 2);

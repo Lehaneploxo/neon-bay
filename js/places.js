@@ -853,6 +853,148 @@
       ] }) });
     }
 
+    /* ---------------------------------------------------------------
+       11. THE YACHT "NEOLOXO ONE": at anchor off the beach. Swim to the stern, climb onto the bathing
+           platform and up the steps: a party on the aft deck, a bar, a DJ, a jacuzzi and sunbeds up top
+       --------------------------------------------------------------- */
+    const yacht = { x: 173, z: -25, x0: 168.4, x1: 177.6, z0: -43.3, z1: -8, deck: 2 };
+    let jacuzziMat = null, underGlow = null;
+    {
+      K.at(0, 0);
+      const WH = '#f7f6f2', TEAK = '#b07a48', NAVY = '#1c2a4a', GLASS = '#16263a', CHROME = '#d9d9e2', D = 2, UP = 4.4;
+      NB.water.hole({ x0: yacht.x0, x1: yacht.x1, z0: yacht.z0, z1: yacht.z1 });
+      // hull: the main body, two stern wings either side of the steps, and a bow narrowing to a point
+      K.box(168.5, -1.2, -39.65, 177.5, D, -15, WH, true);
+      K.box(168.5, -1.2, -41, 171, D, -39.65, WH, true); K.box(175, -1.2, -41, 177.5, D, -39.65, WH, true); K.box(171, -1.2, -41, 175, .25, -39.65, WH, true);
+      const bow = [];
+      for (let k = 0; k < 7; k++) { const f = Math.pow((k + 1) / 7, 1.5), hw = 4.5 * (1 - f * .92), za = -15 + k; bow.push([hw, za]); K.box(173 - hw, -1.2 + k * .15, za, 173 + hw, D, za + 1, WH, true); K.box(173 - hw + .15, D, za, 173 + hw - .15, D + .02, za + 1, TEAK); }
+      for (const s of [-1, 1]) {
+        const xo = s < 0 ? 168.44 : 177.5, xi = s < 0 ? 168.5 : 177.56;
+        K.box(xo, .12, -41, xi, .6, -15, NAVY); K.box(xo, 1.9, -41, xi, 2.02, -15, CHROME);
+        for (const [a, b] of [[-37, -30.5], [-28.5, -22.5], [-20.5, -16.5]]) K.box(xo, .95, a, xi, 1.45, b, GLASS);
+        K.neon(s < 0 ? 168.38 : 177.56, 1.78, -41, s < 0 ? 168.44 : 177.62, 1.84, -15, '#ff4fa3');
+      }
+      K.box(168.5, .12, -41.06, 177.5, .6, -41, NAVY);
+      // teak decks with plank lines
+      K.box(168.7, D, -39.65, 177.3, D + .02, -15, TEAK); K.box(168.7, D, -41, 171, D + .02, -39.65, TEAK); K.box(175, D, -41, 177.3, D + .02, -39.65, TEAK);
+      for (let x = 169.1; x < 177.2; x += .45) K.box(x, D + .021, -39.6, x + .025, D + .024, -15.1, '#8a5a32');
+      // bathing platform and the steps up to the deck (a low invisible edge keeps the party on board)
+      K.box(168.8, .25, -43.2, 177.2, .45, -41, TEAK, true);
+      [.84, 1.23, 1.62].forEach((top, i) => K.box(171, .25, -41 + i * .45, 175, top, -40.55 + i * .45, TEAK, true));
+      K.solid(168.8, .45, -43.35, 177.2, 1.15, -43.2); K.solid(168.65, .45, -43.2, 168.8, 1.15, -41); K.solid(177.2, .45, -43.2, 177.35, 1.15, -41);
+      for (let x = 169; x <= 177.1; x += 1.35) K.box(x - .03, .45, -43.28, x + .03, 1.05, -43.22, CHROME);
+      K.box(168.8, 1.0, -43.3, 177.2, 1.05, -43.2, CHROME);
+      // chrome railings round the main deck (open at the steps) and along the bow
+      const rail = (x0, z0, x1, z1, y = D) => {
+        K.solid(x0, y, z0, x1, y + 1.05, z1); K.box(x0, y + .95, z0, x1, y + 1.0, z1, CHROME); K.box(x0, y + .5, z0, x1, y + .53, z1, CHROME);
+        const L = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(L / 1.3));
+        for (let i = 0; i <= n; i++) { const px = x0 + (x1 - x0) * i / n, pz = z0 + (z1 - z0) * i / n; K.box(px - .025, y, pz - .025, px + .025, y + .95, pz + .025, CHROME); }
+      };
+      rail(168.6, -41, 168.7, -15); rail(177.3, -41, 177.4, -15); rail(168.6, -41, 171, -40.92); rail(175, -41, 177.4, -40.92);
+      for (const [hw, za] of bow) { rail(173 - hw - .05, za, 173 - hw + .05, za + 1); rail(173 + hw - .05, za, 173 + hw + .05, za + 1); }
+      // main cabin with a wraparound glass band, sliding doors onto the aft deck
+      K.box(169.5, D, -30, 176.5, UP, -15, WH, true);
+      K.box(169.44, 2.6, -29.4, 169.5, 3.9, -15.6, GLASS); K.box(176.5, 2.6, -29.4, 176.56, 3.9, -15.6, GLASS);
+      K.box(170.1, D + .1, -30.06, 175.9, 4.0, -30, GLASS); K.neon(170.1, 4.02, -30.1, 175.9, 4.08, -30.04, '#3fe6e0', false);
+      // the upper deck: an overhang over the aft deck, stairs up the port side
+      K.box(169.5, 4.25, -33, 176.5, UP, -30, WH, true);
+      for (const x of [169.6, 176.2]) K.box(x, D, -32.95, x + .2, 4.25, -32.75, CHROME, true);
+      K.box(169.6, UP, -33, 176.4, UP + .02, -18.2, TEAK);
+      for (let i = 0; i < 6; i++) K.box(175.4, .25, -36 + i * .5, 176.6, D + (i + 1) * .4, -35.5 + i * .5, TEAK, true);
+      rail(169.45, -33, 169.55, -18.2, UP); rail(176.45, -33, 176.55, -18.2, UP); rail(169.45, -33.08, 175.35, -32.98, UP);
+      // jacuzzi on the upper deck
+      for (const [a, b, c, d] of [[171, -28, 175, -27.75], [171, -24.85, 175, -24.6], [171, -27.75, 171.25, -24.85], [174.75, -27.75, 175, -24.85]]) K.box(a, UP, b, c, UP + .55, d, '#e8f4f6', true);
+      for (const [a, b, c, d] of [[171.25, -27.75, 174.75, -27.35], [171.25, -25.25, 174.75, -24.85], [171.25, -27.35, 171.65, -25.25], [174.35, -27.35, 174.75, -25.25]]) K.box(a, UP, b, c, UP + .12, d, '#bfe8ee');
+      K.box(171.25, UP + .005, -27.75, 174.75, UP + .01, -24.85, '#4fc9d6');
+      jacuzziMat = new THREE.ShaderMaterial({ transparent: true, uniforms: { uTime: { value: 0 } },
+        vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: `uniform float uTime; varying vec2 vU;
+          float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+          void main(){ vec2 g = vU * vec2(14.0, 11.0); vec2 id = floor(g + vec2(0.0, uTime * 1.3)); vec2 f = fract(g + vec2(0.0, uTime * 1.3));
+            float bub = step(0.8, h(id)) * smoothstep(0.28, 0.12, length(f - 0.5));
+            float w = sin(vU.x * 18.0 + uTime * 3.0) * sin(vU.y * 15.0 - uTime * 2.4);
+            gl_FragColor = vec4(mix(vec3(0.25,0.8,0.9), vec3(0.9,1.0,1.0), clamp(bub + smoothstep(0.6, 1.0, w) * 0.5, 0.0, 1.0)), 0.7); }` });
+      const jw = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.9).rotateX(-Math.PI / 2), jacuzziMat); jw.position.set(173, UP + .45, -26.3); scene.add(jw);
+      NB.water.add({ name: 'jacuzzi', test: (x, z) => x > 171.25 && x < 174.75 && z > -27.75 && z < -24.85, surface: () => UP + .45 });
+      // sunbeds up top, the wheelhouse and the radar arch
+      for (const x of [170.6, 173, 175.4]) { K.box(x - .6, UP, -22, x + .6, UP + .35, -19.9, '#ffffff', true); K.box(x - .55, UP + .36, -22, x + .55, UP + .38, -20.2, '#ff7eb6'); }
+      K.box(170, UP, -18, 176, 6.3, -15, GLASS, true); K.box(169.6, 6.3, -18.4, 176.4, 6.45, -14.8, WH, true);
+      for (const x of [170.3, 175.5]) K.box(x, UP, -19.3, x + .25, 7.3, -19, WH, true);
+      K.box(170.3, 7.0, -19.3, 175.75, 7.3, -19, WH); K.box(172.6, 7.3, -19.4, 173.4, 7.6, -18.9, '#e8e8ee'); K.neon(172.95, 7.6, -19.2, 173.05, 8.8, -19.1, '#ff3344');
+      // foredeck sun pads
+      K.box(171, D, -14, 175, D + .3, -11.2, '#ffffff', true); K.box(171.1, D + .3, -13.9, 174.9, D + .32, -11.3, '#3fe6e0');
+      for (let k = 0; k < 10; k++) K.box(172.94, 1.9 - k * .2, -8.3 + k * .06, 173.06, 2.0 - k * .2, -8.2 + k * .06, '#5a5a62');
+      // bar on the starboard side of the aft deck, shelves of bottles, champagne on ice
+      K.box(170.6, D, -37, 171.2, 3.1, -32.5, '#1a1a22', true); K.box(170.55, 3.1, -37.05, 171.25, 3.16, -32.45, '#e8e2d6'); K.neon(171.2, 2.2, -37, 171.24, 2.26, -32.5, '#ff4fa3', false);
+      K.box(168.75, 2.5, -36.8, 169.1, 3.7, -32.7, '#2a2a30', true);
+      const BOT = ['#5fd38a', '#ffb347', '#ff6b8a', '#f5e6a8', '#9fd8ff', '#c28bff'];
+      for (const y of [2.6, 3.05]) for (let z = -36.7; z < -32.8; z += .28) K.neon(169.12, y, z, 169.2, y + rand(.28, .4), z + .1, pick(BOT), false);
+      for (const z of [-36, -34.2]) { K.box(170.7, 3.16, z - .15, 171.0, 3.4, z + .15, CHROME); K.box(170.82, 3.4, z - .03, 170.88, 3.6, z + .03, '#1f5a2a'); K.box(170.82, 3.6, z - .02, 170.88, 3.64, z + .02, '#e8c547'); }
+      for (let z = -33.6; z < -32.6; z += .3) K.box(170.8, 3.16, z, 170.86, 3.32, z + .06, '#dff4ff');
+      // DJ desk and speakers against the cabin
+      K.box(171.8, D, -31.6, 174.2, 3.05, -31.0, '#141418', true); K.neon(171.8, 2.85, -31.64, 174.2, 2.9, -31.6, '#3fe6e0', false);
+      for (const x of [171.2, 174.3]) K.box(x, D, -31.6, x + .5, 3.4, -31.0, '#0e0e12', true);
+      // sofas on the stern wings
+      for (const [a, b] of [[168.8, 171], [175, 177.2]]) { K.box(a, D, -40.9, b, D + .6, -40.3, '#f2eee6', true); K.box(a, D + .6, -41, b, D + 1.15, -40.8, '#f2eee6'); K.box(a + .1, D + .6, -40.85, b - .1, D + .64, -40.35, '#ff7eb6'); }
+      // the name on the bow and the stern
+      const nameTex = K.tex(512, 96, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#1c2a4a'; g.font = 'italic bold 60px "Trebuchet MS", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEOLOXO ONE', w / 2, h / 2 + 4); }, false);
+      K.picture('-x', 168.42, 1.2, -19.5, 5, .95, nameTex, true); K.picture('+x', 177.58, 1.2, -19.5, 5, .95, nameTex, true); K.picture('-z', 173, 1.35, -41.08, 4.2, .8, nameTex, true);
+      // string lights from the radar arch down to the bow and the stern
+      const BULB = ['#ff4fa3', '#ffd84f', '#3fe6e0', '#ffffff'];
+      for (const [x1, y1, z1] of [[173, 2.9, -8.4], [169.5, 5.2, -33], [176.5, 5.2, -33]]) for (let i = 1; i < 14; i++) { const t = i / 14, x = 173 + (x1 - 173) * t, y = 7.3 + (y1 - 7.3) * t - Math.sin(t * Math.PI) * .5, z = -19.15 + (z1 + 19.15) * t; K.neon(x - .06, y - .06, z - .06, x + .06, y + .06, z + .06, BULB[i % 4]); }
+      // a pool of light in the water round the hull after dark
+      const glowTex = K.tex(64, 128, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w * .9); gr.addColorStop(0, 'rgba(90,220,255,1)'); gr.addColorStop(.5, 'rgba(60,160,255,.5)'); gr.addColorStop(1, 'rgba(40,120,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }, false);
+      underGlow = new THREE.Mesh(new THREE.PlaneGeometry(18, 46).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+      underGlow.position.set(173, .08, -25.5); scene.add(underGlow);
+      mapShapes.push({ x0: 168.5, z0: -41, x1: 177.5, z1: -15, c: '#ffffff', k: 'b' }, { x0: 170.5, z0: -15, x1: 175.5, z1: -8.5, c: '#ffffff', k: 'b' });
+      // the party
+      const party = { yacht: true }, Y = (s, y) => Object.assign(s, { y, fixedY: true, home: true });
+      for (const x of [172.3, 173.5, 174.7]) for (const z of [-38.7, -37.3, -35.9, -34.5]) if (Math.random() < .8) spots.push(Y({ kind: 'dance', x: x + rand(-.2, .2), z: z + rand(-.2, .2), heading: Math.PI + rand(-.8, .8), mix: 'yacht', grp: party }, D));
+      spots.push(Y({ kind: 'dj', x: 173, z: -30.45, heading: Math.PI, type: 'tourist_m' }, D));
+      spots.push(Y({ kind: 'idle', x: 169.75, z: -34.7, heading: Math.PI / 2, type: 'croupier' }, D));
+      spots.push(Y({ kind: 'guard', x: 170.3, z: -39.25, heading: Math.PI, type: 'business_m' }, D));
+      for (const x of [169.4, 170.4, 175.6, 176.6]) if (Math.random() < .8) spots.push(Y({ kind: 'sit', x, z: -40.6, heading: 0, mix: 'yacht' }, D + .66));
+      for (const [x, z, h] of [[171.55, -26.3, Math.PI / 2], [174.45, -26.3, -Math.PI / 2], [173, -27.45, 0]]) spots.push(Y({ kind: 'sit', x, z, heading: h, type: pick(['beach_f', 'beach_f', 'beach_m']) }, UP + .18));
+      for (const x of [170.6, 173, 175.4]) if (Math.random() < .85) spots.push(Y({ kind: 'lie', x, z: -21.9, heading: 0, type: 'beach_f' }, UP + .47));
+      for (const x of [172, 174]) spots.push(Y({ kind: 'lie', x, z: -13.85, heading: 0, type: 'beach_f' }, D + .42));
+      outdoor.push({ x: 171.95, z: -34.7, y: D, r: 1.7, short: 'БАР', label: () => 'Бар яхты', use: () => G.ui.menu({ eyebrow: 'Яхта NEOLOXO ONE', title: 'Бар', items: () => [
+        { name: 'Шампанское', desc: 'Бокал из ведёрка со льдом · +20 здоровья, кружит голову', price: 60, buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); G.drunk(40); return 'За удачу!'; } },
+        { name: 'Мохито', desc: '+15 здоровья', price: 15, buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); G.drunk(12); return 'Мята и лайм'; } },
+        { name: 'Виски со льдом', desc: '+10 здоровья, крепко', price: 25, buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); G.drunk(30); return 'Ух!'; } },
+        { name: 'Вода с лимоном', desc: 'Протрезветь', price: 2, buy: () => { G.drunk(0); return 'Голова прояснилась'; } }
+      ] }) });
+    }
+
+    /* ---------------------------------------------------------------
+       12. NEON BAY MARINA: a wooden pier out into the sea with speedboats and jet skis alongside,
+           and a floating landing at the end to climb out of the water
+       --------------------------------------------------------------- */
+    const marina = { slots: [
+      { id: 'jetski', x: 146, z: 49.2, h: Math.PI / 2 }, { id: 'jetski', x: 149.5, z: 49.2, h: Math.PI / 2 },
+      { id: 'speedboat', x: 156, z: 49.85, h: Math.PI / 2 }, { id: 'speedboat', x: 153, z: 42.15, h: Math.PI / 2 }] };
+    {
+      K.at(0, 0);
+      const TEAK = '#a8743c', PILE = '#5a3a1e', Z0 = 44, Z1 = 48, DY = 1.0;
+      // steps up from the sand, the deck, planks and pilings
+      K.box(121.6, 0, Z0, 122.4, .34, Z1, TEAK, true); K.box(122.4, 0, Z0, 123.2, .67, Z1, TEAK, true);
+      K.box(123.2, .7, Z0, 160.3, DY, Z1, TEAK, true);
+      for (let x = 123.5; x < 160.3; x += .5) K.box(x, DY, Z0, x + .03, DY + .005, Z1, '#7a5028');
+      for (let x = 125; x < 160.5; x += 3.5) for (const z of [Z0 - .15, Z1 + .15]) { K.box(x - .17, -3.6, z - .17, x + .17, DY + .45, z + .17, PILE, true); K.box(x - .2, DY + .45, z - .2, x + .2, DY + .5, z + .2, '#3a2a1a'); }
+      // end of the pier: a step down onto a floating landing just above the water
+      K.box(160.3, .25, Z0 - .5, 161, .72, Z1 + .5, TEAK, true);
+      K.box(161, -.5, Z0 - .5, 164, .45, Z1 + .5, '#c9a06a', true);
+      for (const z of [Z0 - .5, Z1 + .5]) K.box(161, .1, z - .06, 164, .3, z + .06, '#ff8a3d');
+      NB.water.hole({ x0: 160.3, x1: 164.05, z0: Z0 - .55, z1: Z1 + .55 });
+      // lamps along the pier, life rings, and an arch with the marina's name at the start
+      for (let x = 128; x < 160; x += 8) { K.box(x - .06, DY, Z1 - .2, x + .06, DY + 2.6, Z1 - .08, '#2b2735'); K.neon(x - .15, DY + 2.6, Z1 - .3, x + .15, DY + 2.75, Z1, '#ffe2b0'); }
+      for (const x of [136, 152]) { K.neon(x - .3, DY + .5, Z0 + .02, x + .3, DY + 1.1, Z0 + .08, '#ff5a3a', false); K.box(x - .12, DY + .68, Z0 + .01, x + .12, DY + .92, Z0 + .09, '#ffffff'); }
+      for (const z of [Z0 - .1, Z1 + .1]) K.box(123.1, .7, z - .12, 123.35, 4.1, z + .12, '#f6f2ec', true);
+      K.box(123.1, 3.8, Z0 - .2, 123.35, 4.4, Z1 + .2, '#f6f2ec');
+      K.picture('-x', 123.08, 4.1, (Z0 + Z1) / 2, 4, .55, T.sign('NEON BAY MARINA', null, '#3fe6e0', '#10202a'));
+      K.neon(123.05, 3.78, Z0 - .2, 123.1, 3.84, Z1 + .2, '#3fe6e0');
+      mapShapes.push({ x0: 123.2, z0: Z0, x1: 164, z1: Z1, c: '#c9a06a', k: 'b' });
+    }
+
     K.finish();
 
     /* =====================================================================
@@ -865,7 +1007,10 @@
       byId: id => places.find(p => p.id === id),
       // which interior a point is in
       at(x, z) { for (const p of places) { const b = p.bounds; if (x > b.x0 - 1 && x < b.x1 + 1 && z > b.z0 - 1 && z < b.z1 + 1) return p; } return null; },
-      attach(g) { G = g; for (const p of places) if (p.attach) p.attach(); },
+      attach(g) {
+        G = g; for (const p of places) if (p.attach) p.attach();
+        for (const s of marina.slots) s.boat = G.vehicles.spawnParked(s.id, s.x, s.z, s.h);
+      },
       // walking into a door circle: returns { place, dir } to go through
       doors(player, onFoot) {
         for (const m of markers) {
@@ -883,6 +1028,15 @@
       interactions() { return api.current ? api.current.interactions : outdoor; },
       update(dt) {
         if (api.current) api.current.update(dt);
+        // a boat taken from the marina is replaced once you're well away from the pier
+        if (G && (marina.t = (marina.t || 0) - dt) <= 0) {
+          marina.t = 2;
+          const p = G.player;
+          for (const s of marina.slots) {
+            const b = s.boat, gone = !b || !G.vehicles.cars.includes(b) || Math.hypot(b.x - s.x, b.z - s.z) > 20;
+            if (gone && Math.hypot(p.x - s.x, p.z - s.z) > 70 && G.vehicles.driving !== b) s.boat = G.vehicles.spawnParked(s.id, s.x, s.z, s.h);
+          }
+        }
         // the garage door rolls up for the owner
         if (G && garage) {
           const p = G.player, near = G.progress.villa && Math.hypot(p.x - 111.3, p.z - 84.7) < 13;
@@ -900,10 +1054,16 @@
         for (const m of markers) { m.beam.material.opacity = .08 + Math.sin(t * 3 + m.x) * .04; }
         for (const p of places) { if (p.render) p.render(t); if (p.renderRoof) p.renderRoof(t); if (p.renderOutdoor) p.renderOutdoor(t); }
         const night = env ? env.night : 0;
+        if (jacuzziMat) jacuzziMat.uniforms.uTime.value = t;
+        if (underGlow) underGlow.material.opacity = .15 + night * .55;
         for (const f of torches) { const k = 1 + Math.sin(t * 13 + f.position.x) * .12 + Math.sin(t * 7.3 + f.position.z) * .08; f.scale.set(.55 * k, .8 * k, 1); f.material.opacity = .6 + night * .4; }
       },
       // which in-city venue music is audible here
-      venueAt(x, z) { const d = Math.hypot(x - tiki.x, z - tiki.z); return d < 42 ? { name: 'tiki', level: Math.max(0, 1 - d / 42) * (d < 7 ? 1 : .6) } : null; }
+      venueAt(x, z) {
+        const dy = Math.hypot(x - yacht.x, z - yacht.z);
+        if (dy < 70) return { name: 'club', level: Math.max(0, 1 - dy / 70) * (dy < 16 ? 1 : .6) };   // the party on the yacht
+        const d = Math.hypot(x - tiki.x, z - tiki.z); return d < 42 ? { name: 'tiki', level: Math.max(0, 1 - d / 42) * (d < 7 ? 1 : .6) } : null;
+      }
     };
     return api;
   };

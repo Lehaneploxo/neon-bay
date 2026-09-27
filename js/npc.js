@@ -179,6 +179,7 @@
     club: [['tourist_f', .34], ['tourist_m', .28], ['business_f', .2], ['business_m', .18]],
     guard: [['business_m', 1]],
     bouncer: [['bouncer', 1]],
+    yacht: [['beach_f', .55], ['beach_m', .25], ['tourist_f', .2]],
     town: [['tourist_m', .22], ['tourist_f', .24], ['business_m', .12], ['business_f', .1], ['elderly', .16], ['jogger', .08], ['beach_f', .04], ['beach_m', .04]]
   };
   function typeFor(mix) { let r = Math.random(); for (const [t, w] of mix) { if ((r -= w) <= 0) return t; } return mix[0][0]; }
@@ -271,7 +272,7 @@
     const club = world.club;
     if (club) for (const s of club.spots) spots.push(Object.assign({}, s));
     if (world.places) for (const s of world.places.spots) spots.push(Object.assign({}, s));
-    for (const s of spots) { s.person = null; s.y = s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
+    for (const s of spots) { s.person = null; s.y = s.fixedY || s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
     const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1 };
     // trouble in or at the club: both bouncers drop what they're doing and go for the hero
     function alertBouncers() {
@@ -301,7 +302,7 @@
     }
     function collide(p) {
       const r = .3;
-      if (p.x > SHORE - .4 && p.x < SHORE + 100 && Math.abs(p.z) < 120) { p.x = SHORE - .4; p.blocked += 1; }   // people stay out of the sea
+      if (p.y < .3 && p.x > SHORE - .4 && p.x < SHORE + 100 && Math.abs(p.z) < 120) { p.x = SHORE - .4; p.blocked += 1; }   // people stay out of the sea
       for (const b of col.query(p.x - 1, p.z - 1, p.x + 1, p.z + 1, tmp)) {
         if (b.maxY <= p.y + .42 || b.minY >= p.y + 1.8) continue;
         const cx = U.clamp(p.x, b.minX, b.maxX), cz = U.clamp(p.z, b.minZ, b.maxZ);

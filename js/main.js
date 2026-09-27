@@ -173,7 +173,7 @@
   /* ---------- places: doors, interiors, and the things to do in them ---------- */
   function setOutfit(id) { progress.outfit = id; player.setOutfit(id); saveProgress(); }
   // a short blink to black, then the hero is somewhere else (through a door, up a lift)
-  let fading = false;
+  let fading = false, drunkT = 0;
   function blink(fn) {
     if (fading) return; fading = true;
     $('fade').classList.add('on'); input.reset();
@@ -208,7 +208,7 @@
   places.attach({
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
-    flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport,
+    flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport, drunk: s => { drunkT = s; },
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     openShop: () => { if (shop.canServe()) openShop(); }
   });
@@ -617,6 +617,7 @@
         Object.assign(carCam, { x: drv.x, y: drv.y, z: drv.z, heading: drv.h, speed: vF, camDist: 5.2 + drv.model.l * .45 + Math.abs(vF) * .05 });
         rig.update(dt, carCam);
       } else rig.update(dt, player);
+      if (drunkT > 0) { drunkT -= dt; const k = Math.min(1, drunkT / 8); camera.position.x += Math.sin(time * 1.1) * .25 * k; camera.position.y += Math.sin(time * .8) * .12 * k; camera.rotateZ(Math.sin(time * .7) * .07 * k); }   // a few drinks: the world sways
       if (shake > .01) { camera.position.x += (Math.random() - .5) * shake; camera.position.y += (Math.random() - .5) * shake; shake *= Math.exp(-8 * dt); }
       audio.listener(camera.position.x, camera.position.y, camera.position.z, -Math.sin(rig.yaw), -Math.cos(rig.yaw));
       updateBubbles(dt);

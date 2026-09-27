@@ -61,7 +61,7 @@
       });
       car.beam = new THREE.Mesh(beamGeo, beamMat); car.beam.position.set(0, .07, model.l / 2 - .1); car.beam.visible = false; car.root.add(car.beam);
       car.root.rotation.y = h;
-      car.y = floorAt(x, z, 1);
+      car.y = model.boat ? .05 - model.draft : floorAt(x, z, 1);
       car.root.position.set(x, car.y, z);
       if (model.bar) {
         car.police = !!model.police; car.ems = !!model.ems; car.sirenOn = false;
@@ -127,8 +127,49 @@
       else audio.impact(strength * .5, [car.x, .5, car.z]);
     }
 
+    /* ---------- boats: slide on the water, stay in the sea ---------- */
+    // deep enough open sea at (x, z) for a hull of this draft
+    const navigable = (x, z, draft) => { const W = NB.water.at(x, z); return !!W && W.name === 'sea' && W.surface() - NB.water.floorAt(x, z) > draft + .35; };
+    function boatPhysics(car, dt, ctl) {
+      const pf = car.model.perf, fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
+      let vF = car.vx * fx + car.vz * fz, vR = car.vx * rx + car.vz * rz;
+      const t = ctl.throttle, top = pf.top;
+      if (t > 0) { if (vF < -.5) vF += pf.brake * t * dt; else vF += pf.accel * t * (1 - Math.min(1, Math.max(0, vF) / top) ** 2) * dt; }
+      else if (t < 0) { if (vF > .5) vF -= pf.brake * -t * dt; else if (vF > -5) vF -= pf.accel * .35 * -t * dt; }
+      vF -= vF * .22 * dt + Math.sign(vF) * Math.min(Math.abs(vF), (t === 0 ? 1.2 : .3) * dt);   // water drag
+      car.steer = U.damp(car.steer, ctl.steer * pf.steer, 5, dt);
+      // a boat turns by its rudder: it needs some speed, and the stern swings out
+      const yaw = -Math.sign(vF) * Math.min(1, Math.abs(vF) / 6) * car.steer * (1.6 - .7 * Math.min(1, Math.abs(vF) / top));
+      vR *= Math.exp(-pf.grip * dt);
+      vR += yaw * Math.abs(vF) * .05 * dt * 10;
+      car.yawRate = yaw; car.slip = Math.abs(vR);
+      car.vx = fx * vF + rx * vR; car.vz = fz * vF + rz * vR;
+      car.h += yaw * dt;
+      const ox = car.x, oz = car.z;
+      car.x += car.vx * dt; car.z += car.vz * dt;
+      // running aground: the bow or the middle leaves deep water
+      const bx = car.x + Math.sin(car.h) * car.model.l * .45, bz = car.z + Math.cos(car.h) * car.model.l * .45;
+      if (!navigable(bx, bz, car.model.draft) || !navigable(car.x, car.z, car.model.draft)) {
+        car.x = ox; car.z = oz;
+        const s = Math.hypot(car.vx, car.vz); if (s > 3) impact(car, s * .6, bx, bz, -Math.sin(car.h), -Math.cos(car.h));
+        car.vx *= -.2; car.vz *= -.2;
+      }
+      car.accel = (vF - (car.lastVF || 0)) / Math.max(dt, 1e-3); car.lastVF = vF;
+      collideStatic(car);
+    }
+    // foam left behind a moving boat
+    const wakeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .5, depthWrite: false });
+    const wakes = [];
+    for (let i = 0; i < 48; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), wakeMat.clone()); m.visible = false; m.life = 0; scene.add(m); wakes.push(m); }
+    let wakeHead = 0;
+    function wake(x, z, w, h) {
+      const m = wakes[wakeHead]; wakeHead = (wakeHead + 1) % wakes.length;
+      m.position.set(x, .07, z); m.rotation.y = h; m.scale.set(w, 1, 1.2); m.life = 1.8; m.w = w; m.visible = true;
+    }
+
     /* ---------- driving physics (hero's car and loose cars) ---------- */
     function physics(car, dt, ctl) {
+      if (car.model.boat) return boatPhysics(car, dt, ctl);
       const pf = car.model.perf;
       // deep water floods the engine: no power, heavy drag, and the car is written off
       const W = NB.water.at(car.x, car.z);
@@ -457,6 +498,18 @@
         const car = driving; if (!car) return false;
         if (!force && Math.abs(speedOf(car)) > 4) return false;
         const [rx, rz] = right(car);
+        if (car.model.boat) {
+          // step off onto the pier or the yacht platform if there is one alongside, otherwise into the water
+          let best = null, bf = -Infinity;
+          for (const side of [-1, 1]) {
+            const x = car.x + rx * side * (car.model.w / 2 + .7), z = car.z + rz * side * (car.model.w / 2 + .7), f = player.floorAt(x, z, 1.2);
+            if (f > bf) { bf = f; best = [x, z]; }
+          }
+          player.place(best[0], best[1], car.h);
+          car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
+          audio.door(); audio.engineOn(false);
+          return true;
+        }
         // door on the driver's (left) side, or the other side if that is blocked
         for (const side of [-1, 1]) {
           const x = car.x + rx * side * (car.model.w / 2 + .6), z = car.z + rz * side * (car.model.w / 2 + .6);
@@ -524,6 +577,16 @@
           c.beam.visible = night > .05 && !!c.driver && c.visible;
           // ride height over kerbs, body lean, wheels
           if (!c.visible) continue;
+          if (c.model.boat) {
+            // bob on the swell, lift the bow with speed, lean into turns, leave a wake
+            const tt = performance.now() / 1000, vB = speedOf(c), wave = Math.sin(tt * 1.7 + c.x * .3 + c.z * .2);
+            c.y = .05 - c.model.draft + wave * .05 + Math.min(.12, Math.abs(vB) * .004);
+            c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
+            c.body.rotation.x = U.damp(c.body.rotation.x, -U.clamp(vB * .007, -.03, .16) + Math.sin(tt * 1.3 + c.z) * .02, 3, dt);
+            c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(c.yawRate * vB * .03, -.22, .22) + wave * .025, 4, dt);
+            if (Math.abs(vB) > 2.5 && d < 90) { c.wakeT = (c.wakeT || 0) - dt; if (c.wakeT <= 0) { c.wakeT = .06; wake(c.x - Math.sin(c.h) * c.model.l * .5, c.z - Math.cos(c.h) * c.model.l * .5, c.model.w * (.9 + Math.min(1.5, Math.abs(vB) / 12)), c.h); } }
+            continue;
+          }
           const fy = floorAt(c.x, c.z, c.y);
           c.y = U.damp(c.y, fy, 14, dt);
           c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
@@ -541,6 +604,7 @@
           }
         }
         collideCars();
+        for (const m of wakes) if (m.visible) { m.life -= dt; const f = 1 - m.life / 1.8; m.scale.set(m.w * (1 + f * 2.2), 1, 1.2 + f); m.material.opacity = Math.max(0, (1 - f) * .45); if (m.life <= 0) m.visible = false; }
         // the hero on foot is shoved out of the way by cars
         if (!driving) for (const c of cars) {
           if (Math.abs(c.x - player.x) > 5 || Math.abs(c.z - player.z) > 5) continue;

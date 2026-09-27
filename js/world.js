@@ -104,7 +104,7 @@
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
     let station = null, hospital = null, gunShop = null, hotelRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
-    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }];
+    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }];
     const reserved = (x, z, m = 0) => RESERVED.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
 
     // hollow: four strips instead of one flat slab, for a roof you can stand on
@@ -416,8 +416,8 @@
     }
     col.add(SHORE + 76, -10, -120, SHORE + 82, 8, 120);
     // the sea: the bed slopes away from the shoreline; wading, then swimming a few metres out
-    NB.water.vols.length = 0;
-    NB.water.add({ name: 'sea', test: (x, z) => x > SHORE - .6 && x < SHORE + 90 && Math.abs(z) < 118, surface: () => .05,
+    NB.water.vols.length = 0; NB.water.holes.length = 0;
+    NB.water.add({ name: 'sea', test: (x, z) => x > SHORE - .6 && x < SHORE + 90 && Math.abs(z) < 118 && !NB.water.dry(x, z), surface: () => .05,
       floor: (x) => .02 - U.clamp((x - SHORE + .6) * .3, 0, 3.4) });
 
     /* ---------- city boundary + distant skyline ---------- */
