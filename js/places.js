@@ -854,7 +854,7 @@
     }
 
     /* ---------------------------------------------------------------
-       11. THE YACHT "NEOLOXO ONE": at anchor off the beach. Swim to the stern, climb onto the bathing
+       11. THE YACHT "LEHA NEPLOXO": at anchor off the beach. Swim to the stern, climb onto the bathing
            platform and up the steps: a party on the aft deck, a bar, a DJ, a jacuzzi and sunbeds up top
        --------------------------------------------------------------- */
     const yacht = { x: 173, z: -25, x0: 168.4, x1: 177.6, z0: -43.3, z1: -8, deck: 2 };
@@ -937,7 +937,7 @@
       // sofas on the stern wings
       for (const [a, b] of [[168.8, 171], [175, 177.2]]) { K.box(a, D, -40.9, b, D + .6, -40.3, '#f2eee6', true); K.box(a, D + .6, -41, b, D + 1.15, -40.8, '#f2eee6'); K.box(a + .1, D + .6, -40.85, b - .1, D + .64, -40.35, '#ff7eb6'); }
       // the name on the bow and the stern
-      const nameTex = K.tex(512, 96, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#1c2a4a'; g.font = 'italic bold 60px "Trebuchet MS", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NEOLOXO ONE', w / 2, h / 2 + 4); }, false);
+      const nameTex = K.tex(512, 96, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#1c2a4a'; let fs = 60; g.font = 'italic bold 60px "Trebuchet MS", Arial, sans-serif'; while (g.measureText('LEHA NEPLOXO').width > w - 20) { fs -= 2; g.font = 'italic bold ' + fs + 'px "Trebuchet MS", Arial, sans-serif'; } g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('LEHA NEPLOXO', w / 2, h / 2 + 4); }, false);
       K.picture('-x', 168.42, 1.2, -19.5, 5, .95, nameTex, true); K.picture('+x', 177.58, 1.2, -19.5, 5, .95, nameTex, true); K.picture('-z', 173, 1.35, -41.08, 4.2, .8, nameTex, true);
       // string lights from the radar arch down to the bow and the stern
       const BULB = ['#ff4fa3', '#ffd84f', '#3fe6e0', '#ffffff'];
@@ -957,7 +957,7 @@
       for (const [x, z, h] of [[171.55, -26.3, Math.PI / 2], [174.45, -26.3, -Math.PI / 2], [173, -27.45, 0]]) spots.push(Y({ kind: 'sit', x, z, heading: h, type: pick(['beach_f', 'beach_f', 'beach_m']) }, UP + .18));
       for (const x of [170.6, 173, 175.4]) if (Math.random() < .85) spots.push(Y({ kind: 'lie', x, z: -21.9, heading: 0, type: 'beach_f' }, UP + .47));
       for (const x of [172, 174]) spots.push(Y({ kind: 'lie', x, z: -13.85, heading: 0, type: 'beach_f' }, D + .42));
-      outdoor.push({ x: 171.95, z: -34.7, y: D, r: 1.7, short: 'БАР', label: () => 'Бар яхты', use: () => G.ui.menu({ eyebrow: 'Яхта NEOLOXO ONE', title: 'Бар', items: () => [
+      outdoor.push({ x: 171.95, z: -34.7, y: D, r: 1.7, short: 'БАР', label: () => 'Бар яхты', use: () => G.ui.menu({ eyebrow: 'Яхта LEHA NEPLOXO', title: 'Бар', items: () => [
         { name: 'Шампанское', desc: 'Бокал из ведёрка со льдом · +20 здоровья, кружит голову', price: 60, buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); G.drunk(40); return 'За удачу!'; } },
         { name: 'Мохито', desc: '+15 здоровья', price: 15, buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); G.drunk(12); return 'Мята и лайм'; } },
         { name: 'Виски со льдом', desc: '+10 здоровья, крепко', price: 25, buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); G.drunk(30); return 'Ух!'; } },
