@@ -551,7 +551,7 @@
     if (world.hospital) add(world.hospital.cx, world.hospital.cz, '#ffffff', '#e02a2a', '✚', 'Больница');
     if (world.station) add(world.station.cx, world.station.cz, '#2f5fb0', '#fff', 'П', 'Полиция');
     if (shop.place) add(shop.place.cx, shop.place.cz, '#ff8a3d', '#2a1405', '⌐', 'Оружие Ammo Bay');
-    if (world.club) add(world.club.center.x, world.club.center.z, '#ff4fa3', '#fff', '21', 'Клуб NEOLOXO 21');
+    if (world.club) add(world.club.center.x, world.club.center.z, '#ff4fa3', '#fff', '21', 'Клуб NEPLOXO 21');
     for (const [id, bg, ch, label] of [['bank', '#1a8a5a', '$', 'Банк'], ['casino', '#c9a04a', '♦', 'Казино'], ['arcade', '#8a5ad8', '★', 'Игровые автоматы'], ['diner', '#e0286a', 'D', 'Закусочная'], ['hotel', '#2fa8a0', 'H', 'Отель OCEAN']]) { const p = P(id); if (p && p.door) add(p.door.cx, p.door.cz, bg, '#fff', ch, label); }
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');

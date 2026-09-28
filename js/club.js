@@ -1,4 +1,4 @@
-// NEOLOXO 21: a pink art-deco disco club on the ocean front, in the spirit of the Malibu in Vice City.
+// NEPLOXO 21: a pink art-deco disco club on the ocean front, in the spirit of the Malibu in Vice City.
 // Outside: a neon script sign on a tower above the entrance, glass-block windows, a canopy, palms and
 // searchlights sweeping the night sky. Inside, a real room you can walk around: a flashing dance floor,
 // a DJ on a stage in front of an LED wall, a bar with glowing shelves, velvet booths, a mirror ball
@@ -71,7 +71,7 @@
     bGlow.box(X1 + .1, 4.1, 30.2, X1 + .5, 5.8, 34.1, C('#3fe6e0').multiplyScalar(.7), { noTop: true });
     palms.push([X1 + 2.6, .15, DZ - 5.2], [X1 + 2.6, .15, DZ + 5.2]);
 
-    // the sign: "NEOLOXO" in pink neon script and a big cyan "21"
+    // the sign: "NEPLOXO" in pink neon script and a big cyan "21"
     const signCv = document.createElement('canvas'); signCv.width = 1024; signCv.height = 460;
     const signTex = new THREE.CanvasTexture(signCv); signTex.anisotropy = 4;
     function drawSign(script) {
@@ -83,7 +83,7 @@
         g.fillText(text, x, y); g.fillText(text, x, y);
         g.shadowBlur = blur * .25; g.fillStyle = '#fff3fa'; g.globalAlpha = .8; g.fillText(text, x, y); g.globalAlpha = 1;
       };
-      glowText('NEOLOXO', W / 2, 150, script ? '150px Pacifico' : 'italic bold 150px "Trebuchet MS", Arial, sans-serif', '#ff4fa3', 36);
+      glowText('NEPLOXO', W / 2, 150, script ? '150px Pacifico' : 'italic bold 150px "Trebuchet MS", Arial, sans-serif', '#ff4fa3', 36);
       glowText('21', W / 2, 345, '900 170px Rubik, "Arial Black", Arial, sans-serif', '#3fe6e0', 34);
       g.shadowBlur = 0; g.strokeStyle = '#ffd84f'; g.lineWidth = 6; g.shadowColor = '#ffd84f'; g.shadowBlur = 18;
       g.beginPath(); g.moveTo(170, 262); g.lineTo(390, 262); g.moveTo(634, 262); g.lineTo(854, 262); g.stroke();
@@ -245,7 +245,7 @@
 
     let near = false;
     return {
-      inside, exitStep, entryStep, door: { in: IN, out: OUT, z: DZ, x: X1 }, spots, name: 'NEOLOXO 21',
+      inside, exitStep, entryStep, door: { in: IN, out: OUT, z: DZ, x: X1 }, spots, name: 'NEPLOXO 21',
       center: { x: (X0 + X1) / 2, z: DZ }, bpm: BPS * 60,
       // lamps that would stand in front of the entrance
       blocksLamp: (x, z) => x > X1 && x < X1 + 5 && Math.abs(z - DZ) < 4,

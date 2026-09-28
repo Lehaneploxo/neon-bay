@@ -132,7 +132,7 @@
       else { [523, 415, 330].forEach((f, i) => tone(d, t + i * .22, .3, 'square', f, .08)); }
     };
     A.starUp = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); tone(d, t, .12, 'square', 988, .06); tone(d, t + .12, .18, 'square', 1318, .06); };
-    // NEOLOXO 21 music: an 80s disco loop at 118 BPM (four-on-the-floor kick, claps, hats, octave bass,
+    // NEPLOXO 21 music: an 80s disco loop at 118 BPM (four-on-the-floor kick, claps, hats, octave bass,
     // offbeat chord stabs and a quiet arpeggio over Am-F-C-G), scheduled ahead on the audio clock.
     // Outside the club it is quieter and muffled through the walls.
     let club = null;

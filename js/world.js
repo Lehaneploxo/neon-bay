@@ -269,7 +269,7 @@
       }
 
       if (t === 'hotel') {
-        // the block in front of the spawn point becomes the NEOLOXO 21 club instead of two hotels
+        // the block in front of the spawn point becomes the NEPLOXO 21 club instead of two hotels
         const unmute = j === 2 ? mute() : null;
         const mz = (lz0 + lz1) / 2;
         for (const [z0, z1] of [[lz0, mz - 1], [mz + 1, lz1]]) {
