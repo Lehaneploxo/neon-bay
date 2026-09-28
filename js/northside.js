@@ -96,6 +96,46 @@
     const talk = (x, z, type, y, gang) => { const grp = {}, n = chance(.4) ? 3 : 2, seed = R() * 10; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; spots.push({ kind: 'talk', x: x + Math.sin(a) * .6, z: z + Math.cos(a) * .6, y, fixedY: true, heading: Math.atan2(-Math.sin(a), -Math.cos(a)), mix: 'north', type: typeof type === 'function' ? type() : type, seed, idx: i, n, grp, home: true, gang }); } };
     const gangType = g => () => g === 'red' ? 'gang_red' : 'gang_green';
 
+    /* ---------- street level: the ground floor of every building is built by hand ---------- */
+    const GF = G0 + 3.6;                                    // top of the ground floor (the facade texture's windows start above it)
+    // a rectangle on face f of box b, 'off' along the face, half-width hw, sticking out 'out'
+    const fr = (f, b, out, hw, off) => {
+      const cx = (b.x0 + b.x1) / 2 + (f[1] === 'z' ? off : 0), cz = (b.z0 + b.z1) / 2 + (f[1] === 'x' ? off : 0);
+      return f === '+x' ? [b.x1, cz - hw, b.x1 + out, cz + hw] : f === '-x' ? [b.x0 - out, cz - hw, b.x0, cz + hw] : f === '+z' ? [cx - hw, b.z1, cx + hw, b.z1 + out] : [cx - hw, b.z0 - out, cx + hw, b.z0];
+    };
+    const fbox = (f, b, out, hw, off, y0, y1, hex, mat) => { const [a, c, d, e] = fr(f, b, out, hw, off); (mat || bPlain).box(a, y0, c, d, y1, e, C(hex)); };
+    const faceLen = (f, b) => f[1] === 'x' ? b.z1 - b.z0 : b.x1 - b.x0;
+    // the other face of a corner building that looks onto a street
+    const sideOf = (b, f, cx, cz) => f[1] === 'x' ? ((b.z0 + b.z1) / 2 > cz ? '+z' : '-z') : ((b.x0 + b.x1) / 2 > cx ? '+x' : '-x');
+    const DOORS = ['#3a2a22', '#2a3a4a', '#4a2a2a', '#2f4a3a', '#5a4630', '#3a3a40'];
+    // a solid ground floor round the building with a stone band on top
+    function groundFloor(b, Y, hex) {
+      bPlain.box(b.x0 - .05, Y, b.z0 - .05, b.x1 + .05, GF, b.z1 + .05, C(hex), { noTop: true });
+      bPlain.box(b.x0 - .14, GF - .05, b.z0 - .14, b.x1 + .14, GF + .2, b.z1 + .14, C('#b8b0a2'));
+    }
+    // a front door: frame, door, window or knob, a step, a little roof and a lamp over it
+    function door(f, b, off, Y, hex, glass) {
+      fbox(f, b, .1, .78, off, Y, Y + 2.5, '#d8cfc0');
+      fbox(f, b, .14, .6, off, Y, Y + 2.3, hex);
+      if (glass) fbox(f, b, .16, .45, off, Y + 1.1, Y + 2.1, '#8a8a70', bNeon);
+      else { fbox(f, b, .16, .4, off, Y + 1.5, Y + 2.1, '#2a2e38'); fbox(f, b, .2, .05, off + .4, Y + 1.05, Y + 1.15, '#d0b060'); }
+      fbox(f, b, .7, .95, off, Y, Y + .14, '#9a948a');
+      fbox(f, b, .85, 1.05, off, Y + 2.6, Y + 2.72, '#3a3230');
+      fbox(f, b, .22, .12, off, Y + 2.85, Y + 3.05, '#ffd9a0', bNeon);
+    }
+    // ground-floor windows along a face, leaving a gap of half-width 'skip' round offset 0
+    function windowsAlong(f, b, Y, skip, bars) {
+      const L = faceLen(f, b);
+      for (let off = -L / 2 + 2; off <= L / 2 - 2; off += 3.2) {
+        if (Math.abs(off) < skip) continue;
+        fbox(f, b, .08, .8, off, Y + .9, Y + 2.8, '#d8cfc0');
+        const lit = chance(.2);
+        fbox(f, b, .12, .64, off, Y + 1.02, Y + 2.68, lit ? '#6a5a3e' : '#1e2230', lit ? bNeon : bPlain);
+        fbox(f, b, .24, .9, off, Y + .84, Y + .96, '#b8b0a2');
+        if (bars) for (let q = -.5; q <= .5; q += .25) fbox(f, b, .2, .025, off + q, Y + 1.02, Y + 2.68, '#2a2a2e');
+      }
+    }
+
     /* ---------- the blocks ---------- */
     // what stands where: the docks along the north shore, factories and a junkyard behind them, tenements and shops
     // towards the bridge; each gang's court in the middle of its turf
@@ -123,34 +163,60 @@
           if (chance(.15)) { barrel(rr(x0 + 3, x1 - 3), rr(z0 + 3, z1 - 3)); continue; }   // a gap: a yard with a fire
           const h = G0 + 4 * (2 + ((R() * 3) | 0)) + .4, b = building(x0, z0, x1, z1, h, pick(BRICK), Y);
           bPlain.box(x0 - .1, h - .6, z0 - .1, x1 + .1, h, z1 + .1, C('#5a3a30'));
-          const f = faceOf(b, cx, cz);
-          for (let y = Y + 3.4; y < h - 1; y += 4) {
-            const [a0, c0, a1, c1] = f === '+x' ? [x1, cz - 4, x1 + 1.1, cz + 4] : f === '-x' ? [x0 - 1.1, cz - 4, x0, cz + 4] : f === '+z' ? [(x0 + x1) / 2 - 4, z1, (x0 + x1) / 2 + 4, z1 + 1.1] : [(x0 + x1) / 2 - 4, z0 - 1.1, (x0 + x1) / 2 + 4, z0];
-            const [px0, pz0, px1, pz1] = f[1] === 'x' ? [a0, (z0 + z1) / 2 - 3, a1, (z0 + z1) / 2 + 3] : [(x0 + x1) / 2 - 3, c0, (x0 + x1) / 2 + 3, c1];
-            bPlain.box(px0, y, pz0, px1, y + .08, pz1, C('#2a2426')); bPlain.box(px0, y + .9, pz0, px1, y + .95, pz1, C('#2a2426'));
-          }
-          bPlain.box((x0 + x1) / 2 - 1, h, (z0 + z1) / 2 - 1, (x0 + x1) / 2 + 1, h + 2.4, (z0 + z1) / 2 + 1, C('#6a5040'));   // the water tank
-          if (chance(.8)) tag(f, b, rr(-3, 3));
-          // a stoop to sit on
-          if (chance(.6)) { const [sx, sz] = f === '+x' ? [x1 + .9, (z0 + z1) / 2] : f === '-x' ? [x0 - .9, (z0 + z1) / 2] : f === '+z' ? [(x0 + x1) / 2, z1 + .9] : [(x0 + x1) / 2, z0 - .9]; spots.push({ kind: 'sit', x: sx, z: sz, y: Y + .45, fixedY: true, heading: f === '+x' ? Math.PI / 2 : f === '-x' ? -Math.PI / 2 : f === '+z' ? 0 : Math.PI, mix: 'north', home: true }); bPlain.box(sx - .8, Y, sz - .8, sx + .8, Y + .4, sz + .8, C('#a09a90')); }
+          const f = faceOf(b, cx, cz), sd = sideOf(b, f, cx, cz);
+          // the street floor: a way in under the fire escape, windows either side (barred on some), a blank middle on the side wall for tags
+          groundFloor(b, Y, pick(['#4a2a22', '#553128', '#3e2a24']));
+          door(f, b, 0, Y, pick(DOORS));
+          windowsAlong(f, b, Y, 2.2, chance(.4)); windowsAlong(sd, b, Y, 5, chance(.4));
+          // the fire escape: a landing with a railing on every floor, posts at both ends, a ladder down the side
+          const top = h - 1.2, [ea, ec, ed, ee] = fr(f, b, 1.1, 3, 0);
+          for (let y = GF; y < top; y += 4) { bPlain.box(ea, y, ec, ed, y + .08, ee, C('#2a2426')); bPlain.box(ea, y + .9, ec, ed, y + .95, ee, C('#2a2426')); }
+          for (const o of [-2.96, 2.96]) { const [a, c, d, e] = fr(f, b, 1.1, .04, o); const [a2, c2, d2, e2] = f === '+x' ? [d - .08, c, d, e] : f === '-x' ? [a, c, a + .08, e] : f === '+z' ? [a, e - .08, d, e] : [a, c, d, c + .08]; bPlain.box(a2, GF, c2, d2, top, e2, C('#2a2426')); }
+          fbox(f, b, .95, .22, 2.3, GF - 2.2, top, '#2a2426');
+          // air conditioners here and there
+          for (let y = GF + 1.2; y < h - 2; y += 4) if (chance(.45)) { const o = rr(-faceLen(sd, b) / 2 + 1.5, faceLen(sd, b) / 2 - 1.5); fbox(sd, b, .55, .45, o, y, y + .6, '#c8c4bc'); }
+          bPlain.box((x0 + x1) / 2 - 1, h + .6, (z0 + z1) / 2 - 1, (x0 + x1) / 2 + 1, h + 3, (z0 + z1) / 2 + 1, C('#6a5040'));   // the water tank on legs
+          for (const dx of [-.85, .85]) for (const dz of [-.85, .85]) bPlain.box((x0 + x1) / 2 + dx - .08, h, (z0 + z1) / 2 + dz - .08, (x0 + x1) / 2 + dx + .08, h + .6, (z0 + z1) / 2 + dz + .08, C('#3a2a22'));
+          if (chance(.85)) tag(sd, b, 0);
+          // steps up to the door: someone may be sitting on them
+          { const [sx, sz] = f === '+x' ? [x1 + .9, (z0 + z1) / 2] : f === '-x' ? [x0 - .9, (z0 + z1) / 2] : f === '+z' ? [(x0 + x1) / 2, z1 + .9] : [(x0 + x1) / 2, z0 - .9];
+            if (chance(.6)) spots.push({ kind: 'sit', x: sx, z: sz, y: Y + .45, fixedY: true, heading: f === '+x' ? Math.PI / 2 : f === '-x' ? -Math.PI / 2 : f === '+z' ? 0 : Math.PI, mix: 'north', home: true });
+            bPlain.box(sx - .8, Y, sz - .8, sx + .8, Y + .2, sz + .8, C('#a09a90'));
+            bPlain.box(sx - .8 + (f === '+x' ? 0 : f === '-x' ? .5 : 0), Y + .2, sz - .8 + (f === '-z' ? .5 : 0), sx + .8 - (f === '+x' ? .5 : 0), Y + .4, sz + .8 - (f === '+z' ? .5 : 0), C('#a09a90')); }
         }
         if (chance(.5)) talk(bx0 + 1.8, cz + rr(-8, 8), gang ? gangType(gang) : null, Y, gang);
       } else if (type === 'shops') {
         const words = ['LIQUOR', 'PAWN', 'LAUNDRY', 'GARAGE', 'PIZZA', 'VIDEO', 'DINER', 'TATTOO'];
         for (const [x0, z0, x1, z1] of [[lx0, lz0, cx - 1, cz - 1], [cx + 1, lz0, lx1, cz - 1], [lx0, cz + 1, cx - 1, lz1], [cx + 1, cz + 1, lx1, lz1]]) {
-          const b = building(x0, z0, x1, z1, G0 + rr(5, 8), pick(FADED), Y), f = faceOf(b, cx, cz);
-          awning(f, b, pick(['#8a1f2a', '#2a3f6b', '#3b5a3a', '#6b4423']), 5);
+          const b = building(x0, z0, x1, z1, G0 + rr(5, 8), pick(FADED), Y), f = faceOf(b, cx, cz), sd = sideOf(b, f, cx, cz), L = faceLen(f, b);
+          groundFloor(b, Y, pick(['#5a4a44', '#44505a', '#4f4a3e', '#5a4038']));
+          // a shop front: two big windows lit from inside, a glass door between them, an awning, the sign above
+          const ww = Math.min(4.5, L / 4 - 1.2), barred = chance(.6);
+          for (const off of [-(ww + 1.4), ww + 1.4]) {
+            fbox(f, b, .1, ww + .15, off, Y + .45, Y + 2.55, '#2a2a2e');
+            fbox(f, b, .14, ww, off, Y + .6, Y + 2.4, pick(['#7a6a4a', '#6a7078', '#7a5a5a', '#5a6a58']), bNeon);
+            if (barred) for (let q = -ww; q <= ww; q += .45) fbox(f, b, .22, .03, off + q, Y + .6, Y + 2.4, '#2a2a2e');
+          }
+          door(f, b, 0, Y, '#2a2a2e', true);
+          fbox(f, b, 1.5, Math.min(L / 2 - .5, 2 * ww + 3), 0, Y + 2.8, Y + 3.0, pick(['#8a1f2a', '#2a3f6b', '#3b5a3a', '#6b4423']));
           sign(f, b, Y + 3.3, Y + 4.7, 1.5, pick(words));
-          // bars on the shop windows
-          if (chance(.7)) for (let q = -2; q <= 2; q++) { const [px, pz] = f === '+x' ? [b.x1 + .05, (z0 + z1) / 2 + q * .5] : f === '-x' ? [b.x0 - .05, (z0 + z1) / 2 + q * .5] : f === '+z' ? [(x0 + x1) / 2 + q * .5, b.z1 + .05] : [(x0 + x1) / 2 + q * .5, b.z0 - .05]; bPlain.box(px - .03, Y + .9, pz - .03, px + .03, Y + 2.6, pz + .03, C('#2a2a2e')); }
-          if (chance(.6)) tag(f, b, rr(-4, 4));
+          windowsAlong(sd, b, Y, 5, true);
+          if (chance(.8)) tag(sd, b, 0);
+          // a phone box on the kerb outside some of them
+          if (chance(.35)) {
+            const [a, c, d, e] = fr(f, b, 3, .45, L / 2 - 2);
+            const o = f === '+x' ? [d - .9, c, d - .1, e] : f === '-x' ? [a + .1, c, a + .9, e] : f === '+z' ? [a, e - .9, d, e - .1] : [a, c + .1, d, c + .9];
+            bPlain.box(o[0], Y, o[1], o[2], Y + 2.3, o[3], C('#c8c4bc')); bNeon.box(o[0] + .05, Y + 2.05, o[1] + .05, o[2] - .05, Y + 2.25, o[3] - .05, C('#3f8fe6')); col.add(o[0], 0, o[1], o[2], Y + 2.3, o[3]);
+          }
         }
         talk(bx1 - 1.8, cz + rr(-6, 6), gang && chance(.4) ? gangType(gang) : null, Y, gang && chance(.4) ? gang : undefined);
       } else if (type === 'warehouse') {
         const b = building(lx0, lz0, lx1, lz1, G0 + rr(8, 11), pick(CONCRETE), Y), f = faceOf(b, i === 0 ? cx + 50 : cx - 50, cz);
         bPlain.box(b.x0 - .1, b.h - .5, b.z0 - .1, b.x1 + .1, b.h, b.z1 + .1, C('#5a5854'));
+        groundFloor(b, Y, '#5e5c58');
+        if (faceLen(f, b) > 28) door(f, b, faceLen(f, b) / 2 - 2.5, Y, '#4a4a50');
         for (const off of [-8, 0, 8]) { const [dx0, dz0, dx1, dz1] = f === '+x' ? [b.x1, (lz0 + lz1) / 2 + off - 2.2, b.x1 + .08, (lz0 + lz1) / 2 + off + 2.2] : f === '-x' ? [b.x0 - .08, (lz0 + lz1) / 2 + off - 2.2, b.x0, (lz0 + lz1) / 2 + off + 2.2] : f === '+z' ? [(lx0 + lx1) / 2 + off - 2.2, b.z1, (lx0 + lx1) / 2 + off + 2.2, b.z1 + .08] : [(lx0 + lx1) / 2 + off - 2.2, b.z0 - .08, (lx0 + lx1) / 2 + off + 2.2, b.z0]; bPlain.box(dx0, Y, dz0, dx1, Y + 4, dz1, C(pick(['#6a7078', '#8a7a4a', '#5a6a5a']))); }
-        tag(f, b, rr(-10, 10)); if (chance(.6)) tag(f, b, rr(-10, 10));
+        tag(f, b, pick([-4, 4])); if (chance(.6)) tag(f, b, -12);
       } else if (type === 'factory') {
         const b = building(lx0, lz0, lx1, lz1 - 6, G0 + rr(9, 12), pick(BRICK), Y);
         // a saw-tooth roof and a tall striped chimney
@@ -159,7 +225,7 @@
         bPlain.box(chx - 1.3, Y, chz - 1.3, chx + 1.3, G0 + 28, chz + 1.3, C('#8a3b2e')); col.add(chx - 1.3, 0, chz - 1.3, chx + 1.3, G0 + 28, chz + 1.3);
         for (const y of [G0 + 22, G0 + 25.5]) bPlain.box(chx - 1.35, y, chz - 1.35, chx + 1.35, y + 1.2, chz + 1.35, C('#e8e2da'));
         chimneys.push([chx, G0 + 28.5, chz]);
-        tag(faceOf(b, cx, cz - 30), b, rr(-6, 6));
+        { const ff = faceOf(b, cx, cz - 30), L = faceLen(ff, b); groundFloor(b, Y, '#4a2a22'); door(ff, b, -L / 2 + 3, Y, '#3a3a40'); fbox(ff, b, .08, 3, L / 2 - 6, Y, Y + 3.4, '#6a7078'); fbox(ff, b, 1.8, 3.4, L / 2 - 6, Y, Y + 1.1, '#8e8a86'); windowsAlong(ff, b, Y, L / 2 - 6, false); tag(ff, b, 0); }
         barrel(lx0 + 3, lz1 - 2);
       } else if (type === 'containers') {
         // stacks of shipping containers, and a gantry crane on the quay
@@ -199,6 +265,23 @@
         const w = { x0: lx0 + 1, x1: lx1 - 1, z0: lz1 - .6, z1: lz1 }; bPlain.box(w.x0, Y, w.z0, w.x1, Y + 3, w.z1, C('#8e8a86')); col.add(w.x0, 0, w.z0, w.x1, Y + 3, w.z1);
         tag('-z', w, -9); tag('-z', w, 0, gang === 'red' ? 'COBRAS' : gang === 'green' ? 'SKULLS' : 'N-SIDE'); tag('-z', w, 9);
         talk(cx - 4, cz + 4, gang ? gangType(gang) : null, Y, gang);
+      }
+      if (type !== 'containers') {   // a fire hydrant on the corner
+        bPlain.box(bx0 + .5, Y, bz1 - .9, bx0 + .8, Y + .7, bz1 - .6, C('#c8202a')); bPlain.box(bx0 + .45, Y + .7, bz1 - .95, bx0 + .85, Y + .8, bz1 - .55, C('#c8202a'));
+      }
+      if (type === 'tenements' || type === 'shops') {
+        // dumpsters and rubbish bags at the ends of the alley between the buildings
+        for (const z of [lz0 + .4, lz1 - 2.2]) if (chance(.7)) {
+          bPlain.box(cx - .85, Y, z, cx + .85, Y + 1.3, z + 1.8, C(pick(['#2f5a3a', '#3a4a6a', '#5a4a2a']))); bPlain.box(cx - .9, Y + 1.3, z - .05, cx + .9, Y + 1.4, z + 1.85, C('#22262a'));
+          col.add(cx - .85, 0, z, cx + .85, Y + 1.4, z + 1.8);
+          for (let k = 0; k < 3; k++) { const bx = cx + rr(-.7, .7), bz = z + (z < cz ? 2.2 : -.4) + rr(-.15, .15); bPlain.box(bx - .28, Y, bz - .28, bx + .28, Y + .5, bz + .28, C('#1e1e22')); }
+        }
+        // washing hung across the alley
+        if (type === 'tenements') for (let k = 0; k < 3; k++) {
+          const y = G0 + 6.5 + k * 4, z = rr(lz0 + 5, lz1 - 5); if (!chance(.6)) continue;
+          bPlain.box(cx - 1, y, z - .015, cx + 1, y + .03, z + .015, C('#d0ccc4'));
+          for (let x = cx - .8; x < cx + .7; x += .45) bPlain.box(x, y - .6, z - .02, x + .35, y, z + .02, C(pick(['#f5f5f0', '#e8202a', '#3f8fe6', '#ffd23d', '#ff4fa3', '#88aacc'])));
+        }
       }
       // cars parked at the kerb, old and cheap
       for (const side of [-1, 1]) if (chance(.5)) parking.push({ id: pick(['meridian', 'hayride', 'outbacker', 'piccolo', 'meridian']), x: side < 0 ? bx0 - 1.1 : bx1 + 1.1, z: cz + rr(-12, 12), h: side < 0 ? 0 : Math.PI });
