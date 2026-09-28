@@ -128,6 +128,16 @@
         set('torso', '#b0203a'); sleeves('long', '#b0203a'); legs('pants', '#1a1a22'); set('shoeL shoeR', '#0c0c0e');
         show('brim crown'); set('crown', '#b0203a'); set('brim', '#c9a04a'); L.speed = 1.5; break;
       }
+      case 'vendor': { // street food: white shirt, apron, striped cap
+        set('torso', '#f4f4f0'); sleeves('short', '#f4f4f0'); legs('pants', pick(['#2a2a30', '#3b5a8a'])); set('shoeL shoeR', '#1a1a1a');
+        show('skirt brim crown'); set('skirt', pick(['#e8202a', '#ff7eb6'])); set('crown', pick(['#e8202a', '#ff7eb6'])); set('brim', '#f4f4f0');
+        L.skirt = 1; L.speed = 1.2; break;
+      }
+      case 'musician': { // leather jacket, jeans, shades
+        const j = pick(['#141418', '#5a2a1a', '#2a2a4a']); set('torso', j); sleeves('long', j); legs('pants', pick(['#2b3d6b', '#1a1a22'])); set('shoeL shoeR', '#1a1a1a');
+        L.long = chance(.5); show('shades'); set('shades', '#141018'); if (chance(.4)) { show('brim crown'); set('brim crown', '#2a2a2a'); }
+        L.speed = 1.2; break;
+      }
       case 'bouncer': { // club security: tall, very broad, black tank top, shaved head, shades
         L.hs = rand(1.1, 1.15); L.ws = rand(1.4, 1.5);
         set('torso', '#141418'); sleeves('none'); legs('pants', '#1c1c24'); set('shoeL shoeR', '#0c0c0e');
@@ -186,7 +196,7 @@
 
   /* ---------- system ---------- */
   NB.createCrowd = function (scene, world, opts) {
-    const CAP = 110;
+    const CAP = 150;
     const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), CAP * PARTS);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled = false; mesh.castShadow = true;
@@ -273,8 +283,11 @@
     if (club) for (const s of club.spots) spots.push(Object.assign({}, s));
     if (world.places) for (const s of world.places.spots) spots.push(Object.assign({}, s));
     if (world.island) for (const s of world.island.spots) spots.push(Object.assign({}, s));
+    // street vendors, buskers and their customers: street.js looks at these very spots to show the props
+    if (world.street) for (const s of world.street.spots) spots.push(s);
     for (const s of spots) { s.person = null; s.y = s.fixedY || s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
-    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1 };
+    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1, guitar: 1, sax: 1, drum: 1 };
+    const SEATED = { sit: 1, drum: 1 };
     // trouble in or at the club: both bouncers drop what they're doing and go for the hero
     function alertBouncers() {
       for (const b of people) {
@@ -643,6 +656,15 @@
           break;
         }
         case 'sit': tL = tR = -1.5; kL = kR = 1.5; aL = aR = -.5; eL = eR = -.75; P.lean = -.06 + L.lean; P.bob = breathe; P.headY = Math.sin(t * .3 + p.seed) * .5; break;
+        // buskers: strumming a guitar, blowing a sax, drumming on a bucket
+        case 'guitar': { const st = Math.sin(t * 9 + p.seed); P.bob = breathe + Math.abs(Math.sin(t * 2.4)) * .015; aL = -1.25; eL = -.35; aR = -.55 + st * .12; eR = -1.25 + st * .1; P.spread = -.08; P.headP = .12; P.twist = Math.sin(t * 1.2 + p.seed) * .08; tL = .05; tR = -.05; break; }
+        case 'sax': { const sw = Math.sin(t * 1.6 + p.seed); P.bob = breathe; aL = aR = -.95; eL = eR = -1.55; P.spread = -.25; P.lean = -.08 + sw * .08; P.headP = -.1 + sw * .06; P.twist = sw * .12; kL = .08; break; }
+        case 'drum': { const b = t * 8 + p.seed, l = Math.sin(b), r = Math.sin(b + Math.PI * (Math.sin(t * .9) > .3 ? .5 : 1)); tL = tR = -1.5; kL = kR = 1.3; aL = -.7 - l * .35; eL = -.9 + l * .3; aR = -.7 - r * .35; eR = -.9 + r * .3; P.lean = .2; P.headP = .1 + Math.abs(l) * .06; P.bob = Math.abs(l) * .01; break; }
+        // puppets: surfers and beach volleyball players (moved by street.js)
+        case 'surf': { const w = Math.sin(t * 1.3 + p.seed); tL = -.35; tR = .25; kL = .7; kR = .6; aL = -.3 + w * .25; aR = -.25 - w * .25; eL = eR = -.3; P.spread = .9; P.lean = .3; P.twist = .7 + w * .15; P.headY = -.6; P.bob = -.12 + w * .02; break; }
+        case 'paddle': { const s = Math.sin(t * 4 + p.seed); aL = -2.6 + s * 1.1; aR = -2.6 - s * 1.1; eL = eR = -.1; P.headP = -.5; tL = tR = 0; kL = kR = .1; break; }
+        case 'ready': P.bob = -.06 + breathe; tL = tR = -.35; kL = kR = .7; aL = aR = -.75; eL = eR = -.25; P.lean = .3; P.spread = -.05; break;
+        case 'volley': { const k = p.hitT > 0 ? Math.sin((1 - p.hitT / .4) * Math.PI) : 0; aL = aR = -1.2 - k * 1.8; eL = eR = -.1; P.lean = .1 - k * .15; tL = tR = -.2 + k * .1; kL = kR = .4 - k * .3; P.bob = k * .1; break; }
         case 'lie': P.spread = .12; P.bob = breathe * .5; tL = .03; tR = -.03; break;
         case 'cpr': { const pump = Math.sin(t * 10 + p.seed); tL = tR = 0; kL = kR = 1.57; P.lean = .55; aL = aR = -1.05 + pump * .15; eL = eR = -.15; P.headP = .2; break; }
         case 'aim': P.bob = breathe; aR = -1.52; eR = -.05; aL = -1.25; eL = -.55; P.twist = -.12; break;
@@ -666,6 +688,7 @@
       const P = p.pose, L = p.look, hs = L.hs;
       let lift = 0;
       if (p.anim === 'lie') E.set(Math.PI / 2, Math.PI, 0, 'XYZ');
+      else if (p.anim === 'paddle') E.set(Math.PI / 2, p.heading, 0, 'YXZ');   // face down on a board, head first
       else if (p.anim === 'dead') { const f = Math.min(1, p.fallT / .55); E.set(-Math.PI / 2 * f * f, p.heading, 0, 'YXZ'); lift = .12 * f; }
       else E.set(0, p.heading, 0, 'YXZ');
       if (p.anim === 'cpr') lift = -.41 * hs;
@@ -686,7 +709,7 @@
         TM.makeScale(cs[o + 3], cs[o + 4], cs[o + 5]); TM.setPosition(cs[o], cs[o + 1], cs[o + 2]);
         OUT.multiplyMatrices(JM[JOINT[i]], TM); mesh.setMatrixAt(base + i, OUT);
       }
-      if (p.anim === 'lie' || p.anim === 'dead') blobs.setMatrixAt(p.slot, ZERO);
+      if (p.anim === 'lie' || p.anim === 'dead' || p.noBlob) blobs.setMatrixAt(p.slot, ZERO);
       else { TM.makeTranslation(p.x, (p.anim === 'sit' ? .15 : p.y) + .02, p.z); blobs.setMatrixAt(p.slot, TM); }
     }
 
@@ -709,7 +732,7 @@
           const p = spawn(makeLook(kindType === 'jogger' ? 'tourist_m' : kindType), s.x, s.z, 'spot');
           if (p && (s.kind === 'bouncer' || s.home)) p.home = { spot: s, goal: [s.x, s.z], face: s.heading, arrived: false };
           if (p && s.patrol) { p.patrol = { pts: s.patrol, k: 0, anim: s.kind }; p.homeSpot = s; s.person = p; p.mode = 'patrol'; p.heading = s.heading; p.anim = 'walk'; }
-          else if (p) { p.spot = s; s.person = p; p.anim = s.kind; p.heading = s.heading; p.y = s.kind === 'sit' ? s.y - .95 * p.look.hs : s.y; p.seed = s.seed != null ? s.seed + s.idx : p.seed; }
+          else if (p) { p.spot = s; s.person = p; p.anim = s.kind; p.heading = s.heading; p.y = SEATED[s.kind] ? s.y - .95 * p.look.hs : s.y; p.seed = s.seed != null ? s.seed + s.idx : p.seed; }
         }
       }
       const walkers = people.filter(p => p.mode === 'graph' && !p.cop && !p.dead).length, beach = people.filter(p => (p.mode === 'beach' || p.mode === 'jog') && !p.dead).length;
@@ -741,7 +764,10 @@
             continue;
           }
           if (p.spot && p.cop && pol.wanted > 0 && d < 90) detachSpot(p);
-          if (!p.spot) updateWalker(p, dt, player, people);
+          // a puppet (surfer, volleyball player) is moved by its game until it's scared off or picks a fight
+          if (p.puppet && (p.fleeT > 0 || p.fightT > 0)) api.releasePuppet(p);
+          if (p.puppet) { if (p.hitT > 0) p.hitT -= dt; if (p.stumbleT > 0) p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : p.puppet.anim; }
+          else if (!p.spot) updateWalker(p, dt, player, people);
           else if (STAND[p.spot.kind] && p.stumbleT > 0) { p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : p.spot.kind; }
           else if (STAND[p.spot.kind] && p.dodge) { p.dodge.t -= dt; p.anim = 'dodge'; p.x += p.dodge.vx * dt; p.z += p.dodge.vz * dt; collide(p); if (p.dodge.t <= 0) { p.dodge = null; p.anim = p.spot.kind; } }
           // cars: jump out of the way, or get shoved if too late
@@ -810,6 +836,21 @@
         return p;
       },
       releaseFare(p) { if (people.includes(p)) { p.fare = null; p.keep = false; if (!p.dead && !p.down) resumeRoute(p); } },
+      // someone whose every move is made from outside (street.js): set p.x/z/y/heading and p.puppet.anim
+      spawnPuppet(type, x, z, heading) {
+        const p = spawn(makeLook(type), x, z, 'puppet');
+        if (!p) return null;
+        p.puppet = { anim: 'idle' }; p.keep = true; p.heading = heading || 0; p.anim = 'idle'; p.hitT = 0;
+        return p;
+      },
+      // back to ordinary life: runs off if scared, otherwise strolls away
+      releasePuppet(p) {
+        if (!people.includes(p) || !p.puppet) return;
+        p.puppet = null; p.keep = false; p.noBlob = false;
+        if (p.x > SHORE - 1) { p.x = SHORE - .6; p.y = floorAt(p.x, p.z, 1); }   // out of the sea first
+        if (!p.dead && !p.down && p.fleeT <= 0 && p.fightT <= 0) resumeRoute(p);
+        else if (!p.target) p.target = { x: p.x, z: p.z };
+      },
       count: () => people.length,
       people,
       // first living person hit by a ray (bodies are upright cylinders); head = top 28 cm
@@ -864,6 +905,7 @@
       // gunfire nearby: everyone who is not a police officer runs away
       panic(x, z, r, byPlayer) {
         let shouted = 0;
+        call('onPanic', x, z, r);   // the animals hear it too
         if (byPlayer && nearClub(x, z, 18)) alertBouncers();   // gunshots carry further than a scuffle
         for (const p of people) {
           if (p.dead || p.down || p.cop || p.medic || p.bouncer || p.fightT > 0) continue;

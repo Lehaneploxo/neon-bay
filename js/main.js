@@ -38,7 +38,7 @@
   const rig = new NB.CameraRig(camera, world.col);
   const lowCrowd = () => settings.quality === 'low' || isTouchDevice || (settings.quality === 'auto' && !shadowsOn && scale < .6);
   const crowdOpts = {
-    limits: () => lowCrowd() ? { walkers: 18, beach: 8, spotRange: 55, cops: 2 } : { walkers: 32, beach: 14, spotRange: 80, cops: 3 },
+    limits: () => lowCrowd() ? { walkers: 18, beach: 8, spotRange: 55, cops: 2, dogs: 2 } : { walkers: 32, beach: 14, spotRange: 80, cops: 3, dogs: 4 },
     onBump: (p, text) => say(p, text)
   };
   const crowd = NB.createCrowd(scene, world, crowdOpts);
@@ -67,6 +67,9 @@
   player.onSplash = big => audio.splash(big); player.onStroke = () => audio.stroke();
   const vehOpts = { audio, onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
+  // gulls, pigeons, dogs, crabs and dolphins
+  const animals = NB.createAnimals(scene, world, { crowd, vehicles, player, audio, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), onBite: d => { heroDamage(d); flashTip('Собака кусается!', 1.4); } });
+  crowdOpts.onPanic = (x, z, r) => animals.scare(x, z, r);
   const carLimits = () => lowCrowd() ? { traffic: 6, carRange: 90, patrols: 1 } : { traffic: 12, carRange: 130, patrols: 2 };
   let shake = 0, promptCar = null;
   const carCam = { x: 0, y: 0, z: 0, heading: 0, speed: 0, camDist: 7.2, camH: 1.7 };
@@ -207,6 +210,10 @@
     onOpen: () => { if (state === 'playing') { state = 'panel'; input.reset(); if (document.pointerLockElement) document.exitPointerLock(); show('panelOnly'); } },
     onClose: () => { if (state === 'panel') play(); }
   });
+  const wallet = { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) };
+  // the spray shop and the street: food carts, buskers, surfers, volleyball
+  world.spray.attach({ vehicles, police, player, audio, money: wallet, flash: (t, s) => flashTip(t, s), blink: fn => blink(fn) });
+  world.street.attach({ crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
   places.attach({
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
@@ -220,7 +227,8 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    for (const it of places.interactions()) {
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player));
+    for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
       if (d > it.r || d >= bd) continue;
@@ -531,6 +539,7 @@
     }
     icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
+    icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);   // with stars on, the spray shop shows at the edge
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
     for (const m of taxi.markers) {
       const q = toMap(m.x, m.z, true);
@@ -555,6 +564,10 @@
     for (const [id, bg, ch, label] of [['bank', '#1a8a5a', '$', 'Банк'], ['casino', '#c9a04a', '♦', 'Казино'], ['arcade', '#8a5ad8', '★', 'Игровые автоматы'], ['diner', '#e0286a', 'D', 'Закусочная'], ['hotel', '#2fa8a0', 'H', 'Отель OCEAN']]) { const p = P(id); if (p && p.door) add(p.door.cx, p.door.cz, bg, '#fff', ch, label); }
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
+    add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
+    for (const c of world.street.carts) add(c.x, c.z, c.kind === 'hotdog' ? '#e8202a' : '#ff9fc3', '#fff', c.kind === 'hotdog' ? 'Х' : 'М', c.kind === 'hotdog' ? 'Хот-доги' : 'Мороженое');
+    for (const b of world.street.buskers) add(b.x, b.z, '#2a2240', '#ffd84f', '♪', 'Уличный музыкант');
+    add(125, -30, '#f5f0d8', '#2a6fe8', 'V', 'Пляжный волейбол');
     add(142, 46, '#3fe6e0', '#10202a', '⚓', 'Причал: катера');
     add(173, -25, '#f6f2ec', '#1c2a4a', 'Я', 'Яхта LEHA NEPLOXO');
     add(510, 0, '#e02a3a', '#fff', '▲', 'Маяк');
@@ -711,6 +724,8 @@
         respawnT -= dt; if (respawnT <= 0) respawn();
         input.move.x = input.move.y = 0; input.fire = false; input.action = false; input.jump = false; input.throttle = 0;
       }
+      // in the spray shop the car stands still until the door goes up again
+      if (world.spray.busy) { input.throttle = 0; input.move.x = 0; input.handbrake = true; input.horn = false; input.action = false; }
       if (input.cycle) { combat.cycle(1); input.cycle = 0; }
       if (input.select >= 0) { combat.select(input.select); input.select = -1; }
       const [lx, ly] = input.takeLook(settings.sens);
@@ -725,10 +740,12 @@
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       taxi.update(dt);
       places.update(dt);
+      world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       const drv = vehicles.driving;
       if (drv) { player.x = drv.x; player.z = drv.z; player.y = drv.y; player.heading = drv.h; player.vx = drv.vx; player.vz = drv.vz; }
       crowd.update(dt, time, player, rig.yaw, vehicles.dangers(), police);
+      animals.update(dt, player, crowdOpts.limits());
       promptCar = drv || player.dead || respawnT > 0 ? null : vehicles.nearest(player);
       if (drv) {
         const vF = drv.vx * Math.sin(drv.h) + drv.vz * Math.cos(drv.h);
@@ -758,6 +775,7 @@
       menuT += dt;
       vehicles.update(dt, { player, input: { throttle: 0, move: { x: 0 }, handbrake: false, horn: false }, people: crowd.people, camYaw: -Math.PI / 2, limits: carLimits });
       crowd.update(dt, menuT, player, -Math.PI / 2, vehicles.dangers());
+      world.street.update(dt); animals.update(dt, player, crowdOpts.limits());
       const z = Math.sin(menuT * .05) * 55;
       camera.position.set(136, 7 + Math.sin(menuT * .13), z);
       camera.lookAt(70, 11, z * .7);
@@ -784,6 +802,8 @@
         name = 'club'; level = cin ? 1 : Math.max(0, 1 - d / 55) * .5; full = cin;
         const tv = places.venueAt(player.x, player.z);
         if (tv && tv.level > level) { name = tv.name; level = tv.level; full = true; }
+        const bv = world.street.venueAt(player.x, player.z);   // street musicians
+        if (bv && bv.level > level) { name = bv.name; level = bv.level; full = true; }
       }
       audio.venue(name, active ? level : 0, full);
       const bank = places.byId('bank');
@@ -798,7 +818,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, crowd, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, crowd, animals, world, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };

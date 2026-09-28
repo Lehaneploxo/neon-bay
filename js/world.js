@@ -104,7 +104,7 @@
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
     let station = null, hospital = null, gunShop = null, hotelRoof = null, towerRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
-    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -107, z1: -89 }];
+    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -107, z1: -89 }, NB.STREET_RESERVED];
     const reserved = (x, z, m = 0) => RESERVED.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
 
     // hollow: four strips instead of one flat slab, for a roof you can stand on
@@ -477,6 +477,10 @@
     /* ---------- places you can go into: interiors, the villa, the tiki bar, the hotel roof ---------- */
     const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, towerRoof, hospital, reserved: RESERVED, palms, mapShapes });
 
+    /* ---------- the spray shop, food carts, buskers and the volleyball court ---------- */
+    const spray = NB.buildSpray({ scene, col, C, mapShapes });
+    const street = NB.buildStreet({ scene, col, C, palms });
+
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);
     // lamps with a height of their own are on the bridge or the island and are always kept
@@ -616,7 +620,7 @@
     }
 
     return {
-      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, spray, street, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -625,7 +629,7 @@
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
         if (club) club.update(t, env, env.px, env.pz);
-        places.render(t, env); island.update(t, env);
+        places.render(t, env); island.update(t, env); spray.render(t);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);

@@ -6,6 +6,7 @@
   const rand = U.rand, pick = a => a[(Math.random() * a.length) | 0], chance = p => Math.random() < p;
   const DIRV = [[1, 0], [0, 1], [-1, 0], [0, -1]];
   const LANE = 2.6, PARK = 4.9, STOP = 8.5;
+  const SPRAY_COLORS = ['#e8202a', '#f5f5f0', '#141418', '#ffd23d', '#ff4fa3', '#2a6fe8', '#3fe6e0', '#8cff6b', '#9b5cff', '#ff8a3d', '#2e8a4a', '#a0c4e8'];
 
   NB.createVehicles = function (scene, world, opts) {
     const { ROADS } = world.layout, col = world.col, tmp = [];
@@ -388,6 +389,8 @@
     }
 
     /* ---------- parked cars along the kerbs and in the car park ---------- */
+    // nothing is parked in the way of the spray shop's door
+    const sr = world.spray && world.spray.keepClear, clear = (x, z) => !sr || x < sr.x0 || x > sr.x1 || z < sr.z0 || z > sr.z1;
     for (const L of ROADS) for (let s = 0; s < ROADS.length - 1; s++) {
       const a = ROADS[s] + 12, b = ROADS[s + 1] - 12;
       for (const side of [-1, 1]) for (let t = a; t < b; t += rand(6.5, 9)) {
@@ -395,14 +398,14 @@
         // road running along z at x = L
         if (!(L === -100 && side < 0)) makeCar(pickModel(), L + side * PARK, t, side < 0 ? 0 : Math.PI);
         if (chance(.5)) continue;
-        if (!((L === 100 || L === -100) && side * L > 0)) makeCar(pickModel(), t, L + side * PARK, side > 0 ? Math.PI / 2 : -Math.PI / 2);
+        if (!((L === 100 || L === -100) && side * L > 0) && clear(t, L + side * PARK)) makeCar(pickModel(), t, L + side * PARK, side > 0 ? Math.PI / 2 : -Math.PI / 2);
       }
     }
     {
       const lot = world.layout.blocks.find(b => b.type === 'parking');
       if (lot) {
         const lx0 = lot.bx0 + 3, lx1 = lot.bx1 - 3, rows = [lot.bz0 + 3 + 5.5, lot.bz1 - 3 - 5.5];
-        for (const zz of rows) for (let x = lx0 + 2.5; x < lx1 - 1; x += 3) if (chance(.45)) makeCar(pickModel(), x, zz, chance(.5) ? 0 : Math.PI);
+        for (const zz of rows) for (let x = lx0 + 2.5; x < lx1 - 1; x += 3) if (chance(.45) && clear(x, zz)) makeCar(pickModel(), x, zz, chance(.5) ? 0 : Math.PI);
       }
     }
     if (world.station) for (const [x, z, h] of world.station.parking) makeCar(byId.police, x, z, h);
@@ -735,6 +738,17 @@
         const car = makeCar(model, x, z, h); car.parked = true; car.garage = true;
         if (color) car.color = color; if (accent) car.accent = accent; paint(car);
         return car;
+      },
+      // the spray shop: a fresh coat of paint (police and ambulance keep their livery), dents and smoke gone
+      respray(car) {
+        if (!car.model.police && !car.model.ems) {
+          const pal = car.model.palette.length > 2 ? car.model.palette : SPRAY_COLORS;
+          let c = car.color; for (let k = 0; k < 8 && c === car.color; k++) c = pick(pal);
+          car.color = c; car.accent = pick(car.model.accent);
+        }
+        car.damage = 0; car.flooded = false; car.smokeT = 0;
+        car.geo.attributes.position.array.set(car.model.geo.attributes.position.array); car.geo.attributes.position.needsUpdate = true;
+        paint(car);
       },
       speedKmh() { return driving ? Math.abs(speedOf(driving)) * 3.6 : 0; },
       // height above whatever is beneath the helicopter being flown

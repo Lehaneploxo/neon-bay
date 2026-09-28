@@ -224,8 +224,43 @@
         hat(bus, t, s % 2 ? .05 : .025, .05);
         if (s === 0 || s === 10) pluck(bus, t, 180, 'sine', .3, .12); if (s === 7 || s === 13) pluck(bus, t, 260, 'sine', .22, .1);
         if (s === 0 || s === 8) pluck(bus, t, root / 4, 'triangle', .25, .35, 500);
+      } },
+      // buskers: a saxophone on the promenade, a fingerpicked guitar in the park, bucket drums on the plaza
+      busk_sax: { bpm: 92, step(step, t, bus) {
+        const s = step % 64, n = SAX_TUNE.find(m => m[0] === s);
+        if (n) sax(bus, t, 220 * Math.pow(2, n[1] / 12), n[2] * 60 / 92 / 4, .11);
+        if (s % 8 === 4) noise(bus, t, .03, 'bandpass', 2400, 5, .08);   // finger snaps
+      } },
+      busk_guitar: { bpm: 100, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, ch = [[110, 220, 261.6, 329.6], [87.3, 174.6, 220, 261.6], [130.8, 196, 261.6, 329.6], [98, 196, 246.9, 293.7]][bar];
+        if (s === 0 || s === 8) { pluck(bus, t, ch[0], 'triangle', .22, .9, 900); pluck(bus, t, ch[0] * 2, 'sawtooth', .03, .5, 1200); }
+        if (s % 2 === 0) { const f = ch[1 + ((s / 2) | 0) % 3] * (s === 6 || s === 14 ? 2 : 1); pluck(bus, t, f, 'triangle', .1, .6, 2600); pluck(bus, t, f * 2, 'sine', .025, .3); }
+      } },
+      busk_drum: { bpm: 112, step(step, t, bus) {
+        const s = step % 16, bar = ((step / 16) | 0) % 4, fill = bar === 3 && s >= 8;
+        const low = v => { const o = AC.createOscillator(), g = AC.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(60, t + .12); env(g, t, .003, v, .2); o.connect(g); g.connect(bus); o.start(t); o.stop(t + .22); };
+        const tok = (v, f) => { noise(bus, t, .06, 'bandpass', f || 1100, 3, v); tone(bus, t, .05, 'triangle', (f || 1100) / 3.5, v * .5); };
+        if (fill) { if (s % 2 === 0) tok(.3, 900 + s * 40); else low(.35); return; }
+        if (s === 0 || s === 6 || s === 10) low(.55);
+        if (s === 4 || s === 12) tok(.35);
+        if (s % 2 === 1 && Math.random() < .5) noise(bus, t, .02, 'highpass', 5000, .7, .06);
+        if (s === 14 && Math.random() < .5) tok(.2, 1500);
       } }
     };
+    // a saxophone voice: a little breath at the start, then vibrato
+    const SAX_TUNE = [[0, 7, 6], [6, 10, 2], [8, 12, 8], [18, 10, 2], [20, 7, 4], [24, 5, 4], [28, 3, 4],
+      [32, 0, 6], [38, 3, 2], [40, 5, 4], [44, 7, 8], [52, 10, 3], [55, 12, 3], [58, 15, 6]];
+    function sax(bus, t, f, dur, v) {
+      const o = AC.createOscillator(), o2 = AC.createOscillator(), lfo = AC.createOscillator(), lg = AC.createGain(), flt = AC.createBiquadFilter(), g = AC.createGain();
+      o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.value = f; o2.frequency.value = f * 2.002;
+      lfo.frequency.value = 5.2; lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(f * .012, t + Math.min(.4, dur * .5));
+      lfo.connect(lg); lg.connect(o.frequency); lg.connect(o2.frequency);
+      flt.type = 'lowpass'; flt.frequency.setValueAtTime(900, t); flt.frequency.linearRampToValueAtTime(1900, t + .08); flt.Q.value = 1.5;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(v, t + .05); g.gain.setValueAtTime(v, t + Math.max(.06, dur - .08)); g.gain.exponentialRampToValueAtTime(.0001, t + dur + .05);
+      const g2 = AC.createGain(); g2.gain.value = .3; o.connect(flt); o2.connect(g2); g2.connect(flt); flt.connect(g); g.connect(bus);
+      noise(bus, t, .07, 'bandpass', 2500, 1, v * .5);
+      for (const x of [o, o2, lfo]) { x.start(t); x.stop(t + dur + .1); }
+    }
     let venue = null;
     // name: which track; level 0..1; inside: full sound, otherwise muffled as if through walls
     A.venue = function (name, level, inside) {
@@ -301,6 +336,80 @@
     A.stroke = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); noise(d, t, .32, 'bandpass', 700 + Math.random() * 400, 1.1, .09, 250); };
     // slot machine reel tick and roulette ball
     A.tick = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .015, 'bandpass', 3500, 3, .25); };
+
+    /* ---------- animals ---------- */
+    // a gull's "kyow-kyow": a squawk sliding down, twice or three times
+    A.gull = function (pos) {
+      if (!ok()) return; const t0 = AC.currentTime, d = out(pos), n = 2 + ((Math.random() * 2) | 0), f0 = 1300 + Math.random() * 500;
+      for (let k = 0; k < n; k++) {
+        const t = t0 + k * (.22 + Math.random() * .08), o = AC.createOscillator(), flt = AC.createBiquadFilter(), g = AC.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(f0 * (k ? .95 : 1.05), t); o.frequency.exponentialRampToValueAtTime(f0 * .62, t + .17);
+        flt.type = 'bandpass'; flt.frequency.value = 2000; flt.Q.value = 2.5; env(g, t, .015, .09, .2);
+        o.connect(flt); flt.connect(g); g.connect(d); o.start(t); o.stop(t + .22);
+      }
+    };
+    // pigeons taking off: a clatter of wings
+    A.flutter = function (pos) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      for (let k = 0; k < 10; k++) noise(d, t + k * .045 + Math.random() * .02, .04, 'bandpass', 700 + Math.random() * 600, 1.2, .22 * (1 - k / 12));
+    };
+    // woof (woof): a bigger dog barks lower
+    A.bark = function (pos, size) {
+      if (!ok()) return; const t0 = AC.currentTime, d = out(pos), f = 430 / Math.max(.5, size || 1), n = Math.random() < .5 ? 2 : 1;
+      for (let k = 0; k < n; k++) {
+        const t = t0 + k * .2, o = AC.createOscillator(), flt = AC.createBiquadFilter(), g = AC.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 1.25, t); o.frequency.exponentialRampToValueAtTime(f * .75, t + .11);
+        flt.type = 'bandpass'; flt.frequency.value = f * 2.4; flt.Q.value = 1.2; env(g, t, .006, .3, .13);
+        o.connect(flt); flt.connect(g); g.connect(d); o.start(t); o.stop(t + .15);
+        noise(d, t, .07, 'bandpass', f * 3, 1.5, .18);
+      }
+    };
+    A.yelp = function (pos) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos), o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'triangle'; o.frequency.setValueAtTime(900, t); o.frequency.linearRampToValueAtTime(1500, t + .08); o.frequency.exponentialRampToValueAtTime(650, t + .35);
+      env(g, t, .01, .22, .38); o.connect(g); g.connect(d); o.start(t); o.stop(t + .4);
+    };
+    A.whine = function (pos) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos), o = AC.createOscillator(), lfo = AC.createOscillator(), lg = AC.createGain(), g = AC.createGain();
+      o.type = 'sine'; o.frequency.value = 760; lfo.frequency.value = 4; lg.gain.value = 60; lfo.connect(lg); lg.connect(o.frequency);
+      env(g, t, .15, .12, 1.3); o.connect(g); g.connect(d); o.start(t); lfo.start(t); o.stop(t + 1.35); lfo.stop(t + 1.35);
+    };
+    // a pleased dog: a couple of snuffles and a little whine
+    A.happyDog = function (pos) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      noise(d, t, .08, 'bandpass', 1200, 2, .15); noise(d, t + .14, .08, 'bandpass', 1300, 2, .12);
+      const o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(900, t + .3); o.frequency.linearRampToValueAtTime(1150, t + .55);
+      env(g, t + .3, .04, .08, .3); o.connect(g); g.connect(d); o.start(t + .3); o.stop(t + .65);
+    };
+
+    /* ---------- the street ---------- */
+    A.splashAt = function (pos) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      noise(d, t, .6, 'lowpass', 2200, .7, .4, 300); noise(d, t + .03, .4, 'bandpass', 900, 1.2, .25, 200);
+    };
+    // a wave building and breaking under a surfer
+    A.wave = function (pos) { if (!ok()) return; const t = AC.currentTime, d = out(pos); noise(d, t, 1.8, 'lowpass', 300, .8, .25, 1400); };
+    // a volleyball: slap of a hand, or a soft thud on the sand
+    A.volley = function (pos, sand) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      if (sand) { noise(d, t, .1, 'lowpass', 500, .7, .25); return; }
+      noise(d, t, .05, 'bandpass', 1800, 1.5, .35); tone(d, t, .08, 'sine', 220, .2, 110);
+    };
+    // the spray shop: the roller door rattling, then the guns hissing
+    A.rollerDoor = function () {
+      if (!ok()) return; const t = AC.currentTime, d = out(null);
+      for (let k = 0; k < 22; k++) noise(d, t + k * .05, .04, 'bandpass', 380 + Math.random() * 200, 2, .16);
+      noise(d, t + 1.1, .12, 'lowpass', 300, 1, .4); tone(d, t + 1.1, .12, 'sine', 70, .3, 40);
+    };
+    A.spray = function (dur) {
+      if (!ok()) return; const t = AC.currentTime, d = out(null);
+      const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+      const flt = AC.createBiquadFilter(); flt.type = 'highpass'; flt.frequency.value = 2500;
+      const g = AC.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.22, t + .15);
+      for (let k = 1; k < 5; k++) g.gain.setTargetAtTime(k % 2 ? .08 : .22, t + k * dur / 5, .05);
+      g.gain.setTargetAtTime(.0001, t + dur - .15, .06);
+      s.connect(flt); flt.connect(g); g.connect(d); s.start(t); s.stop(t + dur + .2);
+    };
 
     // two siren voices that follow the nearest police cars: a wailing oscillator driven by a slow LFO
     const sirenV = [];
