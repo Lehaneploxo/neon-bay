@@ -891,6 +891,7 @@
           const vF = speedOf(c);
           c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(-c.yawRate * vF * .006, -.07, .07), 6, dt);
           c.body.rotation.x = U.damp(c.body.rotation.x, U.clamp(-(c.accel || 0) * .004, -.04, .04), 6, dt);
+          if (c.rockT > 0) { c.rockT -= dt; const s = Math.sin(performance.now() / 1000 * 13); c.body.rotation.z = s * .045; c.body.position.y = Math.abs(s) * .035; } else if (c.body.position.y) c.body.position.y = 0;
           if (d < 60) {
             c.spin += vF / c.model.r * dt;
             for (const w of c.wheels) { w.w.rotation.x = c.spin; if (w.front) w.g.rotation.y = c.steer; }

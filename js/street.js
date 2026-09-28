@@ -12,7 +12,7 @@
   NB.STREET_RESERVED = { id: 'volley', x0: COURT.x0 - 2.5, x1: COURT.x1 + 2.5, z0: COURT.z0 - 2.5, z1: COURT.z1 + 2.5 };
 
   NB.buildStreet = function (ctx) {
-    const { scene, col, C, palms } = ctx;
+    const { scene, col, C, palms, doors } = ctx;
     const P = new GeoBuilder(), N = new GeoBuilder();
     const box = (x0, y0, z0, x1, y1, z1, hex) => P.box(x0, y0, z0, x1, y1, z1, C(hex));
     const floorAt = (x, z) => { let f = 0; for (const b of col.query(x - .3, z - .3, x + .3, z + .3, [])) if (b.maxY < 1.2 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && b.maxY > f) f = b.maxY; return f; };
@@ -96,6 +96,17 @@
     busker('sax', 111.6, 12, -Math.PI / 2);              // on the sand by the promenade, facing the avenue
     busker('guitar', -70.5, 31, -Math.PI * .75);         // in the park, looking at the fountain
     busker('drum', 419, -24, Math.PI * .75);             // Vice Point plaza
+
+    /* ---------- night life: outside Hotel OCEAN after dark ---------- */
+    const girls = [];
+    const night = () => G && G.hour && (G.hour() >= 19 || G.hour() < 5);
+    if (doors && doors.hotel) {
+      const d = doors.hotel;
+      for (const dz of [4.6, 5.9, 7.2]) {
+        const s = { kind: 'flirt', x: d.x + d.nx * .9, z: d.z + dz, y: .15, fixedY: true, heading: Math.atan2(d.nx, d.nz) + (Math.random() - .5) * .8, type: 'escort', when: () => night() };
+        spots.push(s); girls.push(s);
+      }
+    }
 
     /* ---------- the beach volleyball court ---------- */
     const WH = C('#f5f5f0'), c0 = COURT;
@@ -258,6 +269,56 @@
       s.board.rotation.z = s.state === 'ride' ? Math.sin(s.t * 1.1 + s.carve) * .2 : bob * .5;
     }
 
+    // the one in the hero's car: sitting in the passenger seat until the car stops somewhere, then a while parked
+    const R = { state: 'none', car: null, look: null, rider: null, t: 0, spot: null };
+    const riderMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    function seat(car, look) {
+      const c = h => new THREE.Color(h || '#888888'), M = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
+      const geo = NB.mergeParts([[new THREE.BoxGeometry(.38, .5, .22), M(0, .25, 0), c(look.col.torso)], [new THREE.BoxGeometry(.21, .24, .22), M(0, .65, 0), c(look.col.head)],
+        [new THREE.BoxGeometry(.23, .08, .24), M(0, .79, 0), c(look.col.hairTop)], [new THREE.BoxGeometry(.23, .3, .06), M(0, .6, -.11), c(look.col.hairBack)]]);
+      const m = new THREE.Mesh(geo, riderMat), st = car.model.seat; m.position.set(-st[0], st[1], st[2]); car.body.add(m); return m;
+    }
+    function dropRider(text) {
+      if (R.rider) { R.rider.parent && R.rider.parent.remove(R.rider); R.rider.geometry.dispose(); R.rider = null; }
+      if (R.look && R.car) {
+        const rx = -Math.cos(R.car.h), rz = Math.sin(R.car.h), w = R.car.model.w / 2 + .7;
+        const p = G.crowd.dropOff(R.car.x + rx * w, R.car.z + rz * w, Math.atan2(rx, rz), R.look, text);
+        if (p) { p.keep = false; }
+      }
+      R.state = 'none'; R.car = null; R.look = null;
+    }
+    function nightUpdate(dt) {
+      const car = G.vehicles.driving, P = G.player;
+      if (R.state === 'none') {
+        // stop next to one of them and sound the horn
+        if (!car || car.model.boat || car.model.heli || !night() || G.vehicles.speedKmh() > 4 || !G.vehicles.hornHeld) return;
+        for (const s of girls) {
+          const p = s.person; if (!p || p.spot !== s || Math.hypot(p.x - car.x, p.z - car.z) > 7) continue;
+          if (G.police.wanted > 0) { say(p, pick(['Копы на хвосте! Проезжай!', 'Не сейчас, красавчик, за тобой полиция'])); return; }
+          if (G.money.get() < 100) { say(p, 'Сто долларов, милый. Приходи с деньгами'); return; }
+          R.look = p.look; R.spot = s; s.vacated = true; G.crowd.despawnPerson(p);
+          R.car = car; R.rider = seat(car, R.look); R.state = 'ride'; R.t = 0; G.audio.door();
+          G.flash('«Поехали, красавчик!» — остановитесь в тихом месте', 3);
+          return;
+        }
+        return;
+      }
+      if (R.state === 'ride') {
+        if (car !== R.car || G.police.wanted > 0) { dropRider(G.police.wanted > 0 ? 'Я с копами не связываюсь!' : 'Ну и ладно!'); return; }
+        R.t = G.vehicles.speedKmh() < 1 && Math.hypot(car.x - R.spot.x, car.z - R.spot.z) > 25 ? R.t + dt : 0;
+        if (R.t > 1.5) {
+          if (!G.money.spend(100, 'Ночь в Неон-Бэй')) { dropRider('Без денег не катаю!'); return; }
+          R.state = 'busy'; R.t = 0; car.rockT = 7; G.flash('Машина покачивается…', 3);
+        }
+        return;
+      }
+      if (R.state === 'busy') {
+        R.t += dt; P.hp = Math.min(100, P.hp + dt * 14);
+        if (car !== R.car) { dropRider('Эй, куда?!'); return; }
+        if (R.t > 7) { P.hp = 100; G.flash('Здоровье восстановлено', 2.4); dropRider(pick(['Звони ещё, красавчик!', 'Было весело!', 'Пока, милый!'])); }
+      }
+    }
+
     const api = {
       spots,
       carts,
@@ -268,6 +329,7 @@
         if (!G) return;
         for (const b of buskers) b.inst.visible = onShow(b.spot);
         volleyUpdate(dt);
+        nightUpdate(dt);
         for (const s of surfers) surfUpdate(s, dt);
         // vendors call out to the hero walking by
         const P = G.player;
@@ -281,6 +343,16 @@
       // things to do with F: buy food, tip a busker
       interactions() {
         const out = [];
+        for (const s of girls) {
+          const p = s.person; if (!p || p.spot !== s || !night()) continue;
+          out.push({ x: p.x, z: p.z, y: s.y, r: 1.6, short: 'НОМЕР', label: () => 'Провести время в Отеле OCEAN · $100',
+            use: () => {
+              if (G.police.wanted > 0) { say(p, 'Копы на хвосте! Иди отсюда!'); return; }
+              if (!G.money.spend(100, 'Номер в Отеле OCEAN')) { say(p, 'Сто долларов, милый. Приходи с деньгами'); return; }
+              say(p, pick(['Пойдём, красавчик', 'Номер на втором этаже', 'Не заставляй ждать']));
+              G.room(() => { G.player.hp = 100; G.flash('Час в номере Отеля OCEAN… Здоровье восстановлено', 3.2); });
+            } });
+        }
         for (const c of carts) {
           if (!onShow(c.vendor)) continue;
           const hot = c.kind === 'hotdog', price = hot ? 5 : 3, heal = hot ? 25 : 15;

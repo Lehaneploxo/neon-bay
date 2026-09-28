@@ -43,7 +43,7 @@
   const PHRASES = ['Эй, смотри куда идёшь!', 'Осторожнее!', 'Ай!', 'Ну ты даёшь!', 'Полегче, приятель!', 'Куда ты так несёшься?', 'Извините?!', 'Совсем уже…'];
 
   function makeLook(type) {
-    const female = /_f$/.test(type) || type === 'waitress' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
+    const female = /_f$/.test(type) || type === 'waitress' || type === 'escort' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
     const L = { type, female, hs: female ? rand(.9, 1) : rand(.96, 1.08), ws: rand(.92, 1.18), col: {}, hide: new Set(['tie', 'top', 'brim', 'crown', 'shades', 'bag', 'skirt']),
       long: false, skirt: 0, purse: false, speed: rand(1.1, 1.4), lean: 0, run: false };
     const skin = pick(SKIN), hair = type === 'elderly' ? pick(['#9a9a9a', '#c9c9c9', '#e5e5e5']) : pick(HAIR);
@@ -127,6 +127,14 @@
       case 'bellboy': {
         set('torso', '#b0203a'); sleeves('long', '#b0203a'); legs('pants', '#1a1a22'); set('shoeL shoeR', '#0c0c0e');
         show('brim crown'); set('crown', '#b0203a'); set('brim', '#c9a04a'); L.speed = 1.5; break;
+      }
+      case 'escort': { // a night out: a short bright dress, bare shoulders, boots, big hair, a little bag
+        const c = pick(['#ff2d7a', '#e0102a', '#141418', '#9b30ff', '#ffd23d', '#3fe6e0', '#f5f5f0']);
+        set('torso', c); sleeves('none', c); legs('bare', c); show('skirt'); set('skirt', c); L.skirt = 1;
+        const boot = pick(['#141418', '#f5f5f0', '#ff2d7a', '#c81e1e']); set('shinL shinR shoeL shoeR', boot);
+        set('hairTop hairBack', pick(['#f0dca0', '#141010', '#b34a2a', '#e9d6a4', '#6b2a4a'])); L.long = true;
+        show('bag'); set('bag', pick(['#141418', '#f5f5f0', '#ffd23d', '#ff4fa3'])); L.purse = true;
+        L.speed = 1.05; L.hs = rand(.95, 1.02); extras(0, .25); break;
       }
       case 'vendor': { // street food: white shirt, apron, striped cap
         set('torso', '#f4f4f0'); sleeves('short', '#f4f4f0'); legs('pants', pick(['#2a2a30', '#3b5a8a'])); set('shoeL shoeR', '#1a1a1a');
@@ -314,7 +322,7 @@
     // street vendors, buskers and their customers: street.js looks at these very spots to show the props
     if (world.street) for (const s of world.street.spots) spots.push(s);
     for (const s of spots) { s.person = null; s.y = s.fixedY || s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
-    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1, guitar: 1, sax: 1, drum: 1 };
+    const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1, guitar: 1, sax: 1, drum: 1, flirt: 1 };
     const SEATED = { sit: 1, drum: 1 };
     // trouble in or at the club: both bouncers drop what they're doing and go for the hero
     function alertBouncers() {
@@ -709,6 +717,7 @@
         case 'surf': { const w = Math.sin(t * 1.3 + p.seed); tL = -.35; tR = .25; kL = .7; kR = .6; aL = -.3 + w * .25; aR = -.25 - w * .25; eL = eR = -.3; P.spread = .9; P.lean = .3; P.twist = .7 + w * .15; P.headY = -.6; P.bob = -.12 + w * .02; break; }
         case 'paddle': { const s = Math.sin(t * 4 + p.seed); aL = -2.6 + s * 1.1; aR = -2.6 - s * 1.1; eL = eR = -.1; P.headP = -.5; tL = tR = 0; kL = kR = .1; break; }
         case 'hose': { const w = Math.sin(t * 2 + p.seed) * .08; P.bob = breathe; aL = -1.35 + w; aR = -1.2 + w; eL = -.25; eR = -.5; P.spread = -.2; P.lean = .15; tL = -.25; tR = .1; kL = .3; P.twist = -.15; break; }
+        case 'flirt': { const sw = Math.sin(t * .9 + p.seed); P.bob = breathe; aL = .25; eL = -1.7; P.spread = .15; aR = .05 + sw * .08; eR = -.3; tL = .12; kL = .25; tR = -.05; P.twist = .18 + sw * .05; P.lean = -.04; P.headY = sw * .3; break; }
         case 'ready': P.bob = -.06 + breathe; tL = tR = -.35; kL = kR = .7; aL = aR = -.75; eL = eR = -.25; P.lean = .3; P.spread = -.05; break;
         case 'volley': { const k = p.hitT > 0 ? Math.sin((1 - p.hitT / .4) * Math.PI) : 0; aL = aR = -1.2 - k * 1.8; eL = eR = -.1; P.lean = .1 - k * .15; tL = tR = -.2 + k * .1; kL = kR = .4 - k * .3; P.bob = k * .1; break; }
         case 'lie': P.spread = .12; P.bob = breathe * .5; tL = .03; tR = -.03; break;
@@ -773,6 +782,7 @@
       for (const s of spots) {
         const d = Math.hypot(s.x - px, s.z - pz);
         if (s.vacated) { if (d > lim.spotRange + 12) s.vacated = false; else continue; }
+        if (s.when && !s.when()) { if (s.person && s.person.spot === s && d > 30) despawn(s.person); continue; }   // not their hours: they leave when you're not looking
         if (s.person && d > lim.spotRange + 12) despawn(s.person);
         else if (!s.person && d < lim.spotRange && free.length) {
           const kindType = s.type || (s.kind === 'lie' ? (chance(.55) ? 'beach_f' : 'beach_m') : typeFor(TYPE_MIX[s.mix]));

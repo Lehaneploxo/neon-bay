@@ -502,7 +502,7 @@
     /* ---------- the spray shop, food carts, buskers and the volleyball court ---------- */
     const spray = NB.buildSpray({ scene, col, C, mapShapes });
     const fireStation = NB.buildFireStation({ scene, col, C, mapShapes });
-    const street = NB.buildStreet({ scene, col, C, palms });
+    const street = NB.buildStreet({ scene, col, C, palms, doors });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);

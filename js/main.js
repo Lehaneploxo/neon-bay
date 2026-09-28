@@ -247,7 +247,9 @@
   const wallet = { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) };
   // the spray shop and the street: food carts, buskers, surfers, volleyball
   world.spray.attach({ vehicles, police, player, audio, money: wallet, flash: (t, s) => flashTip(t, s), blink: fn => blink(fn) });
-  world.street.attach({ rain: () => weather.rain, crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
+  world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
+    room: fn => blink(() => { time += 60; const d = places.byId('hotel').door; player.place(d.x + d.nx * 1.2, d.z - 1.5, d.heading); rig.snap(player); fn(); }),
+    crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
   places.attach({
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
