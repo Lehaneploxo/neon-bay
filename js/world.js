@@ -104,7 +104,7 @@
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
     let station = null, hospital = null, gunShop = null, hotelRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
-    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }];
+    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -9, z1: 9 }];
     const reserved = (x, z, m = 0) => RESERVED.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
 
     // hollow: four strips instead of one flat slab, for a roof you can stand on
@@ -377,7 +377,7 @@
     col.add(CITY, 0, -CITY, CITY + 3.5, .15, CITY);
     bSand.flat(CITY + 3.5, -140, SHORE + 12, 140, .02, WHITE, 6);
     mapShapes.push({ x0: CITY, z0: -CITY, x1: CITY + 3.5, z1: CITY, c: '#8e8798', k: 's' });
-    for (let z = -99; z <= 99; z += 9) palms.push([CITY + 1.8, .15, z + .5]);
+    for (let z = -99; z <= 99; z += 9) if (Math.abs(z + .5) > 9) palms.push([CITY + 1.8, .15, z + .5]);   // none where the bridge starts
     // kept clear of the crossings so people walking to the beach are not blocked
     for (let z = -94; z <= 94; z += 12) if (!ROADS.some(L => Math.abs(z - L) < RH + 3.2)) palms.push([ROADS[4] - RH - .65, .15, z]);
     for (let k = 0; k < 26; k++) { const p = [rr(113, 134), .02, rr(-100, 100)]; if (!reserved(p[0], p[2], 1)) palms.push(p); }
@@ -414,11 +414,17 @@
         bPlain.box(x, -3.5, z - 1.8, x + r2(2.6, 3.6), h, z + 1.8, C(['#8a8290', '#7a7282', '#958c98'][(RR() * 3) | 0]));
       }
     }
-    col.add(SHORE + 76, -10, -120, SHORE + 82, 8, 120);
-    // the sea: the bed slopes away from the shoreline; wading, then swimming a few metres out
+    // the open sea reaches out past Palm Island; walls far out keep swimmers and boats in the bay
+    const SEA_X = 565, SEA_Z = 128, ISLE = 345;
+    col.add(SEA_X, -10, -SEA_Z - 6, SEA_X + 6, 10, SEA_Z + 6);
+    for (const s of [-1, 1]) col.add(SHORE, -10, s > 0 ? SEA_Z : -SEA_Z - 6, SEA_X + 6, 10, s > 0 ? SEA_Z + 6 : -SEA_Z);
+    // the sea: the bed slopes away from both shores, deep in between
     NB.water.vols.length = 0; NB.water.holes.length = 0;
-    NB.water.add({ name: 'sea', test: (x, z) => x > SHORE - .6 && x < SHORE + 90 && Math.abs(z) < 118 && !NB.water.dry(x, z), surface: () => .05,
-      floor: (x) => .02 - U.clamp((x - SHORE + .6) * .3, 0, 3.4) });
+    NB.water.add({ name: 'sea', test: (x, z) => x > SHORE - .6 && x < SEA_X && Math.abs(z) < SEA_Z && !NB.water.dry(x, z), surface: () => .05,
+      floor: (x) => .02 - U.clamp(Math.min(x - SHORE + .6, x < ISLE ? ISLE - x : x - 515) * .3, 0, 3.4) });
+
+    /* ---------- the Neon Bay Bridge and Palm Island ---------- */
+    const island = NB.buildIsland({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bSand, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, PASTEL, NEON, FT });
 
     /* ---------- city boundary + distant skyline ---------- */
     for (let z = -130; z < 130;) { const w = rr(10, 20); building(-130, z, -CITY, Math.min(130, z + w), rr(12, 38), pick(MUTED), 0); z += w; }
@@ -437,8 +443,9 @@
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);
-    const lampList = lamps.filter(([x, z]) => !inRoad(x) && !inRoad(z) && Math.abs(x) < CITY && Math.abs(z) < CITY && !(club && club.blocksLamp(x, z)));
-    for (const [x, z] of lampList) col.add(x - .15, 0, z - .15, x + .15, 6, z + .15);
+    // lamps with a height of their own are on the bridge or the island and are always kept
+    const lampList = lamps.filter(([x, z, , y]) => y != null || (!inRoad(x) && !inRoad(z) && Math.abs(x) < CITY && Math.abs(z) < CITY && !(club && club.blocksLamp(x, z))));
+    for (const [x, z, , y] of lampList) col.add(x - .15, y != null ? y - .5 : 0, z - .15, x + .15, (y || 0) + 6, z + .15);
 
     /* ---------- meshes ---------- */
     const lam = (map, extra) => new THREE.MeshLambertMaterial(Object.assign({ map, vertexColors: true }, extra || {}));
@@ -497,10 +504,11 @@
     }, false);
     const poolMat = new THREE.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
     const poolMesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(9, 9).rotateX(-Math.PI / 2), poolMat, lampList.length);
-    lampList.forEach(([x, z, r], i) => {
-      dummy.position.set(x, .15, z); dummy.rotation.set(0, r, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    lampList.forEach(([x, z, r, y], i) => {
+      const base = y != null ? y - .15 : 0;
+      dummy.position.set(x, base + .15, z); dummy.rotation.set(0, r, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
       lampMesh.setMatrixAt(i, dummy.matrix); headMesh.setMatrixAt(i, dummy.matrix);
-      dummy.position.set(x + Math.sin(r) * 1.6, .17, z + Math.cos(r) * 1.6); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
+      dummy.position.set(x + Math.sin(r) * 1.6, base + .17, z + Math.cos(r) * 1.6); dummy.rotation.set(0, 0, 0); dummy.updateMatrix();
       poolMesh.setMatrixAt(i, dummy.matrix);
     });
     lampMesh.castShadow = true; poolMesh.visible = false; scene.add(lampMesh, headMesh, poolMesh);
@@ -544,7 +552,7 @@
     sea.rotation.x = -Math.PI / 2; sea.position.set(SHORE + 450, .05, 0); scene.add(sea);
 
     /* ---------- minimap base ---------- */
-    const MAP = { x0: -140, z0: -140, x1: SHORE + 60, z1: 140, s: 2 };
+    const MAP = { x0: -140, z0: -140, x1: 575, z1: 140, s: 2 };
     const mc = document.createElement('canvas');
     mc.width = (MAP.x1 - MAP.x0) * MAP.s; mc.height = (MAP.z1 - MAP.z0) * MAP.s;
     {
@@ -562,6 +570,8 @@
     function districtAt(x, z) {
       if (club && club.inside(x, z)) return club.name;
       const pl = places.at(x, z); if (pl) return pl.name;
+      const isl = island.districtAt(x, z); if (isl) return isl;
+      if (x > SHORE + 8) return 'Залив Неон-Бэй';
       if (x > CITY) return 'Пляж Санрайз';
       if (x > 52) return 'Коралловая полоса';
       if (Math.abs(x) < 52 && Math.abs(z) < 52) return 'Даунтаун';
@@ -570,7 +580,7 @@
     }
 
     return {
-      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -579,7 +589,7 @@
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
         if (club) club.update(t, env, env.px, env.pz);
-        places.render(t, env);
+        places.render(t, env); island.update(t, env);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);

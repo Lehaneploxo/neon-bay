@@ -272,6 +272,7 @@
     const club = world.club;
     if (club) for (const s of club.spots) spots.push(Object.assign({}, s));
     if (world.places) for (const s of world.places.spots) spots.push(Object.assign({}, s));
+    if (world.island) for (const s of world.island.spots) spots.push(Object.assign({}, s));
     for (const s of spots) { s.person = null; s.y = s.fixedY || s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
     const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1 };
     // trouble in or at the club: both bouncers drop what they're doing and go for the hero

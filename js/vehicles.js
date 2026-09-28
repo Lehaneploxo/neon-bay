@@ -89,7 +89,7 @@
     function floorAt(x, z, fromY) {
       let f = NB.water.floorAt(x, z);   // a car driven into the sea rolls down the sea bed
       for (const b of col.query(x - .5, z - .5, x + .5, z + .5, tmp)) {
-        if (b.maxY > fromY + .45) continue;
+        if (b.maxY > fromY + (b.ramp ? 2.5 : .45)) continue;   // at speed a car lags the bridge ramp; the road still holds it
         if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && b.maxY > f) f = b.maxY;
       }
       return f;
@@ -203,7 +203,7 @@
     function collideStatic(car) {
       for (const [cx, cz, r, t] of circles(car)) {
         for (const b of col.query(cx - r - .5, cz - r - .5, cx + r + .5, cz + r + .5, tmp)) {
-          if (b.maxY <= car.y + .45 || b.minY >= car.y + 1.6) continue;
+          if (b.ramp || b.maxY <= car.y + .45 || b.minY >= car.y + 1.6) continue;
           const qx = U.clamp(cx, b.minX, b.maxX), qz = U.clamp(cz, b.minZ, b.maxZ);
           const dx = cx - qx, dz = cz - qz, d = Math.hypot(dx, dz);
           if (d >= r || d < 1e-5) continue;
@@ -372,6 +372,7 @@
     }
     if (world.station) for (const [x, z, h] of world.station.parking) makeCar(byId.police, x, z, h);
     if (world.hospital) for (const [x, z, h] of world.hospital.parking) makeCar(byId.ambulance, x, z, h);
+    if (world.island) for (const p of world.island.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // cars parked on Palm Island
     for (const c of cars) c.parked = true;
 
     /* ---------- police pursuit ---------- */
@@ -588,7 +589,7 @@
             continue;
           }
           const fy = floorAt(c.x, c.z, c.y);
-          c.y = U.damp(c.y, fy, 14, dt);
+          c.y = fy > c.y + 1.5 ? c.y : U.damp(c.y, fy, fy > c.y ? 26 : 14, dt);
           c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
           const vF = speedOf(c);
           c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(-c.yawRate * vF * .006, -.07, .07), 6, dt);
