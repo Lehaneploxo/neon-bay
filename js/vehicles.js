@@ -301,13 +301,17 @@
     const GN = ROADS.length, gridNode = [];
     for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) gridNode[i * GN + j] = addNode(ROADS[i], ROADS[j]);
     for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) { if (i + 1 < GN) addEdge(gridNode[i * GN + j], gridNode[(i + 1) * GN + j]); if (j + 1 < GN) addEdge(gridNode[i * GN + j], gridNode[i * GN + j + 1]); }
-    for (const IR of [world.island && world.island.roads, world.north && world.north.roads]) {
+    for (const IR of [world.island && world.island.roads, world.north && world.north.roads, world.bay && world.bay.roads]) {
       if (!IR) continue;
       const base = NET.nodes.length;
       for (const [x, z] of IR.nodes) addNode(x, z);
       for (const [a, b] of IR.links) { addEdge(base + a, base + b, IR.lane); if (!IR.north) NET.edges[NET.edges.length - 1].island = true; }
-      const [cx, cz] = IR.bridge.city, from = NET.nodes.find(n => n.x === cx && n.z === cz);
-      if (from) { addEdge(from.id, base + IR.bridge.island, LANE, !IR.north); if (IR.north) NET.edges[NET.edges.length - 1].narrow = true; }   // the North Side bridge is short and low: traffic can start on it
+      if (IR.bridge) {
+        const [cx, cz] = IR.bridge.city, from = NET.nodes.find(n => n.x === cx && n.z === cz);
+        if (from) { addEdge(from.id, base + IR.bridge.island, LANE, !IR.north); if (IR.north) NET.edges[NET.edges.length - 1].narrow = true; }   // the North Side bridge is short and low: traffic can start on it
+      }
+      // Bayview's two low bridges, from junctions on the North Side and on Palm Island
+      for (const br of IR.bridges || []) { const from = NET.nodes.find(n => Math.abs(n.x - br.from[0]) < .01 && Math.abs(n.z - br.from[1]) < .01); if (from) { addEdge(from.id, base + br.to, LANE); NET.edges[NET.edges.length - 1].narrow = true; } }
     }
     // shortest distances between all junctions, for the police and the ambulances finding their way
     const NN = NET.nodes.length, DIST = [], HOP = [];
@@ -481,6 +485,7 @@
     if (world.station) for (const [x, z, h] of world.station.parking) makeCar(byId.police, x, z, h);
     if (world.hospital) for (const [x, z, h] of world.hospital.parking) makeCar(byId.ambulance, x, z, h);
     if (world.island) for (const p of world.island.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // cars parked on Palm Island
+    if (world.bay) for (const p of world.bay.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // Bayview: driveways, car parks, taxis at the airport
     if (world.north) for (const p of world.north.parking) { const c = makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h); c.damage = Math.random() * 80; paint(c); }   // old bangers on the North Side
     // a Gelendwagen at the kerb outside the villa, a Porta Panamo outside Hotel OCEAN (whatever was parked there moves off)
     for (const [id, x, z, h] of [['gwagon', 104.9, 88, Math.PI], ['panamo', 95.1, -27, 0], ['vento', 104.9, 82.5, Math.PI], ['vespino', 95.1, -21.5, 0], ['hog', 95.1, -33, 0]]) {

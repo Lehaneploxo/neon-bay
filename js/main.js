@@ -602,6 +602,7 @@
     icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
     if (world.fashion) icon(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', false);
+    if (world.bay) icon(503, -433, '#3f8fe6', '#fff', '✈', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
@@ -617,7 +618,7 @@
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
   const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
-    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 330, -300], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210]];
+    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Бэйвью', 545, -300], ['Аэропорт Неон-Бэй', 545, -480], ['Портовый мост', 298, -305], ['Мост Бэйвью', 470, -142]];
   // everything worth finding, with the same look as on the minimap
   function mapIcons() {
     const out = [], P = id => places.byId(id);
@@ -630,6 +631,7 @@
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
     if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Магазин одежды Neon Fashion');
+    if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт Neon Bay International');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');

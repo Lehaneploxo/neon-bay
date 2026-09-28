@@ -10,7 +10,7 @@
   const SHORE = 140;                       // where sand meets water
   const EMB = 112;                         // the embankment's sea edge on the west, north and south
   // the whole playable world: past these walls there's only open ocean
-  const WORLD = { x0: -240, x1: 650, z0: -470, z1: 260 };
+  const WORLD = { x0: -240, x1: 880, z0: -680, z1: 260 };
   const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK', 'SUNSET', 'CORAL', 'BREEZE', 'LAGUNA', 'MARLIN', 'TROPIC', 'RIVIERA', 'PARADISE', 'LIQUOR', 'PAWN', 'LAUNDRY', 'GARAGE', 'FASHION'];
   const NEON = ['#ff4fa3', '#3fe6e0', '#ffd84f', '#8cff6b', '#c28bff', '#ff8a3d'];
   const PASTEL = ['#f7b5c9', '#aee8d3', '#f7e7a1', '#cdb8f0', '#ffc9a8', '#a9d8f5', '#f3efe6', '#ffd6e4', '#c6f0e8'];
@@ -459,7 +459,7 @@
     unmuteRocks();
     // the sea goes all the way round the city and Palm Island; invisible walls far out close the world
     // (for swimmers, boats and the helicopter alike)
-    const LAND = { x0: -EMB, x1: SHORE, z0: -EMB, z1: EMB }, ISL = { x0: 345, x1: 515, z0: -105, z1: 105 }, NORTH = { x0: -110, x1: 260, z0: -400, z1: -180 };
+    const LAND = { x0: -EMB, x1: SHORE, z0: -EMB, z1: EMB }, ISL = { x0: 345, x1: 515, z0: -105, z1: 105 }, NORTH = { x0: -110, x1: 260, z0: -400, z1: -180 }, BAY = { x0: 335, x1: 750, z0: -560, z1: -180 };
     const W = WORLD;
     col.add(W.x0 - 6, -10, W.z0 - 6, W.x0, 320, W.z1 + 6); col.add(W.x1, -10, W.z0 - 6, W.x1 + 6, 320, W.z1 + 6);
     col.add(W.x0, -10, W.z0 - 6, W.x1, 320, W.z0); col.add(W.x0, -10, W.z1, W.x1, 320, W.z1 + 6);
@@ -470,7 +470,7 @@
       // off a sandy beach the bed slopes gently; off the embankment it's deep straight away
       floor: (x, z) => {
         const dc = rectDist(x, z, LAND), sandy = U.clamp(x, LAND.x0, LAND.x1) > CITY;
-        return .02 - U.clamp(Math.min(sandy ? dc * .3 : 2 + dc * .5, rectDist(x, z, ISL) * .3, 2 + rectDist(x, z, NORTH) * .5), 0, 3.4);
+        return .02 - U.clamp(Math.min(sandy ? dc * .3 : 2 + dc * .5, rectDist(x, z, ISL) * .3, 2 + rectDist(x, z, NORTH) * .5, 2 + rectDist(x, z, BAY) * .5), 0, 3.4);
       } });
 
     /* ---------- the embankment: a paved promenade on the sea wall round the rest of the city ---------- */
@@ -493,6 +493,9 @@
 
     /* ---------- North Side: the working-class island across the strait to the north ---------- */
     const north = NB.buildNorthside({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, FT });
+
+    /* ---------- Bayview: the island with the airport, bridged to the North Side and to Palm Island ---------- */
+    const bay = NB.buildBayview({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, FT });
 
     /* ---------- (formerly the city's boundary wall and a distant skyline: now open sea) ---------- */
     const unmuteEdge = mute();
@@ -614,7 +617,8 @@
           vec2 qi = vec2(max(max(345.0 - vW.x, vW.x - 515.0), 0.0), max(abs(vW.z) - 105.0, 0.0));
           float dI = length(qi);
           float dN = length(vec2(max(max(-110.0 - vW.x, vW.x - 260.0), 0.0), max(max(-400.0 - vW.z, vW.z + 180.0), 0.0)));
-          float far = clamp(min(min(dC, dI), dN) / 60.0, 0.0, 1.0);
+          float dA = length(vec2(max(max(335.0 - vW.x, vW.x - 750.0), 0.0), max(max(-560.0 - vW.z, vW.z + 180.0), 0.0)));
+          float far = clamp(min(min(min(dC, dI), dN), dA) / 60.0, 0.0, 1.0);
           vec3 c = mix(uShallow, uDeep, far);
           float w1 = sin(vW.x*0.35 + uTime*1.2) * 0.5 + sin(vW.z*0.23 - uTime*0.8 + vW.x*0.1) * 0.5;
           float w2 = sin((vW.x+vW.z)*0.9 + uTime*2.0) * sin(vW.z*1.3 - uTime*1.4);
@@ -643,7 +647,7 @@
     sea.position.y = .05; scene.add(sea);
 
     /* ---------- minimap base ---------- */
-    const MAP = { x0: WORLD.x0, z0: WORLD.z0, x1: WORLD.x1, z1: WORLD.z1, s: 2 };
+    const MAP = { x0: WORLD.x0, z0: WORLD.z0, x1: WORLD.x1, z1: WORLD.z1, s: 1.6 };
     const mc = document.createElement('canvas');
     mc.width = (MAP.x1 - MAP.x0) * MAP.s; mc.height = (MAP.z1 - MAP.z0) * MAP.s;
     {
@@ -663,6 +667,7 @@
       const pl = places.at(x, z); if (pl) return pl.name;
       const isl = island.districtAt(x, z); if (isl) return isl;
       const ns = north.districtAt(x, z); if (ns) return ns;
+      const bv = bay.districtAt(x, z); if (bv) return bv;
       if (x > SHORE + 8 || x < -EMB || Math.abs(z) > EMB) return x > SHORE && x < 560 && Math.abs(z) < 128 ? 'Залив Неон-Бэй' : 'Открытое море';
       if (x > CITY) return 'Пляж Санрайз';
       if (x > 52) return 'Коралловая полоса';
@@ -672,7 +677,7 @@
     }
 
     return {
-      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, club, places, island, north, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, club, places, island, north, bay, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -681,7 +686,7 @@
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
         if (club) club.update(t, env, env.px, env.pz);
-        places.render(t, env); island.update(t, env); north.update(t, env); spray.render(t);
+        places.render(t, env); island.update(t, env); north.update(t, env); bay.update(t, env); spray.render(t);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);

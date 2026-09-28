@@ -266,6 +266,7 @@
     bouncer: [['bouncer', 1]],
     yacht: [['beach_f', .55], ['beach_m', .25], ['tourist_f', .2]],
     north: [['worker', .32], ['tourist_m', .16], ['tourist_f', .16], ['elderly', .16], ['business_f', .06], ['jogger', .06], ['beach_m', .08]],
+    bay: [['tourist_m', .2], ['tourist_f', .22], ['business_m', .12], ['business_f', .12], ['elderly', .18], ['jogger', .1], ['worker', .06]],
     town: [['tourist_m', .22], ['tourist_f', .24], ['business_m', .12], ['business_f', .1], ['elderly', .16], ['jogger', .08], ['beach_f', .04], ['beach_m', .04]]
   };
   // health: a grown man takes about five punches to knock out, a woman three or four, an old man three;
@@ -314,8 +315,8 @@
     const node = (x, z, area) => { nodes.push({ x, z, nb: [], area }); return nodes.length - 1; };
     const link = (a, b) => { nodes[a].nb.push(b); nodes[b].nb.push(a); };
     const IN = 1.6, corner = {};
-    const areaOf = b => b.north ? 'north' : b.type === 'hotel' ? 'strip' : b.type === 'downtown' ? 'downtown' : 'town';
-    const walkBlocks = blocks.concat(world.north ? world.north.blocks : []);
+    const areaOf = b => b.bay ? 'bay' : b.north ? 'north' : b.type === 'hotel' ? 'strip' : b.type === 'downtown' ? 'downtown' : 'town';
+    const walkBlocks = blocks.concat(world.north ? world.north.blocks : [], world.bay ? world.bay.blocks : []);
     for (const b of walkBlocks) {
       const a = areaOf(b), SW = node(b.bx0 + IN, b.bz0 + IN, a), SE = node(b.bx1 - IN, b.bz0 + IN, a), NE = node(b.bx1 - IN, b.bz1 - IN, a), NW = node(b.bx0 + IN, b.bz1 - IN, a);
       corner[b.i + ',' + b.j] = { SW, SE, NE, NW };
@@ -343,7 +344,7 @@
     }
 
     // the pavements over both bridges: people walk across to Palm Island and to the North Side
-    for (const w of [].concat(world.north && world.north.walkways || [], world.island && world.island.walkways || [])) {
+    for (const w of [].concat(world.north && world.north.walkways || [], world.island && world.island.walkways || [], world.bay && world.bay.walkways || [])) {
       const [[ax, az], [bx, bz]] = w, L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 15)), first = nodes.length;
       const ends = [nearestNode(ax, az), nearestNode(bx, bz)];
       for (let k = 0; k <= n; k++) { node(ax + (bx - ax) * k / n, az + (bz - az) * k / n, 'town'); if (k) link(first + k - 1, first + k); }
@@ -391,6 +392,7 @@
     // street vendors, buskers and their customers: street.js looks at these very spots to show the props
     if (world.street) for (const s of world.street.spots) spots.push(s);
     if (world.north) for (const s of world.north.spots) spots.push(Object.assign({}, s));
+    if (world.bay) for (const s of world.bay.spots) spots.push(Object.assign({}, s));
     for (const s of spots) { s.person = null; s.y = s.fixedY || s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
     const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1, guitar: 1, sax: 1, drum: 1, flirt: 1 };
     const SEATED = { sit: 1, drum: 1 };
@@ -481,7 +483,7 @@
         const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t, d = Math.hypot(x - px, z - pz);
         if (d > (maxD || 88) || d < (minD || (near ? 6 : 30))) continue;
         if (!near && d < 60 && ((x - px) * fx + (z - pz) * fz) / d > .2) continue; // don't pop up in plain view
-        const area = a.area === 'north' ? 'north' : x > CITY ? 'promenade' : a.area;
+        const area = a.area === 'north' || a.area === 'bay' ? a.area : x > CITY ? 'promenade' : a.area;
         const p = spawn(makeLook(forceType || typeFor(TYPE_MIX[area])), x, z, 'graph');
         if (!p) return null;
         p.prev = ni; p.node = nb;

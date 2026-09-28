@@ -177,15 +177,17 @@
       pick(['HOTEL', 'PALMS', 'OCEAN', 'MOTEL']);   // keeps the island's random numbers in step
       sign('-z', b, h - 3.4, h - .9, 3, ISLE_HOTELS[k]); awning('-z', b, pick(NEON), 8);
     }
+    const gap = x => x > 437 && x < 458;   // the road to the Bayview Bridge comes through here
     for (let i = 0; i < 12; i++) {
       const x = rr(360, 500), z = rr(-103, -97.5);
+      if (gap(x)) { R(); pick([0]); continue; }
       bPlain.box(x - .35, SAND, z - .2, x + .35, SAND + .33, z + 2.05, C('#f5f0e6')); bPlain.box(x - .35, SAND + .33, z + 1.75, x + .35, SAND + .41, z + 2.05, C('#e8e0d0'));
       col.add(x - .35, 0, z - .2, x + .35, SAND + .45, z + 2.05);
       if (R() < .7) spots.push({ kind: 'lie', x, z: z - .08, y: SAND + .45, fixedY: true, heading: 0, mix: 'beach', home: true });
       bPlain.box(x + .6, SAND, z + .8, x + .66, SAND + 2.3, z + .86, C('#f3efe6'));
       bPlain.box(x - .6, SAND + 2.2, z - .6, x + 1.9, SAND + 2.4, z + 2.2, C(pick(['#ff6fa8', '#3fd6d0', '#ffd24f', '#b58bff'])));
     }
-    for (let i = 0; i < 10; i++) palm(rr(358, 502), rr(-104, -96.5), SAND);
+    for (let i = 0; i < 10; i++) { const x = rr(358, 502), z = rr(-104, -96.5); if (!gap(x)) palm(x, z, SAND); }
     for (let i = 0; i < 8; i++) palm(rr(346, 353.5), rr(10, 100), SAND);   // the west shore road runs south of the avenue
     talk(380, -99, 'beach'); talk(470, -100, 'beach');
     walker([[360, -95.8], [500, -95.8]], 'beach', 'jogger');
@@ -216,8 +218,8 @@
       // the avenue and the two cross streets with the north and south streets make a ring round Vice Point.
       // bridge: the city junction it leaves from and the island junction it comes down at
       walkways: [BZ - HW + PV / 2 + .2, BZ + HW - PV / 2 - .2].map(z => [[107, z], [IX0 + 3, z]]),
-      roads: { lane: 1.9, nodes: [[350, BZ], [350, 0], [380, 0], [470, 0], [380, 60], [470, 60], [380, -60], [470, -60]],
-        links: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 3], [2, 6], [6, 7], [7, 3]], bridge: { city: [100, -100], island: 0 } },
+      roads: { lane: 1.9, nodes: [[350, BZ], [350, 0], [380, 0], [470, 0], [380, 60], [470, 60], [380, -60], [470, -60], [447.5, -60]],
+        links: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 3], [2, 6], [6, 8], [8, 7], [7, 3]], bridge: { city: [100, -100], island: 0 } },
       districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z - BZ) < HW + 1) return 'Мост Неон-Бэй'; return null; },
       update(t, env) { const n = env ? env.night : 0; beamMat.opacity = n * .12; beam.visible = n > .03; beam.rotation.y = t * .5; }
     };
