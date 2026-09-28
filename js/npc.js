@@ -192,6 +192,18 @@
     yacht: [['beach_f', .55], ['beach_m', .25], ['tourist_f', .2]],
     town: [['tourist_m', .22], ['tourist_f', .24], ['business_m', .12], ['business_f', .1], ['elderly', .16], ['jogger', .08], ['beach_f', .04], ['beach_m', .04]]
   };
+  // health: a grown man takes about five punches to knock out, a woman three or four, an old man three;
+  // the police and guards as much as a man, the club's bouncers a lot more
+  function maxHp(look) {
+    const t = look.type;
+    if (t === 'bouncer') return 260;
+    if (t === 'cop' || t === 'security') return 100;
+    if (t === 'elderly') return look.female ? 50 : 55;
+    return look.female ? 70 : 100;
+  }
+  // how likely a man is to stand up for himself when hit (women and old people never do: they run)
+  const GRIT = { beach_m: .6, tourist_m: .45, jogger: .4, business_m: .3, vendor: .5, musician: .55, cook: .5, bellboy: .3, croupier: .25 };
+  const grit = look => (look.female ? 0 : GRIT[look.type] || 0);
   function typeFor(mix) { let r = Math.random(); for (const [t, w] of mix) { if ((r -= w) <= 0) return t; } return mix[0][0]; }
 
   /* ---------- system ---------- */
@@ -333,7 +345,7 @@
       const p = { slot, look, x, z, y: floorAt(x, z, 1), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
         phase: rand(0, 6), headY: 0, pauseT: 0, target: null, node: -1, prev: -1, off: rand(-.45, .45), blocked: 0,
         stuckT: 0, lastX: x, lastZ: z, bumpT: -9, stumbleT: 0, frame: (Math.random() * 3) | 0, seed: Math.random() * 10,
-        cop: look.type === 'cop' || look.type === 'security', bouncer: look.type === 'bouncer', hp: look.type === 'cop' || look.type === 'security' ? 100 : look.type === 'bouncer' ? 260 : 60, dead: false, fallT: 0, deadT: 0,
+        cop: look.type === 'cop' || look.type === 'security', bouncer: look.type === 'bouncer', hp: maxHp(look), maxHp: maxHp(look), dead: false, fallT: 0, deadT: 0,
         fleeT: 0, fleeX: 0, fleeZ: 0, fightT: 0, punchCD: 0, punchT: 0, running: false,
         los: false, losT: Math.random() * .2, shootT: rand(.5, 1.2), sideT: 0, sideX: 0, sideZ: 0, chasing: false,
         pose: { bob: 0, lean: 0, twist: 0, headP: 0, headY: 0, aL: 0, aR: 0, eL: 0, eR: 0, tL: 0, tR: 0, kL: 0, kR: 0, spread: 0 } };
@@ -519,6 +531,19 @@
         p.anim = idleAnim;
       }
     }
+    // the chase is over: officers who came by car walk back to it and get in (vehicles.js then drives it home)
+    const boarding = [];
+    function unitStep(p, dt) {
+      const c = p.unit;
+      if (c.gone || c.driver === 'player' || !c.exited) { p.unit = null; resumeRoute(p); return; }
+      // still inside a building, far from the car: they leave by the front door and are gone
+      if (Math.abs(p.x - c.x) > 300 || Math.abs(p.z - c.z) > 300) { c.crew = Math.max(0, (c.crew || 0) - 1); boarding.push(p); return; }
+      const rx = -Math.cos(c.h), rz = Math.sin(c.h), side = p.unitSide || 1;
+      const m = p.board || (p.board = { goal: null, face: null, arrived: false });
+      m.goal = [c.x + rx * side * (c.model.w / 2 + .6), c.z + rz * side * (c.model.w / 2 + .6)];
+      goalStep(p, m, dt, 'idle');
+      if (m.arrived) { c.crew = Math.max(0, (c.crew || 0) - 1); boarding.push(p); }
+    }
     function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : 'idle'); }
     // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
     // to the window, a guest to the sofa); a waitress or a bellboy keeps doing rounds
@@ -552,6 +577,7 @@
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
+      if (p.cop && p.unit && pol.wanted <= 0) { unitStep(p, dt); return; }
       if (p.cop && p.chasing) resumeRoute(p);
       if ((p.home || p.patrol) && p.fleeT <= 0 && p.fightT <= 0) { homeStep(p, dt); return; }
       if (p.fleeT > 0) { flee(p, dt); return; }
@@ -737,7 +763,7 @@
       }
       const walkers = people.filter(p => p.mode === 'graph' && !p.cop && !p.dead).length, beach = people.filter(p => (p.mode === 'beach' || p.mode === 'jog') && !p.dead).length;
       const cops = people.filter(p => p.cop && !p.dead && !p.spot).length;
-      if (cops < (lim.cops || 0)) spawnWalker(px, pz, fx, fz, first, 'cop');
+      if (cops < (lim.cops || 0) && !(pol.wanted > 0)) spawnWalker(px, pz, fx, fz, first, 'cop');   // no fresh officers mid-chase: they come by car
       const wantBeach = px > 60 ? lim.beach : 0;
       const n = first ? 40 : 2;
       for (let k = 0; k < n; k++) {
@@ -803,6 +829,8 @@
           // animate: near people every frame, far ones every third frame
           if (d < 40 || (frameNo + p.frame) % 3 === 0) { pose(p, d < 40 ? dt : dt * 3, t); write(p); }
         }
+        for (const p of boarding) if (people.includes(p)) despawn(p);
+        boarding.length = 0;
         // keep people from overlapping each other
         for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) {
           const a = people[i], b = people[j];
@@ -878,10 +906,18 @@
           const o = s.person;
           if (s.grp !== grp || !o || o.cop || o.medic) continue;
           detachSpot(o);
-          if (src.kind === 'melee' && !o.look.female && o.look.type !== 'elderly' && chance(.3)) { o.fightT = 10; o.punchCD = .8; bumpCallback(o, pick(FIGHT_PHRASES)); }
+          if (src.kind === 'melee' && chance(grit(o.look) * .7)) { o.fightT = 12; o.punchCD = .8; bumpCallback(o, pick(FIGHT_PHRASES)); }
           else { o.fleeT = rand(6, 10); o.fleeX = src.x; o.fleeZ = src.z; if (chance(.5)) bumpCallback(o, pick(FLEE_PHRASES)); }
         }
         if (src && src.byPlayer && (p.bouncer || nearClub(p.x, p.z))) alertBouncers();
+        // fists and the bat knock people out (the ambulance or a few minutes brings them round); guns and cars kill
+        if (p.hp <= 0 && src && src.kind === 'melee' && !p.medic) {
+          p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
+          if (src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
+          if (p.bubble) p.bubble.owner = null;
+          call('onHurt', p, src); call('onDown', p, src);
+          return;
+        }
         if (p.hp <= 0) {
           p.dead = true; p.hp = 0; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.running = false;
           if (src && src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
@@ -889,7 +925,7 @@
           call('onKill', p, src || {});
           return;
         }
-        if (!p.cop && !p.medic && p.hp < 25 && src && (src.kind === 'melee' || src.kind === 'car')) {
+        if (!p.cop && !p.medic && p.hp < p.maxHp * .3 && src && src.kind === 'car') {
           p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
           if (src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
           call('onHurt', p, src); call('onDown', p, src);
@@ -897,8 +933,16 @@
         }
         p.stumbleT = Math.max(p.stumbleT, .35);
         if (!p.cop && !p.bouncer && src && src.byPlayer) {
-          if (src.kind === 'melee' && !p.look.female && p.look.type !== 'elderly' && chance(.35)) { p.fightT = 10; p.punchCD = .5; bumpCallback(p, pick(FIGHT_PHRASES)); }
-          else { p.fleeT = rand(7, 11); p.fleeX = src.x; p.fleeZ = src.z; if (chance(.6)) bumpCallback(p, pick(FLEE_PHRASES)); }
+          const hurt = p.hp < p.maxHp * .3;
+          // someone already in a fight keeps at it until he's badly hurt; a man hit for the first time may hit back
+          if (src.kind === 'melee' && p.fightT > 0 && !hurt) p.fightT = 12;
+          else if (src.kind === 'melee' && !hurt && chance(grit(p.look))) { p.fightT = 12; p.punchCD = .5; bumpCallback(p, pick(FIGHT_PHRASES)); }
+          else {
+            const gaveUp = p.fightT > 0;
+            p.fightT = 0; p.fleeT = rand(7, 11); p.fleeX = src.x; p.fleeZ = src.z;
+            if (gaveUp) bumpCallback(p, pick(['Всё, всё, хватит!', 'Ладно, ты победил!', 'Не бей!']));
+            else if (chance(.6)) bumpCallback(p, pick(FLEE_PHRASES));
+          }
         }
         call('onHurt', p, src || {});
       },
@@ -932,7 +976,7 @@
       // paramedics got them back on their feet
       revive(p, hp) {
         if (!people.includes(p)) return;
-        p.dead = false; p.down = false; p.hp = hp || 60; p.anim = 'idle'; p.fallT = 0; p.deadT = 0; p.ems = null;
+        p.dead = false; p.down = false; p.hp = Math.min(p.maxHp, hp || 60); p.anim = 'idle'; p.fallT = 0; p.deadT = 0; p.ems = null;
         p.stumbleT = 1.1; p.fleeT = 0; p.fightT = 0;
         resumeRoute(p);
       },

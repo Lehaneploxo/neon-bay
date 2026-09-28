@@ -5,12 +5,12 @@
   const rand = U.rand;
 
   const WEAPONS = {
-    fists: { id: 'fists', name: 'Кулаки', melee: true, rate: .42, dmg: 18, reach: 1.6 },
-    bat: { id: 'bat', name: 'Бита', melee: true, rate: .6, dmg: 34, reach: 2.0 },
-    pistol: { id: 'pistol', name: 'Пистолет', rate: .28, dmg: 34, spread: .012, pellets: 1, auto: false, range: 70, give: 36 },
-    smg: { id: 'smg', name: 'Узи', rate: .085, dmg: 16, spread: .032, pellets: 1, auto: true, range: 55, give: 90 },
-    shotgun: { id: 'shotgun', name: 'Дробовик', rate: .85, dmg: 12, spread: .07, pellets: 7, auto: false, range: 30, give: 16 },
-    rifle: { id: 'rifle', name: 'Винтовка', rate: .11, dmg: 27, spread: .014, pellets: 1, auto: true, range: 85, give: 60 }
+    fists: { id: 'fists', name: 'Кулаки', melee: true, rate: .42, dmg: 20, reach: 1.6 },
+    bat: { id: 'bat', name: 'Бита', melee: true, rate: .6, dmg: 36, reach: 2.0 },
+    pistol: { id: 'pistol', name: 'Пистолет', rate: .28, dmg: 55, spread: .012, pellets: 1, auto: false, range: 70, give: 36 },
+    smg: { id: 'smg', name: 'Узи', rate: .085, dmg: 22, spread: .032, pellets: 1, auto: true, range: 55, give: 90 },
+    shotgun: { id: 'shotgun', name: 'Дробовик', rate: .85, dmg: 20, spread: .07, pellets: 7, auto: false, range: 30, give: 16 },
+    rifle: { id: 'rifle', name: 'Винтовка', rate: .11, dmg: 40, spread: .014, pellets: 1, auto: true, range: 85, give: 60 }
   };
   const ORDER = ['fists', 'bat', 'pistol', 'smg', 'shotgun', 'rifle'];
   NB.WEAPON_ORDER = ORDER;

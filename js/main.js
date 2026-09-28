@@ -102,8 +102,7 @@
     crowd, vehicles, flash: (t, s) => flashTip(t, s),
     onWanted: (n, prev) => { if (n > prev) audio.starUp(); if (n > 0 && prev === 0) flashTip(n === 1 ? 'Полиция это видела!' : 'Полиция открыла на вас охоту!', 2.2); },
     onBust: () => endLife('busted'),
-    disguised: () => progress.outfit === 'cop',
-    spawnAt: () => places.current ? places.current.copEntry : null
+    disguised: () => progress.outfit === 'cop'
   });
   const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'),
     targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
@@ -150,6 +149,8 @@
         if (!p.medic && (p.cop || Math.random() < .7)) combat.dropCash(p.x, p.z, p.cop ? 40 + (Math.random() * 40 | 0) : 5 + (Math.random() * 40 | 0));
       }
     },
+    // knocked out: sometimes a few dollars fall out of their pockets
+    onDown: (p, src) => { if (src.byPlayer && !p.medic && Math.random() < .5) combat.dropCash(p.x, p.z, 3 + (Math.random() * 25 | 0)); },
     onHurt: (p, src) => { if (src.byPlayer && p.cop && src.kind !== 'car') police.reportCrime('copAttack', p.x, p.z); },
     onCopShoot: p => combat.copShoot(p, police.wanted),
     onHitPlayer: dmg => { heroDamage(dmg); audio.punch(null); },
@@ -164,7 +165,17 @@
   Object.assign(vehOpts, {
     onHeroHit: v => heroDamage(v * 2.2),
     onFlood: () => { audio.engineOn(false); flashTip('Машина заглохла в воде — выплывайте (F)', 2.6); },
-    onCopsExit: car => { const rx = -Math.cos(car.h), rz = Math.sin(car.h); for (const s of [-1, 1]) crowd.spawnCop(0, 0, 0, 0, 0, 0, car.x + rx * s * (car.model.w / 2 + .8), car.z + rz * s * (car.model.w / 2 + .8)); }
+    // two officers get out; if the hero is inside the building by the car, they go in through the front door
+    onCopsExit: car => {
+      const rx = -Math.cos(car.h), rz = Math.sin(car.h), pl = places.current, door = pl && pl.door;
+      const inside = door && pl.copEntry && Math.hypot(car.x - door.x, car.z - door.z) < 30;
+      car.crew = 0; car.waitT = 0;
+      for (const s of [-1, 1]) {
+        const p = inside ? crowd.spawnCop(0, 0, 0, 0, 0, 0, pl.copEntry.x + s * .6, pl.copEntry.z)
+          : crowd.spawnCop(0, 0, 0, 0, 0, 0, car.x + rx * s * (car.model.w / 2 + .8), car.z + rz * s * (car.model.w / 2 + .8));
+        if (p) { p.unit = car; p.unitSide = s; car.crew++; }
+      }
+    }
   });
 
   /* ---------- jobs and shopping ---------- */
@@ -734,7 +745,7 @@
       const aim = computeAim();
       rig.aimBlend = U.damp(rig.aimBlend, input.aim && !combat.isMelee() && !vehicles.driving && !player.dead ? 1 : 0, 10, dt);
       if (!vehicles.driving) player.update(dt, input, rig.yaw); else input.jump = false;
-      vehicles.update(dt, { player, input, people: crowd.people, camYaw: rig.yaw, limits: carLimits, police, target: { x: player.x, z: player.z, vx: player.vx, vz: player.vz, onFoot: !vehicles.driving } });
+      vehicles.update(dt, { player, input, people: crowd.people, camYaw: rig.yaw, limits: carLimits, police, target: places.current && places.current.door ? { x: places.current.door.x, z: places.current.door.z, vx: 0, vz: 0, onFoot: true } : { x: player.x, z: player.z, vx: player.vx, vz: player.vz, onFoot: !vehicles.driving } });
       combat.update(dt, input, aim, !!vehicles.driving || player.swim);   // no fighting while swimming
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);

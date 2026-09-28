@@ -1,15 +1,16 @@
 // Wanted level. A crime only counts if a police officer or a patrol car sees it:
 // a punch is noticed within 22 m, gunfire within 48 m (twice as far), and anything
 // done while the police are already watching you. Out of their sight long enough, the stars go away.
+// Nobody appears out of thin air: officers on the beat and patrol cars nearby join in, and the rest come
+// by car from the police station, one car of two officers per star (vehicles.js).
 (function (NB) {
   'use strict';
   const RANGE = { punch: 22, carjack: 18, copcar: 25, shoot: 48, kill: 30 };
   const LOSE = [0, 10, 15, 22, 30, 40];     // seconds out of sight to shake the police, per star
-  const FOOT = [0, 2, 3, 4, 5, 6];          // officers on foot hunting you, per star
-
+  
   NB.createPolice = function (world, o) {
     const col = world.col;
-    const S = { wanted: 0, searchT: 0, seen: false, seenT: 0, bustT: 0, bustTick: false, kills: 0, dispatchT: 0 };
+    const S = { wanted: 0, searchT: 0, seen: false, seenT: 0, bustT: 0, bustTick: false, kills: 0 };
     function los(ax, ay, az, bx, by, bz) {
       const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz);
       return L < .5 || col.raycast(ax, ay, az, dx / L, dy / L, dz / L, L) >= L - .5;
@@ -71,18 +72,6 @@
         }
         if (S.seen) S.searchT = 0;
         else if ((S.searchT += dt) > LOSE[S.wanted]) { api.clear(); o.flash('Вы оторвались от полиции', 2.5); return; }
-        // send more officers on foot if there are too few around
-        S.dispatchT -= dt;
-        if (S.dispatchT <= 0) {
-          S.dispatchT = 1.2;
-          const near = o.crowd.cops().filter(p => Math.hypot(p.x - player.x, p.z - player.z) < 80).length;
-          if (near < FOOT[S.wanted]) {
-            // inside a building the officers come in through the front door
-            const door = o.spawnAt && o.spawnAt();
-            if (door) o.crowd.spawnCop(0, 0, 0, 0, 0, 0, door.x + (Math.random() - .5) * 1.2, door.z + (Math.random() - .5) * .6);
-            else o.crowd.spawnCop(player.x, player.z, -Math.sin(camYaw), -Math.cos(camYaw), 30, 65);
-          }
-        }
       }
     };
     return api;

@@ -90,7 +90,7 @@
       car.geo.attributes.color.needsUpdate = true;
     }
     function removeCar(car) {
-      releaseLock(car);
+      releaseLock(car); car.gone = true;
       scene.remove(car.root); car.geo.dispose();
       cars.splice(cars.indexOf(car), 1);
     }
@@ -468,6 +468,21 @@
       for (const o of K.nb) { const cost = o.e.len + toGoal(o.n); if (cost < bc) { bc = cost; bn = NET.nodes[o.n]; } }
       return bn ? [bn.x, bn.z] : [tx, tz];
     }
+    // the police station: units leave from the street in front of it and come back there
+    const UNITS = [0, 1, 2, 3, 4, 5], RESPONSE = 2, NEXT_UNIT = 5;
+    const D = { wantedT: 0, cd: 0 };
+    const HQ = world.station ? { x: ROADS.find(r => r > world.station.cx) || ROADS[0], z: world.station.cz } : { x: ROADS[1], z: 0 };
+    function dispatchUnit(t) {
+      const north = t.z > HQ.z, x = HQ.x + (north ? -LANE : LANE), z = HQ.z;
+      if (cars.some(c => Math.hypot(c.x - x, c.z - z) < 7)) return null;
+      const car = makeCar(byId.police, x, z, north ? 0 : Math.PI);
+      startPursuit(car); car.unit = true; car.crew = 2;
+      return car;
+    }
+    function goHome(c) {
+      c.sirenOn = false; c.returning = true; c.driver = 'cop'; c.driverMesh.visible = true; c.parked = false; c.awake = true;
+      c.goto = { x: HQ.x + LANE, z: HQ.z, speed: 12, arrived: false };
+    }
     function startPursuit(car) {
       if (car.ai) { const v = car.ai.v; releaseLock(car); car.ai = null; car.vx = Math.sin(car.h) * v; car.vz = Math.cos(car.h) * v; }
       car.pursuit = { wp: null, los: false, losT: 0, stuckT: 0, revT: 0, exitT: 0 };
@@ -540,6 +555,7 @@
     const api = {
       cars,
       get driving() { return driving; },
+      station: HQ,
       nearest(player) {
         let best = null, bd = Infinity;
         for (const c of cars) {
@@ -636,16 +652,27 @@
           for (let k = 0; k < (first ? lim.traffic : 2) && traffic + k < lim.traffic; k++) spawnTraffic(player.x, player.z, fx, fz, first);
           const pol = ctx.police || { wanted: 0 };
           const patrols = cars.filter(c => c.police && c.ai).length;
-          if (patrols < (lim.patrols || 0)) spawnTraffic(player.x, player.z, fx, fz, first, byId.police);
-          // wanted: patrol cars nearby join in, extra cars come from out of view
+          // new patrol cars only join the traffic while nobody is wanted (otherwise they'd appear out of thin air mid-chase)
+          if (patrols < (lim.patrols || 0) && !((ctx.police || {}).wanted > 0)) spawnTraffic(player.x, player.z, fx, fz, first, byId.police);
+          // wanted: patrol cars close by join in; the rest are sent out from the police station one after another,
+          // one car (two officers) per star; a car lost on the way is replaced after a while
+          const tgt = ctx.target || player;
           if (pol.wanted > 0) {
-            for (const c of cars) if (c.police && c.ai && Math.hypot(c.x - player.x, c.z - player.z) < 90) startPursuit(c);
-            const chasing = cars.filter(c => c.pursuit).length, need = [0, 0, 2, 3, 3, 4][pol.wanted];
-            if (chasing < need) { const c = spawnTraffic(player.x, player.z, fx, fz, false, byId.police, 60, 125); if (c) startPursuit(c); }
+            D.wantedT += 1;
+            for (const c of cars) if (c.police && (c.ai || c.returning) && Math.hypot(c.x - tgt.x, c.z - tgt.z) < 90) { c.returning = false; c.goto = null; startPursuit(c); }
+            const units = cars.filter(c => c.police && (c.pursuit || c.exited)).length, need = UNITS[Math.min(5, pol.wanted)];
+            D.cd -= 1;
+            if (units < need && D.wantedT >= RESPONSE && D.cd <= 0 && dispatchUnit(tgt)) D.cd = NEXT_UNIT;
           } else {
-            for (const c of cars.slice()) if (c.police && (c.pursuit || c.exited) && c.visible === false) removeCar(c);
-            for (const c of cars) if (c.pursuit) { c.pursuit = null; c.sirenOn = false; c.parked = true; c.driver = null; }
+            D.wantedT = 0; D.cd = 0;
+            // it's over: cars drive back to the station; a car whose crew is out waits for them to get back in
+            for (const c of cars) {
+              if (!c.police) continue;
+              if (c.pursuit) { c.pursuit = null; goHome(c); }
+              else if (c.exited && c.driver !== 'player') { c.waitT = (c.waitT || 0) + 1; if ((c.crew || 0) <= 0 || c.waitT > 25) { c.exited = false; goHome(c); } }
+            }
           }
+          for (const c of cars.slice()) if (c.returning && (!c.visible && Math.hypot(c.x - player.x, c.z - player.z) > 120 || (c.goto && c.goto.arrived && Math.hypot(c.x - HQ.x, c.z - HQ.z) < 15))) removeCar(c);
           first = false;
           for (const c of cars) { const d = Math.hypot(c.x - player.x, c.z - player.z); c.visible = d < lim.carRange; c.root.visible = c.visible; }
         }
@@ -663,8 +690,8 @@
             if (Math.hypot(c.vx, c.vz) < .05) { c.vx = c.vz = 0; c.awake = false; }
           }
           c.beam.visible = night > .05 && !!c.driver && c.visible;
+          if (!c.visible) { if (!c.model.heli && !c.model.boat && (c.pursuit || c.goto)) { const fy = floorAt(c.x, c.z, c.y); if (fy <= c.y + 1.5) c.y = fy; } continue; }
           // ride height over kerbs, body lean, wheels
-          if (!c.visible) continue;
           if (c.model.heli) {
             // blades turning, nose down in forward flight, banking into turns; ripples on the water beneath
             if (c !== driving) heliPhysics(c, dt, { throttle: 0, steer: 0 });
