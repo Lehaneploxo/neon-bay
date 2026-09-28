@@ -173,7 +173,7 @@
     onDown: (p, src) => { if (src.byPlayer && !p.medic && Math.random() < .5) combat.dropCash(p.x, p.z, 3 + (Math.random() * 25 | 0)); },
     onHurt: (p, src) => { if (src.byPlayer && p.cop && src.kind !== 'car') police.reportCrime('copAttack', p.x, p.z); },
     onCopShoot: p => combat.copShoot(p, police.wanted),
-    onGangShoot: p => combat.copShoot(p, 2),
+    onGangShoot: p => combat.copShoot(p, p.gang === 'army' ? 4 : 2),   // soldiers shoot straighter than gangsters
     onGangShootAt: (p, t) => combat.npcShoot(p, t),
     // bodyguards: their pistols hit hard and never hit the hero; their punches land with a thud
     onGuardShoot: (p, t) => combat.npcShoot(p, t, { dmg: 48, noPlayer: true }),
@@ -268,6 +268,8 @@
   // the spray shop and the street: food carts, buskers, surfers, volleyball
   world.spray.attach({ vehicles, police, player, audio, money: wallet, flash: (t, s) => flashTip(t, s), blink: fn => blink(fn) });
   // Turtle Island: the pirate chest pays out, and a speedboat waits at the old jetty to take you back
+  // Base Omega: the patrol jeep, the trespass alarm, the armoury crate, a boat at the jetty
+  if (world.military) { world.military.attach({ player, vehicles, crowd, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t), give: (id, n) => combat.give(id, n), setArmor: n => { progress.armor = Math.max(progress.armor, n); } }); const b = world.military.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   if (world.tropic) { world.tropic.attach({ addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s) }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
     room: fn => blink(() => { time += 60; const d = world.street.motel.door; player.place(d.x, d.z, d.heading); rig.snap(player); fn(); }),
@@ -290,7 +292,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : []);
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.military ? world.military.interactions() : []);
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -617,6 +619,7 @@
     if (world.security) icon(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', false);
     if (world.bay) icon(503, -433, '#3f8fe6', '#fff', '✈', false);
     if (world.tropic) icon(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', false);
+    if (world.military) icon(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
@@ -632,7 +635,7 @@
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
   const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
-    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Бэйвью', 545, -300], ['Аэропорт Неон-Бэй', 545, -480], ['Портовый мост', 298, -305], ['Мост Бэйвью', 470, -142], ['Остров Черепахи', 760, 100]];
+    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Бэйвью', 545, -300], ['Аэропорт Неон-Бэй', 545, -480], ['Портовый мост', 298, -305], ['Мост Бэйвью', 470, -142], ['Остров Черепахи', 760, 100], ['Остров Омега', -400, 290], ['Запретная зона', -420, 390]];
   // everything worth finding, with the same look as on the minimap
   function mapIcons() {
     const out = [], P = id => places.byId(id);
@@ -648,6 +651,7 @@
     if (world.security) add(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', 'Охранное агентство Shield Security: телохранители');
     if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт Neon Bay International');
     if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Черепахи: необитаемый, только на лодке или вертолёте');
+    if (world.military) add(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', 'Остров Омега: секретная военная база, вход запрещён');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
@@ -911,7 +915,7 @@
       }
       audio.venue(name, active ? level : 0, full);
       const bank = places.byId('bank');
-      audio.alarm(active && bank && bank.alarm() && (places.current === bank || Math.hypot(player.x - bank.door.x, player.z - bank.door.z) < 70));
+      audio.alarm(active && ((bank && bank.alarm() && (places.current === bank || Math.hypot(player.x - bank.door.x, player.z - bank.door.z) < 70)) || (world.military && world.military.alarm)));
     }
     vehicles.setNight(env.night);
     renderer.render(scene, camera);

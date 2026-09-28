@@ -131,7 +131,7 @@
       car.hitT = .25;
       // police cars and ambulances nudging each other (or a kerb) through a jam don't wreck themselves; the hero's car and guns do
       const service = (car.pursuit || car.goto) && car.driver !== 'player' && !(other && other.driver === 'player');
-      car.damage += strength * 2.2 * (service ? .15 : 1);
+      car.damage += strength * 2.2 * (service ? .15 : 1) * (car.model.armor || 1);
       dent(car, px, pz, nx, nz, Math.min(.16, strength * .012));
       paint(car);
       if (car.driver === 'player') { audio.impact(strength); if (opts.onImpact) opts.onImpact(strength); }
@@ -485,6 +485,7 @@
     if (world.station) for (const [x, z, h] of world.station.parking) makeCar(byId.police, x, z, h);
     if (world.hospital) for (const [x, z, h] of world.hospital.parking) makeCar(byId.ambulance, x, z, h);
     if (world.island) for (const p of world.island.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // cars parked on Palm Island
+    if (world.military) for (const p of world.military.parking) { const c = makeCar(byId[p.id], p.x, p.z, p.h); c.parked = true; }   // Base Omega's jeeps, trucks, tank and helicopter
     if (world.bay) for (const p of world.bay.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // Bayview: driveways, car parks, taxis at the airport
     if (world.north) for (const p of world.north.parking) { const c = makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h); c.damage = Math.random() * 80; paint(c); }   // old bangers on the North Side
     // a Gelendwagen at the kerb outside the villa, a Porta Panamo outside Hotel OCEAN (whatever was parked there moves off)
@@ -980,7 +981,7 @@
       },
       bulletHit(car, dmg, x, z, nx, nz) {
         car.blame = true;
-        car.damage += dmg * .35; paint(car);
+        car.damage += dmg * .35 * (car.model.armor || 1); paint(car);
         if (Math.random() < .4) dent(car, x, z, nx, nz, .03);
         if (car.ai) car.ai.shock = Math.max(car.ai.shock, 1.2);
       },

@@ -287,6 +287,47 @@
       B(.06, .55, .06, .72, .38, .9, 'chrome'), B(.06, .55, .06, -.72, .38, .9, 'chrome'), B(.06, .55, .06, .72, .38, -.8, 'chrome'), B(.06, .55, .06, -.72, .38, -.8, 'chrome'),
       B(.5, .3, .05, 0, 1.55, 1.62, 'interior'),
       B(.14, .1, .05, .5, .75, 2.46, '#fff6d8'), B(.14, .1, .05, -.5, .75, 2.46, '#fff6d8'), B(.12, .12, .12, 0, 2.62, -5.72, '#ff2a3a')] });
+  // Base Omega's machines: an open jeep, a canvas-covered truck, a tank and a military helicopter
+  MODELS.push(
+    { id: 'mjeep', name: 'Army Jeep', w: 1.9, l: 4.2, r: .42, seat: [.42, .78, -.3],
+      perf: { accel: 9, top: 34, grip: 9.5, steer: .52, brake: 14 },
+      palette: ['#5a6440', '#4a5436', '#6a6a4a'], accent: ['#1a1a1e'],
+      parts: () => [
+        B(1.9, .7, 4.2, 0, .72, 0, 'body'), B(1.84, .14, 1.5, 0, 1.12, 1.3, 'body'), B(1.95, .08, 4.25, 0, 1.08, 0, 'accent'),
+        B(1.7, .62, .06, 0, 1.46, .5, 'glass', -.2), B(1.76, .08, .1, 0, 1.78, .44, 'black'),
+        B(.08, .92, .08, .86, 1.52, -1.0, 'black'), B(.08, .92, .08, -.86, 1.52, -1.0, 'black'), B(1.8, .08, .08, 0, 1.96, -1.0, 'black'),
+        B(.6, .5, .5, .45, 1.2, -.3, '#3a3a2a'), B(.6, .5, .5, -.45, 1.2, -.3, '#3a3a2a'), B(1.6, .5, .5, 0, 1.2, -1.35, '#3a3a2a'),
+        B(.8, .8, .26, 0, 1.0, -2.24, 'black'), B(.4, .4, .28, 0, 1.0, -2.26, '#4a4a3a'), B(.42, .02, .42, 0, 1.2, 1.4, 'white'),
+        B(1.2, .42, .04, 0, .86, 2.11, 'grille'), B(2.0, .22, .2, 0, .5, 2.15, 'black'), B(2.0, .22, .2, 0, .5, -2.15, 'black'),
+        ...lights(1.9, 4.2, .95, .95, .62, .2, .2)] },
+    { id: 'mtruck', name: 'Army Truck', w: 2.4, l: 7.2, r: .5, seat: [.55, 1.35, 2.3],
+      perf: { accel: 5, top: 26, grip: 7, steer: .42, brake: 10 },
+      palette: ['#5a6440', '#4a5436'], accent: ['#6a6a4a', '#7a7a5a'],
+      parts: () => [
+        B(2.2, .4, 7, 0, .75, 0, 'black'), B(2.4, 1.8, 2, 0, 1.85, 2.4, 'body'), B(2.1, .72, .05, 0, 2.25, 3.41, 'glass'), B(2.42, .5, 1.2, 0, 2.25, 2.5, 'glass'),
+        B(2.4, .6, 4.6, 0, 1.25, -1.1, 'body'), B(2.36, 1.8, 4.4, 0, 2.45, -1.1, 'accent'),
+        B(2.42, .08, .08, 0, 3.36, -2.9, 'black'), B(2.42, .08, .08, 0, 3.36, -1.1, 'black'), B(2.42, .08, .08, 0, 3.36, .7, 'black'),
+        B(2.4, .3, .2, 0, .85, 3.5, 'black'), B(1.4, .5, .05, 0, 1.3, 3.42, 'grille'), B(.5, .5, .02, 1.21, 1.9, 2.3, 'white'), B(.5, .5, .02, -1.21, 1.9, 2.3, 'white'),
+        ...lights(2.4, 7.2, 1.25, 1.0, .85, .22, .2)] },
+    { id: 'tank', name: 'Tank', tracks: true, armor: .12, w: 3.4, l: 7, r: .5, seat: [0, 2.35, -.6],
+      perf: { accel: 4, top: 15, grip: 14, steer: .45, brake: 8 },
+      palette: ['#5a6440', '#4a5436', '#6a6a4a'], accent: ['#4a5436'],
+      parts: () => {
+        const out = [
+          B(2.6, 1.0, 6.6, 0, .95, 0, 'body'), B(3.3, .3, 6.8, 0, 1.45, 0, 'body'), B(3.0, .6, 1.4, 0, 1.2, 3.3, 'body', .5),
+          B(.7, 1.1, 7.2, 1.62, .6, 0, '#2a2a26'), B(.7, 1.1, 7.2, -1.62, .6, 0, '#2a2a26'),
+          B(2.4, .9, 3, 0, 2.05, -.4, 'body'), B(1.9, .3, 2.4, 0, 2.6, -.6, 'accent'),
+          B(.24, .24, 4.4, 0, 2.1, 3.2, 'body'), B(.36, .36, .45, 0, 2.1, 5.4, 'black'),
+          B(.7, .16, .7, .55, 2.8, -.9, 'black'), B(.08, .08, 1, -.55, 2.95, -.3, 'black'), B(.5, .5, .02, 1.21, 2.05, -.6, 'white'), B(.5, .5, .02, -1.21, 2.05, -.6, 'white'),
+          B(.3, .12, .05, .9, 1.55, 3.95, '#fff6d8'), B(.3, .12, .05, -.9, 1.55, 3.95, '#fff6d8'), B(.3, .1, .05, 1.1, 1.4, -3.42, '#ff2a3a'), B(.3, .1, .05, -1.1, 1.4, -3.42, '#ff2a3a')];
+        for (let z = -2.8; z <= 2.8; z += 1.12) for (const x of [1.98, -1.98]) out.push(B(.08, .6, .6, x, .55, z, '#3a3a34'));
+        return out;
+      } }
+  );
+  { const H = MODELS.find(m => m.id === 'heli');
+    MODELS.push(Object.assign({}, H, { id: 'milheli', name: 'Army Hawk', palette: ['#4a5436', '#3a4430', '#5a6440'], accent: ['#2a2a26'],
+      parts: () => [...H.parts(), B(3.6, .14, .9, 0, 1.25, -.4, 'body'), B(.36, .36, 1.5, 1.7, 1.05, -.3, 'black'), B(.36, .36, 1.5, -1.7, 1.05, -.3, 'black'),
+        B(.18, .18, 1, 0, .45, 2.3, 'black'), B(.02, .6, .6, .82, 1.35, -.6, 'white'), B(.02, .6, .6, -.82, 1.35, -.6, 'white')] })); }
   function sedan() {
     return [
       B(1.85, .62, 4.8, 0, .51, 0, 'body'),
@@ -312,7 +353,7 @@
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.computeBoundingSphere();
     model.geo = g; model.ranges = ranges;
-    if (model.boat || model.heli) { model.wheels = []; model.wheelbase = model.l * .55; return; }
+    if (model.boat || model.heli || model.tracks) { model.wheels = []; model.wheelbase = model.l * .55; return; }
     // wheel: tyre plus hub cap, axis along x
     const tw = model.bike ? .12 : .26;
     const tyre = new THREE.CylinderGeometry(model.r, model.r, tw, 14).rotateZ(Math.PI / 2);
