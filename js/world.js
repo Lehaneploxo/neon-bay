@@ -437,7 +437,9 @@
       bPlain.box(tx - 1.8, 4, tz - 1.8, tx + 1.8, 4.25, tz + 1.8, C('#f3efe6'));
       col.add(tx - 1.5, 2, tz - 1.5, tx + 1.5, 4.25, tz + 1.5);
     }
-    // rocks at the beach ends, invisible wall in the water
+    // (the rock breakwaters that used to close the bay at the beach ends: gone now the sea is open all round;
+    // built into the void so the seeded city stays the same)
+    const unmuteRocks = mute();
     for (const sz of [-1, 1]) {
       for (let x = CITY; x < SHORE + 30; x += 3.4) {
         const h = rr(1.2, 2.6), z = sz * 108 + rr(-.8, .8);
@@ -445,14 +447,7 @@
       }
       col.add(CITY, -10, sz > 0 ? 106 : -112, SHORE + 80, 6, sz > 0 ? 112 : -106);
     }
-    // the rock spits run on out into the sea, as far as you can swim (own random, so the city stays the same)
-    {
-      const RR = U.rng(777), r2 = (a, b) => a + RR() * (b - a);
-      for (const sz of [-1, 1]) for (let x = SHORE + 30; x < SHORE + 80; x += 3.4) {
-        const h = r2(1.2, 2.8), z = sz * 108 + r2(-.8, .8);
-        bPlain.box(x, -3.5, z - 1.8, x + r2(2.6, 3.6), h, z + 1.8, C(['#8a8290', '#7a7282', '#958c98'][(RR() * 3) | 0]));
-      }
-    }
+    unmuteRocks();
     // the sea goes all the way round the city and Palm Island; invisible walls far out close the world
     // (for swimmers, boats and the helicopter alike)
     const LAND = { x0: -EMB, x1: SHORE, z0: -EMB, z1: EMB }, ISL = { x0: 345, x1: 515, z0: -105, z1: 105 };
