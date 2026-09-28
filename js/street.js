@@ -12,7 +12,7 @@
   NB.STREET_RESERVED = { id: 'volley', x0: COURT.x0 - 2.5, x1: COURT.x1 + 2.5, z0: COURT.z0 - 2.5, z1: COURT.z1 + 2.5 };
 
   NB.buildStreet = function (ctx) {
-    const { scene, col, C, palms, doors } = ctx;
+    const { scene, col, C, palms, doors, motelLot, mapShapes, lamps } = ctx;
     const P = new GeoBuilder(), N = new GeoBuilder();
     const box = (x0, y0, z0, x1, y1, z1, hex) => P.box(x0, y0, z0, x1, y1, z1, C(hex));
     const floorAt = (x, z) => { let f = 0; for (const b of col.query(x - .3, z - .3, x + .3, z + .3, [])) if (b.maxY < 1.2 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && b.maxY > f) f = b.maxY; return f; };
@@ -100,12 +100,85 @@
     /* ---------- night life: outside Hotel OCEAN after dark ---------- */
     const girls = [];
     const night = () => G && G.hour && (G.hour() >= 19 || G.hour() < 5);
-    if (doors && doors.hotel) {
-      const d = doors.hotel;
-      for (const dz of [4.6, 5.9, 7.2]) {
-        const s = { kind: 'flirt', x: d.x + d.nx * .9, z: d.z + dz, y: .15, fixedY: true, heading: Math.atan2(d.nx, d.nz) + (Math.random() - .5) * .8, type: 'escort', when: () => night() };
+    let motel = null;
+    if (motelLot) {
+      motel = buildMotel(motelLot);
+      for (const [x, z] of motel.girls) {
+        const s = { kind: 'flirt', x, z, y: .17, fixedY: true, heading: Math.PI / 2 + (Math.random() - .5) * .9, type: 'escort', when: () => night() };
         spots.push(s); girls.push(s);
       }
+    }
+    // THE PINK FLAMINGO: a two-storey motel with an open walkway upstairs, stairs, numbered doors, a car park
+    // in front and a tall roadside sign; it faces the beach road
+    function buildMotel(L) {
+      const M = new GeoBuilder(), NN = new GeoBuilder(), GG = new GeoBuilder();
+      const bx = (x0, y0, z0, x1, y1, z1, hex, solid) => { M.box(x0, y0, z0, x1, y1, z1, C(hex)); if (solid) col.add(x0, y0 < .5 ? 0 : y0, z0, x1, y1, z1); };
+      const neon = (x0, y0, z0, x1, y1, z1, hex) => { NN.box(x0, y0, z0, x1, y1, z1, C(hex)); GG.box(x0 - .25, y0 - .25, z0 - .25, x1 + .25, y1 + .25, z1 + .25, C(hex).multiplyScalar(.9), { noTop: true }); };
+      const X0 = L.x0, FX = L.x0 + 8, Z0 = L.z0 + .5, Z1 = L.z1 - .5, FL = 3.2, H = 6.6, WALL = '#f7c6d6', TRIM = '#f5f0e6';
+      // the building: two floors of rooms, a flat roof with a parapet
+      bx(X0, 0, Z0, FX, H, Z1, WALL, true);
+      bx(X0 - .15, H, Z0 - .15, FX + .15, H + .45, Z1 + .15, TRIM, true);
+      bx(FX, 3.0, Z0, FX + .04, 3.25, Z1, '#e890b0');
+      // the walkway upstairs, its railing and posts, and the stairs up at the north end
+      bx(FX, FL - .2, Z0, FX + 1.7, FL, Z1, TRIM, true);
+      bx(FX + 1.6, FL, Z0, FX + 1.7, FL + 1, Z1, TRIM, true); bx(FX + 1.6, FL + .9, Z0, FX + 1.72, FL + 1.02, Z1, '#ff4fa3');
+      for (let z = Z0 + .2; z < Z1; z += 3.4) bx(FX + 1.5, 0, z, FX + 1.7, FL - .2, z + .2, TRIM, true);
+      const steps = 11;
+      for (let i = 0; i < steps; i++) { const y = (i + 1) * FL / steps, z = Z1 - 4.4 + i * .4; bx(FX + 1.75, 0, z, FX + 3, y, z + .4, '#d8d0c8', true); }
+      bx(FX + 2.95, 0, Z1 - 4.4, FX + 3.05, FL + 1, Z1, TRIM, true);
+      // numbered doors and windows on both floors; some rooms have their lights on
+      let n = 1;
+      for (const y0 of [.17, FL]) {
+        for (let z = Z0 + 1.2; z < Z1 - 1.8; z += 2.6) {
+          bx(FX, y0, z, FX + .05, y0 + 2.2, z + .95, ['#2fa8a0', '#8a5ad8', '#e0286a', '#3f7fd0'][n % 4]);
+          bx(FX, y0 + 2.3, z + .3, FX + .06, y0 + 2.55, z + .65, '#f5f0e6');
+          if (Math.random() < .55) neon(FX, y0 + .9, z + 1.15, FX + .04, y0 + 2, z + 2.1, pick(['#ffd58a', '#ffe4b0', '#ff9fd2']));
+          else bx(FX, y0 + .9, z + 1.15, FX + .04, y0 + 2, z + 2.1, '#26304a');
+          n++;
+        }
+      }
+      neon(FX + .02, H - .3, Z0, FX + .08, H - .15, Z1, '#ff4fa3'); neon(FX + .02, FL - .45, Z0, FX + .08, FL - .35, Z1, '#3fe6e0');
+      // the car park: dark asphalt with white bays, from the building out to the pavement
+      bx(FX + 1.7, .15, Z0, L.x1, .17, Z1, '#3a3542');
+      for (let z = Z0 + .5; z < Z1 - 4.5; z += 3) bx(FX + 3.5, .17, z, FX + 8.5, .175, z + .1, '#ece6dc');
+      // a drinks machine by the stairs, glowing
+      bx(FX + 1.8, .17, Z1 - 5.4, FX + 2.5, 2, Z1 - 4.6, '#c81e1e', true); neon(FX + 2.5, 1.2, Z1 - 5.3, FX + 2.53, 1.9, Z1 - 4.7, '#ffffff');
+      // the roadside sign on a tall pole at the corner of the car park
+      const px = L.x1 - 1.2, pz = Z0 + 1;
+      bx(px - .12, 0, pz - .12, px + .12, 7, pz + .12, '#b8b4c4', true);
+      const add = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.matrixAutoUpdate = false; scene.add(m); return m; };
+      add(M.build(), new THREE.MeshLambertMaterial({ vertexColors: true })).castShadow = true;
+      add(NN.build(), new THREE.MeshBasicMaterial({ vertexColors: true }));
+      add(GG.build(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: .26, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const signT = U.canvasTex(256, 256, (g, w, h) => {
+        g.fillStyle = '#1a0f24'; g.fillRect(0, 0, w, h);
+        g.strokeStyle = '#ff4fa3'; g.lineWidth = 6; g.shadowColor = '#ff4fa3'; g.shadowBlur = 12; g.strokeRect(8, 8, w - 16, h - 16);
+        // the flamingo: a curved neck, a body, one leg
+        g.strokeStyle = '#ff7eb6'; g.lineWidth = 7; g.beginPath(); g.moveTo(92, 150); g.quadraticCurveTo(70, 90, 100, 60); g.quadraticCurveTo(120, 45, 112, 75); g.stroke();
+        g.fillStyle = '#ff7eb6'; g.beginPath(); g.ellipse(115, 150, 32, 18, -.3, 0, 7); g.fill(); g.fillRect(112, 165, 5, 40);
+        g.shadowBlur = 16; g.textAlign = 'center'; g.fillStyle = '#ffe3f0'; g.font = 'italic bold 30px "Trebuchet MS", Arial, sans-serif'; g.fillText('PINK', 190, 110); g.fillText('FLAMINGO', 128, 225);
+        g.shadowColor = '#3fe6e0'; g.fillStyle = '#3fe6e0'; g.font = 'bold 26px Rubik, Arial, sans-serif'; g.fillText('MOTEL', 190, 150);
+      }, false);
+      const board = new THREE.Mesh(new THREE.BoxGeometry(.25, 3.2, 3.2), [0, 1, 2, 3, 4, 5].map(i => i < 2 ? new THREE.MeshBasicMaterial({ map: signT }) : new THREE.MeshLambertMaterial({ color: 0x1a0f24 })));
+      board.position.set(px, 8.4, pz); scene.add(board);
+      // "VACANCY" under it, blinking at night
+      const vT = U.canvasTex(256, 64, (g, w, h) => { g.fillStyle = '#1a0f24'; g.fillRect(0, 0, w, h); g.fillStyle = '#6bff8a'; g.shadowColor = '#6bff8a'; g.shadowBlur = 10; g.textAlign = 'center'; g.font = 'bold 40px Rubik, Arial, sans-serif'; g.fillText('VACANCY', w / 2, 46); }, false);
+      const vMat = new THREE.MeshBasicMaterial({ map: vT });
+      const vac = new THREE.Mesh(new THREE.BoxGeometry(.2, .75, 3), [vMat, vMat, ...[0, 0, 0, 0].map(() => new THREE.MeshLambertMaterial({ color: 0x1a0f24 }))]);
+      vac.position.set(px, 6.3, pz); scene.add(vac);
+      // the name on the roof over the walkway
+      const roofT = U.canvasTex(512, 96, (g, w, h) => { g.fillStyle = '#1a0f24'; g.fillRect(0, 0, w, h); g.textAlign = 'center'; g.shadowColor = '#ff4fa3'; g.shadowBlur = 14; g.fillStyle = '#ff7eb6'; g.font = 'italic bold 58px "Trebuchet MS", Arial, sans-serif'; g.fillText('PINK FLAMINGO', w / 2, 66); }, false);
+      const roof = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.9), new THREE.MeshBasicMaterial({ map: roofT })); roof.position.set(FX + .2, H + 1.4, (Z0 + Z1) / 2); roof.rotation.y = Math.PI / 2; scene.add(roof);
+      for (const z of [(Z0 + Z1) / 2 - 4, (Z0 + Z1) / 2 + 4]) bx(FX + .1, H + .45, z - .08, FX + .26, H + .6, z + .08, '#2a2436');
+      palms.push([L.x1 - 1.4, .15, Z1 - 1.2]);
+      if (mapShapes) mapShapes.push({ x0: X0, z0: Z0, x1: FX, z1: Z1, c: '#ff7eb6', k: 'b' }, { x0: FX, z0: Z0, x1: L.x1, z1: Z1, c: '#55505f', k: 'p' });
+      return {
+        center: { x: (X0 + L.x1) / 2, z: (Z0 + Z1) / 2 },
+        // after a night in a room you come down the stairs to the car park
+        door: { x: FX + 2.6, z: Z1 - 7, heading: Math.PI / 2 },
+        girls: [[L.x1 - 2, Z0 + 4.5], [L.x1 - 1.8, Z0 + 6], [L.x1 - 2.2, Z0 + 7.5]],
+        vacancy: vMat
+      };
     }
 
     /* ---------- the beach volleyball court ---------- */
@@ -324,6 +397,7 @@
       spots,
       // where the girls stand, while it's their hours (for the map)
       nightSpot() { return night() && girls.length ? { x: girls[1].x, z: girls[1].z } : null; },
+      get motel() { return motel; },
       carts,
       buskers,
       court: COURT,
@@ -354,12 +428,12 @@
         const out = [];
         for (const s of girls) {
           const p = s.person; if (!p || p.spot !== s || !night()) continue;
-          out.push({ x: p.x, z: p.z, y: s.y, r: 1.6, short: 'НОМЕР', label: () => 'Провести время в Отеле OCEAN · $100',
+          out.push({ x: p.x, z: p.z, y: s.y, r: 1.6, short: 'НОМЕР', label: () => 'Снять номер в мотеле Pink Flamingo · $100',
             use: () => {
               if (G.police.wanted > 0) { say(p, 'Копы на хвосте! Иди отсюда!'); return; }
-              if (!G.money.spend(100, 'Номер в Отеле OCEAN')) { say(p, 'Сто долларов, милый. Приходи с деньгами'); return; }
-              say(p, pick(['Пойдём, красавчик', 'Номер на втором этаже', 'Не заставляй ждать']));
-              G.room(() => { G.player.hp = 100; G.flash('Час в номере Отеля OCEAN… Здоровье восстановлено', 3.2); });
+              if (!G.money.spend(100, 'Номер в мотеле')) { say(p, 'Сто долларов, милый. Приходи с деньгами'); return; }
+              say(p, pick(['Пойдём, красавчик', 'Номер на втором этаже', 'Не заставляй ждать', 'Седьмой номер свободен']));
+              G.room(() => { G.player.hp = 100; G.flash('Час в номере мотеля Pink Flamingo… Здоровье восстановлено', 3.2); });
             } });
         }
         for (const c of carts) {

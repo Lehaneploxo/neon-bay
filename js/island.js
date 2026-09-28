@@ -168,11 +168,13 @@
     walker([[386, 6.5], [464, 6.5], [464, 53.5], [386, 53.5]], 'downtown', 'jogger');
 
     // ---- beach hotels on the south shore, loungers and umbrellas on the sand
-    for (const [x0, x1] of [[365, 395], [410, 440], [455, 485]]) {
+    const ISLE_HOTELS = ['LAGUNA', 'MARLIN', 'TROPIC'];
+    for (const [k, [x0, x1]] of [[365, 395], [410, 440], [455, 485]].entries()) {
       const hex = pick(PASTEL), h = 4 * Math.round(rr(3, 5)) + .6, b = building(x0, -92, x1, -70, h, hex, LAND);
       bFacade.box(b.x0 + 3, h + .35, b.z0 + 2, b.x1 - 3, h + 3, b.z1 - 3, C(hex), { tile: FT, top: C(hex).multiplyScalar(.82) });
       neonRing(b.x0, b.z0, b.x1, b.z1, 4.35, pick(NEON)); neonRing(b.x0, b.z0, b.x1, b.z1, h - .5, pick(NEON));
-      sign('-z', b, h - 3.4, h - .9, 3, pick(['HOTEL', 'PALMS', 'OCEAN', 'MOTEL'])); awning('-z', b, pick(NEON), 8);
+      pick(['HOTEL', 'PALMS', 'OCEAN', 'MOTEL']);   // keeps the island's random numbers in step
+      sign('-z', b, h - 3.4, h - .9, 3, ISLE_HOTELS[k]); awning('-z', b, pick(NEON), 8);
     }
     for (let i = 0; i < 12; i++) {
       const x = rr(360, 500), z = rr(-103, -97.5);

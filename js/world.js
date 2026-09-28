@@ -11,7 +11,7 @@
   const EMB = 112;                         // the embankment's sea edge on the west, north and south
   // the whole playable world: past these walls there's only open ocean
   const WORLD = { x0: -240, x1: 650, z0: -260, z1: 260 };
-  const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK'];
+  const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK', 'SUNSET', 'CORAL', 'BREEZE', 'LAGUNA', 'MARLIN', 'TROPIC', 'RIVIERA', 'PARADISE'];
   const NEON = ['#ff4fa3', '#3fe6e0', '#ffd84f', '#8cff6b', '#c28bff', '#ff8a3d'];
   const PASTEL = ['#f7b5c9', '#aee8d3', '#f7e7a1', '#cdb8f0', '#ffc9a8', '#a9d8f5', '#f3efe6', '#ffd6e4', '#c6f0e8'];
   const COOL = ['#d9d4cc', '#b9c7d8', '#c7b8a8', '#8fb0cf', '#e4dccf', '#a7b7c4'];
@@ -72,7 +72,7 @@
       g.fillStyle = '#ecd29a'; g.fillRect(0, 0, s, s);
       U.speckle(g, s, s, 7000, ['#d6b87c', '#f7e4b8', '#c9a86c'], .2, .6, 1, 2);
     }, true, aniso);
-    const signTex = U.canvasTex(512, 320, (g) => {
+    const signTex = U.canvasTex(512, 448, (g) => {
       SIGN_WORDS.forEach((w, k) => {
         const x = (k % 4) * 128, y = ((k / 4) | 0) * 64, c = NEON[k % NEON.length];
         g.fillStyle = '#1b1030'; roundRect(g, x + 4, y + 4, 120, 56, 9); g.fill();
@@ -89,7 +89,7 @@
       g.beginPath(); g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r); g.lineTo(x + w, y + h - r);
       g.quadraticCurveTo(x + w, y + h, x + w - r, y + h); g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r); g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath();
     }
-    const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 5 + .006, (c + 1) / 4 - .004, 1 - r / 5 - .006]; };
+    const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 7 + .005, (c + 1) / 4 - .004, 1 - r / 7 - .005]; };
 
     /* ---------- builders ---------- */
     let bFacade = new GeoBuilder(), bPlain = new GeoBuilder(), bNeon = new GeoBuilder(), bGlow = new GeoBuilder(), bSign = new GeoBuilder();
@@ -102,7 +102,10 @@
       col.add = () => ({});
       return () => { ({ bFacade, bPlain, bNeon, bGlow, bSign } = saved); delete col.add; mapShapes.length = shapes; };
     }
-    let club = null;
+    let club = null, motelLot = null;
+    // the hotels on the beach road each have their own name (only the real Hotel OCEAN is called that)
+    const HOTEL_NAMES = ['PALMS', 'SUNSET', 'CORAL', 'BREEZE', 'RIVIERA'];
+    let hotelN = 0;
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
     let station = null, hospital = null, gunShop = null, hotelRoof = null, towerRoof = null;
@@ -276,6 +279,7 @@
         const unmute = j === 2 ? mute() : null;
         const mz = (lz0 + lz1) / 2;
         for (const [z0, z1] of [[lz0, mz - 1], [mz + 1, lz1]]) {
+          const motelHere = j === 3 && z0 !== lz0, unmuteM = motelHere ? mute() : null;
           const hex = pick(PASTEL), neon = pick(NEON), h = 4 * Math.round(rr(3, 5.6)) + .6;
           const ocean = j === 1 && z0 === lz0;   // Hotel OCEAN: a lobby you can enter and a pool on the roof
           const b = building(lx1 - 20, z0, lx1, z1, h, hex);
@@ -292,11 +296,13 @@
           bGlow.box(b.x1 + .9, 1.5, zc - .45, b.x1 + 1.3, h + 4.5, zc + .45, C(neon).multiplyScalar(.9), { noTop: true });
           neonRing(b.x0, z0, b.x1, z1, 4.35, neon);
           neonRing(b.x0, z0, b.x1, z1, h - .5, pick(NEON));
-          const name = pick(['HOTEL', 'MOTEL', 'PALMS', 'OCEAN']);
-          sign('+x', b, h - 3.4, h - .9, 2.5, ocean ? 'OCEAN' : name, -4.3);
+          pick(['HOTEL', 'MOTEL', 'PALMS', 'OCEAN']);   // (the old random name: the call keeps the city's random numbers in step)
+          const name = unmute || unmuteM || ocean ? 'OCEAN' : HOTEL_NAMES[hotelN++];
+          sign('+x', b, h - 3.4, h - .9, 2.5, name, -4.3);
           sign('+x', b, 3.1, 4.0, .9, pick(['BAR', 'CAFE', 'CLUB', 'DISCO']), 4.3);
           bPlain.box(b.x1, 3.0, zc - 3.5, b.x1 + 2.2, 3.25, zc + 3.5, C(accent).multiplyScalar(.9));
           if (ocean) { frontDoor('hotel', '+x', b, 2.4, '#3fe6e0'); mapShapes.push({ x0: b.x0, z0, x1: b.x1, z1, c: '#3fe6e0', k: 'b' }); }
+          if (unmuteM) { unmuteM(); motelLot = { x0: lx1 - 20, x1: lx1, z0, z1 }; }
         }
         // low shops on the back (west) street
         const b = building(lx0, lz0, lx1 - 23, lz1, rr(5, 7), pick(PASTEL));
@@ -502,7 +508,7 @@
     /* ---------- the spray shop, food carts, buskers and the volleyball court ---------- */
     const spray = NB.buildSpray({ scene, col, C, mapShapes });
     const fireStation = NB.buildFireStation({ scene, col, C, mapShapes });
-    const street = NB.buildStreet({ scene, col, C, palms, doors });
+    const street = NB.buildStreet({ scene, col, C, palms, doors, motelLot, mapShapes, lamps });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);
