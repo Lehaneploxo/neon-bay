@@ -351,6 +351,7 @@
     onEscape: () => { if (!locked) pause(); },
     onZoom: s => { rig.dist = U.clamp(rig.dist + s * .6, 2.6, 9); },
     onMute: () => toggleMute(),
+    onMap: () => openMap(),
     onMode: () => onResize()
   });
 
@@ -536,6 +537,107 @@
     }
     g.strokeStyle = 'rgba(255,241,228,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.stroke();
   }
+  /* ---------- the full-screen map (tap the minimap, or Tab) ---------- */
+  const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
+  const bmG = bm.cv.getContext('2d');
+  const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
+    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102]];
+  // everything worth finding, with the same look as on the minimap
+  function mapIcons() {
+    const out = [], P = id => places.byId(id);
+    const add = (x, z, bg, fg, ch, label) => out.push({ x, z, bg, fg, ch, label });
+    if (world.hospital) add(world.hospital.cx, world.hospital.cz, '#ffffff', '#e02a2a', '✚', 'Больница');
+    if (world.station) add(world.station.cx, world.station.cz, '#2f5fb0', '#fff', 'П', 'Полиция');
+    if (shop.place) add(shop.place.cx, shop.place.cz, '#ff8a3d', '#2a1405', '⌐', 'Оружие Ammo Bay');
+    if (world.club) add(world.club.center.x, world.club.center.z, '#ff4fa3', '#fff', '21', 'Клуб NEOLOXO 21');
+    for (const [id, bg, ch, label] of [['bank', '#1a8a5a', '$', 'Банк'], ['casino', '#c9a04a', '♦', 'Казино'], ['arcade', '#8a5ad8', '★', 'Игровые автоматы'], ['diner', '#e0286a', 'D', 'Закусочная'], ['hotel', '#2fa8a0', 'H', 'Отель OCEAN']]) { const p = P(id); if (p && p.door) add(p.door.cx, p.door.cz, bg, '#fff', ch, label); }
+    add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
+    add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
+    add(142, 46, '#3fe6e0', '#10202a', '⚓', 'Причал: катера');
+    add(173, -25, '#f6f2ec', '#1c2a4a', 'Я', 'Яхта LEHA NEPLOXO');
+    add(510, 0, '#e02a3a', '#fff', '▲', 'Маяк');
+    return out;
+  }
+  function bmFit() {
+    const W = bm.cv.width, H = bm.cv.height;
+    bm.sc = Math.min(W / 740, H / 300); bm.cx = 217; bm.cz = 0;
+  }
+  function bmSize() { const r = Math.min(window.devicePixelRatio || 1, 2); bm.cv.width = Math.round(innerWidth * r); bm.cv.height = Math.round(innerHeight * r); }
+  function drawBigMap() {
+    if (!bm.open) return;
+    const g = bmG, W = bm.cv.width, H = bm.cv.height, M = world.map, sc = bm.sc, r = Math.min(window.devicePixelRatio || 1, 2);
+    const sx = x => W / 2 + (x - bm.cx) * sc, sz = z => H / 2 + (z - bm.cz) * sc;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#2d6f9c'; g.fillRect(0, 0, W, H);
+    g.imageSmoothingEnabled = sc < M.s * 1.5;
+    g.drawImage(M.canvas, sx(M.x0), sz(M.z0), M.canvas.width / M.s * sc, M.canvas.height / M.s * sc);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    // district names
+    g.font = `800 ${Math.round(Math.max(11, Math.min(26, sc * 4.2)) * r / Math.max(1, r * .75))}px Rubik, sans-serif`;
+    for (const [name, x, z] of BM_LABELS) { g.lineWidth = 4 * r; g.strokeStyle = 'rgba(20,12,34,.75)'; g.strokeText(name, sx(x), sz(z)); g.fillStyle = '#fff1e4'; g.fillText(name, sx(x), sz(z)); }
+    // the taxi route
+    const route = taxi.route;
+    if (route.length > 1) { g.lineJoin = g.lineCap = 'round'; g.beginPath(); route.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo'](sx(x), sz(z))); g.strokeStyle = 'rgba(30,18,40,.8)'; g.lineWidth = 7 * r; g.stroke(); g.strokeStyle = '#ffd84f'; g.lineWidth = 3.5 * r; g.stroke(); }
+    // places
+    const ir = Math.max(9, Math.min(15, sc * 2.4)) * r;
+    for (const ic of mapIcons()) {
+      const X = sx(ic.x), Z = sz(ic.z);
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(X, Z + r, ir + r, 0, 7); g.fill();
+      g.fillStyle = ic.bg; g.beginPath(); g.arc(X, Z, ir, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1.5 * r; g.stroke();
+      g.fillStyle = ic.fg; g.font = `800 ${Math.round(ir * 1.1)}px Rubik, sans-serif`; g.fillText(ic.ch, X, Z + r);
+    }
+    for (const m of taxi.markers) { g.fillStyle = '#ffd84f'; g.beginPath(); g.arc(sx(m.x), sz(m.z), ir * .8, 0, 7); g.fill(); }
+    // where you are (at the door of the building you're in)
+    let px = player.x, pz = player.z;
+    if (places.current && places.current.door) { px = places.current.door.x; pz = places.current.door.z; }
+    const X = sx(px), Z = sz(pz), a = ir * 1.1;
+    g.save(); g.translate(X, Z); g.rotate(Math.PI - player.heading);
+    g.fillStyle = '#ff4fa3'; g.strokeStyle = '#fff'; g.lineWidth = 2 * r;
+    g.beginPath(); g.moveTo(0, -a * 1.3); g.lineTo(a, a); g.lineTo(0, a * .45); g.lineTo(-a, a); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+    if ((performance.now() / 500 | 0) % 2) { g.strokeStyle = 'rgba(255,79,163,.7)'; g.lineWidth = 2 * r; g.beginPath(); g.arc(X, Z, a * 2.2, 0, 7); g.stroke(); }
+    // north arrow
+    g.fillStyle = '#fff1e4'; g.font = `800 ${16 * r}px Rubik, sans-serif`; g.fillText('С ↑', W - 40 * r, 90 * r);
+  }
+  function openMap() {
+    if (state !== 'playing' || bm.open) return;
+    state = 'map'; bm.open = true; bm.t0 = performance.now(); input.reset();
+    if (document.pointerLockElement) document.exitPointerLock();
+    show('mapOnly'); $('bigmap').hidden = false;
+    bmSize(); bmFit();
+    // start centred on the hero, zoomed in a little if the whole map is tiny on screen
+    const px = places.current && places.current.door ? places.current.door.x : player.x, pz = places.current && places.current.door ? places.current.door.z : player.z;
+    if (bm.sc < 2.2) { bm.cx = U.clamp(px, 0, 440); bm.cz = U.clamp(pz, -60, 60); bm.sc = Math.max(bm.sc, Math.min(2.2, bm.sc * 1.6)); }
+    $('bmLegend').innerHTML = mapIcons().map(ic => `<span><i style="background:${ic.bg};color:${ic.fg}">${ic.ch}</i>${ic.label}</span>`).join('');
+    drawBigMap();
+  }
+  function closeMap() { if (!bm.open) return; bm.open = false; $('bigmap').hidden = true; play(); }
+  const bmZoom = (k, fx, fy) => {
+    const W = bm.cv.width, H = bm.cv.height, ns = U.clamp(bm.sc * k, Math.min(W / 740, H / 300) * .8, 18);
+    if (fx != null) { const wx = bm.cx + (fx - W / 2) / bm.sc, wz = bm.cz + (fy - H / 2) / bm.sc; bm.cx = wx - (fx - W / 2) / ns; bm.cz = wz - (fy - H / 2) / ns; }
+    bm.sc = ns; drawBigMap();
+  };
+  const bmXY = e => { const r = bm.cv.width / bm.cv.clientWidth; return [e.clientX * r, e.clientY * r]; };
+  bm.cv.addEventListener('pointerdown', e => { bm.ptrs.set(e.pointerId, bmXY(e)); try { bm.cv.setPointerCapture(e.pointerId); } catch (err) {} });
+  bm.cv.addEventListener('pointermove', e => {
+    if (!bm.ptrs.has(e.pointerId)) return;
+    const prev = bm.ptrs.get(e.pointerId), cur = bmXY(e); bm.ptrs.set(e.pointerId, cur);
+    if (bm.ptrs.size === 2) {   // pinch to zoom
+      const [a, b] = [...bm.ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (bm.pinch) bmZoom(d / bm.pinch, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      bm.pinch = d; return;
+    }
+    bm.cx -= (cur[0] - prev[0]) / bm.sc; bm.cz -= (cur[1] - prev[1]) / bm.sc; drawBigMap();
+  });
+  const bmUp = e => { bm.ptrs.delete(e.pointerId); if (bm.ptrs.size < 2) bm.pinch = 0; };
+  bm.cv.addEventListener('pointerup', bmUp); bm.cv.addEventListener('pointercancel', bmUp);
+  bm.cv.addEventListener('wheel', e => { e.preventDefault(); const [x, y] = bmXY(e); bmZoom(e.deltaY < 0 ? 1.2 : 1 / 1.2, x, y); }, { passive: false });
+  $('bmIn').addEventListener('click', () => bmZoom(1.4)); $('bmOut').addEventListener('click', () => bmZoom(1 / 1.4));
+  $('bmMe').addEventListener('click', () => { bm.cx = places.current && places.current.door ? places.current.door.x : player.x; bm.cz = places.current && places.current.door ? places.current.door.z : player.z; bm.sc = Math.max(bm.sc, 3); drawBigMap(); });
+  $('bmClose').addEventListener('click', closeMap);
+  addEventListener('keydown', e => { if (bm.open && (e.code === 'Escape' || e.code === 'Tab') && !e.repeat && performance.now() - bm.t0 > 250) { e.preventDefault(); closeMap(); } });
+  addEventListener('resize', () => { if (bm.open) { bmSize(); drawBigMap(); } });
+  $('map').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); openMap(); });
+
   function updateHUD(dt) {
     const mins = Math.floor(START_MIN + time) % (24 * 60);
     const clock = String((mins / 60) | 0).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
@@ -632,6 +734,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000; last = now;
+    if (state === 'map') { drawBigMap(); return; }   // the city waits behind the map
     const dt = Math.min(raw, .05);
     if (state === 'playing') {
       stepPlaying(dt, raw);

@@ -187,6 +187,23 @@ body.touch .forDesk{display:none;}
 .cabRow{display:flex;gap:12px;align-items:center;}
 .pad{width:64px;height:52px;border-radius:12px;border:2px solid rgba(255,241,228,.5);background:rgba(21,15,38,.6);color:var(--ink);font:800 22px/1 Rubik,sans-serif;touch-action:none;cursor:pointer;}
 .pad:active{background:rgba(255,79,163,.6);}
+/* the full-screen map */
+#map{pointer-events:auto;cursor:pointer;}
+#bigmap{position:fixed;inset:0;background:#123a58;touch-action:none;}
+#bigmapCv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;}
+#bigmapCv:active{cursor:grabbing;}
+.bmTop{position:absolute;top:calc(12px + var(--safe-t));left:calc(16px + var(--safe-l));right:80px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;pointer-events:none;}
+.bmTop .script{font-size:34px;color:#ffe3f0;text-shadow:0 0 6px var(--pink),0 0 18px var(--pink);}
+.bmHint{font-size:13px;color:var(--ink);background:var(--panel);padding:6px 12px;border-radius:999px;}
+.bmBtns{position:absolute;right:calc(16px + var(--safe-r));bottom:calc(16px + var(--safe-b));display:flex;flex-direction:column;gap:8px;}
+.bmBtn{width:46px;height:46px;border-radius:12px;border:2px solid rgba(255,241,228,.55);background:rgba(21,15,38,.7);color:var(--ink);font:800 22px/1 Rubik,sans-serif;cursor:pointer;touch-action:manipulation;}
+.bmBtn:hover{background:rgba(255,79,163,.55);}
+.bmBtn:focus-visible{outline:2px solid var(--ink);outline-offset:3px;}
+.bmClose{position:absolute;top:calc(12px + var(--safe-t));right:calc(16px + var(--safe-r));}
+.bmLegend{position:absolute;left:calc(16px + var(--safe-l));bottom:calc(16px + var(--safe-b));max-width:min(520px,calc(100% - 100px));display:flex;flex-wrap:wrap;gap:6px 12px;padding:10px 12px;background:var(--panel);border-radius:12px;box-shadow:0 0 0 1px var(--line);font-size:12px;font-weight:600;}
+.bmLegend span{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.bmLegend i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;font-size:11px;font-weight:800;}
+@media (max-width:640px),(max-height:480px){.bmHint{display:none;}.bmLegend{font-size:11px;max-height:34%;overflow:auto;}}
 /* the blink when walking through a door */
 #fade{position:fixed;inset:0;background:#0a0612;opacity:0;pointer-events:none;transition:opacity .22s;}
 #fade.on{opacity:1;}
@@ -279,6 +296,7 @@ body.touch .fsOnly{display:inline-block;}
       <div><kbd>Q, 1–6</kbd>Сменить оружие</div>
       <div><kbd>Такси</kbd>Сядьте в жёлтое такси</div>
       <div><kbd>M</kbd>Звук вкл / выкл</div>
+      <div><kbd>Tab</kbd>Карта города</div>
     </div>
     <div class="controls forTouch">
       <div><kbd>Левый палец</kbd>Ходьба</div>
@@ -290,6 +308,7 @@ body.touch .fsOnly{display:inline-block;}
       <div><kbd>УДАР / ОГОНЬ</kbd>Автоприцел по ближайшему</div>
       <div><kbd>ОРУЖ.</kbd>Сменить оружие</div>
       <div><kbd>Такси</kbd>Сядьте в жёлтое такси</div>
+      <div><kbd>Мини-карта</kbd>Нажмите — откроется вся карта</div>
     </div>
     <div class="row">Графика
       <div class="seg" role="group" aria-label="Качество графики">
@@ -345,6 +364,14 @@ body.touch .fsOnly{display:inline-block;}
     <div id="racerUi"><div id="racerMsg"></div><button id="racerGo" class="btn" type="button">Играть · $5</button></div>
     <div class="cabRow"><button id="racerL" class="pad" type="button" aria-label="Влево">◀</button><button id="racerExit" class="ghost" type="button">Выйти</button><button id="racerR" class="pad" type="button" aria-label="Вправо">▶</button></div>
   </div>
+</div>
+
+<div id="bigmap" hidden>
+  <canvas id="bigmapCv" aria-label="Карта Neon Bay"></canvas>
+  <div class="bmTop"><span class="script">Neon Bay</span><span class="bmHint">Тащите, чтобы двигать · колёсико или +/− — масштаб · Tab или Esc — закрыть</span></div>
+  <div class="bmBtns"><button type="button" class="bmBtn" id="bmIn" aria-label="Приблизить">+</button><button type="button" class="bmBtn" id="bmOut" aria-label="Отдалить">−</button><button type="button" class="bmBtn" id="bmMe" aria-label="Показать меня">◎</button></div>
+  <button type="button" class="bmBtn bmClose" id="bmClose" aria-label="Закрыть карту">✕</button>
+  <div class="bmLegend" id="bmLegend"></div>
 </div>
 
 <div id="fade"></div>
