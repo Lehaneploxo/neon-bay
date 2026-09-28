@@ -83,6 +83,8 @@
   // gulls, pigeons, dogs, crabs and dolphins
   const animals = NB.createAnimals(scene, world, { crowd, vehicles, player, audio, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), onBite: d => { heroDamage(d); flashTip('Собака кусается!', 1.4); } });
   crowdOpts.onPanic = (x, z, r) => animals.scare(x, z, r);
+  // Turtle Island's crabs, turtles, parrots, monkeys, iguanas and its shark
+  const wildlife = NB.createWildlife(scene, world, { player, vehicles, audio, flash: (t, s) => flashTip(t, s), onBite: d => heroDamage(d) });
   const carLimits = () => lowCrowd() ? { traffic: 6, carRange: 90, patrols: 1 } : { traffic: 12, carRange: 130, patrols: 2 };
   let shake = 0, promptCar = null, edgeT = 0;
   const carCam = { x: 0, y: 0, z: 0, heading: 0, speed: 0, camDist: 7.2, camH: 1.7 };
@@ -265,6 +267,8 @@
   const wallet = { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) };
   // the spray shop and the street: food carts, buskers, surfers, volleyball
   world.spray.attach({ vehicles, police, player, audio, money: wallet, flash: (t, s) => flashTip(t, s), blink: fn => blink(fn) });
+  // Turtle Island: the pirate chest pays out, and a speedboat waits at the old jetty to take you back
+  if (world.tropic) { world.tropic.attach({ addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s) }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
     room: fn => blink(() => { time += 60; const d = world.street.motel.door; player.place(d.x, d.z, d.heading); rig.snap(player); fn(); }),
     crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
@@ -286,7 +290,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor);
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : []);
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -612,6 +616,7 @@
     if (world.fashion) icon(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', false);
     if (world.security) icon(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', false);
     if (world.bay) icon(503, -433, '#3f8fe6', '#fff', '✈', false);
+    if (world.tropic) icon(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
@@ -627,7 +632,7 @@
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
   const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
-    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Бэйвью', 545, -300], ['Аэропорт Неон-Бэй', 545, -480], ['Портовый мост', 298, -305], ['Мост Бэйвью', 470, -142]];
+    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Бэйвью', 545, -300], ['Аэропорт Неон-Бэй', 545, -480], ['Портовый мост', 298, -305], ['Мост Бэйвью', 470, -142], ['Остров Черепахи', 760, 100]];
   // everything worth finding, with the same look as on the minimap
   function mapIcons() {
     const out = [], P = id => places.byId(id);
@@ -642,6 +647,7 @@
     if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Магазин одежды Neon Fashion');
     if (world.security) add(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', 'Охранное агентство Shield Security: телохранители');
     if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт Neon Bay International');
+    if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Черепахи: необитаемый, только на лодке или вертолёте');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
@@ -805,6 +811,7 @@
   function stepPlaying(dt, raw) {
       time += dt;
       guards.update(dt);
+      wildlife.update(dt, player);
       input.poll();
       if (respawnT > 0) {
         respawnT -= dt; if (respawnT <= 0) respawn();
@@ -915,7 +922,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, radio, audio, plane, guards, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };

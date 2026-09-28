@@ -159,7 +159,8 @@ window.NB = {};
     add(v) { this.vols.push(v); return v; },
     // dry spots in the middle of the sea (the yacht): the sea doesn't count there
     hole(r) { this.holes.push(r); },
-    dry(x, z) { for (const h of this.holes) if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; },
+    // (a hole is a rectangle, or any shape given as test(x, z): the tropical island)
+    dry(x, z) { for (const h of this.holes) if (h.test ? h.test(x, z) : x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return true; return false; },
     at(x, z) { for (const v of this.vols) if (v.test(x, z)) return v; return null; },
     floorAt(x, z) { const v = this.at(x, z); return v && v.floor ? v.floor(x, z) : 0; }
   };
