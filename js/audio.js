@@ -337,6 +337,15 @@
     // slot machine reel tick and roulette ball
     A.tick = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .015, 'bandpass', 3500, 3, .25); };
 
+    // an explosion: a deep thump, a roar that dies away, and crackling bits falling
+    A.explosion = function (pos) {
+      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      tone(d, t, .9, 'sine', 90, .9, 28);
+      noise(d, t, 1.8, 'lowpass', 2400, .6, .9, 90);
+      noise(d, t + .05, .5, 'bandpass', 700, .8, .5, 200);
+      for (let k = 0; k < 8; k++) noise(d, t + .4 + Math.random() * 1.2, .05, 'highpass', 2500, 1, .12);
+    };
+
     /* ---------- animals ---------- */
     // a gull's "kyow-kyow": a squawk sliding down, twice or three times
     A.gull = function (pos) {

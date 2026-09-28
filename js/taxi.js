@@ -46,6 +46,20 @@
 
     /* ---------- places at the kerb ---------- */
     // a spot on the sidewalk facing a road, and where a car should stop next to it
+    const islandStreets = o.vehicles.islandStreets ? o.vehicles.islandStreets() : [];
+    const col = world.col, clearAt = (x, z) => !NB.water.at(x, z) && !col.query(x - .5, z - .5, x + .5, z + .5, []).some(b => b.maxY > .9 && x > b.minX - .4 && x < b.maxX + .4 && z > b.minZ - .4 && z < b.maxZ + .4);
+    function islandSpot() {
+      for (let k = 0; k < 12; k++) {
+        const [x0, z0, x1, z1] = islandStreets[(Math.random() * islandStreets.length) | 0], t = rand(.2, .8), L = Math.hypot(x1 - x0, z1 - z0) || 1, s = Math.random() < .5 ? 1 : -1;
+        const nx = -(z1 - z0) / L * s, nz = (x1 - x0) / L * s, mx = x0 + (x1 - x0) * t, mz = z0 + (z1 - z0) * t;
+        const x = mx + nx * 6.6, z = mz + nz * 6.6;
+        if (clearAt(x, z)) return { x, z, face: Math.atan2(-nx, -nz), cx: mx + nx * 3, cz: mz + nz * 3 };
+      }
+      return null;
+    }
+    const onIsland = x => x > 300;
+    // a spot at the kerb: in the city, or on the island when asked (or when the cab is over there)
+    function kerbSpotNear(island) { return island && islandStreets.length ? islandSpot() || kerbSpot() : kerbSpot(); }
     function kerbSpot() {
       const b = blocks[(Math.random() * blocks.length) | 0], side = (Math.random() * 4) | 0, t = rand(.22, .78);
       let x, z, nx = 0, nz = 0;
@@ -68,6 +82,7 @@
       return { x: xx, z: ROADS[bj], ends: [i * N + bj, (i + 1) * N + bj] };
     }
     function route(ax, az, bx, bz) {
+      if (o.vehicles.route) return o.vehicles.route(ax, az, bx, bz);
       const A = project(ax, az), B = project(bx, bz), IA = N * N, IB = N * N + 1, n = N * N + 2;
       const pos = k => (k === IA ? [A.x, A.z] : k === IB ? [B.x, B.z] : [ROADS[(k / N) | 0], ROADS[k % N]]);
       const edges = k => {
@@ -125,7 +140,7 @@
       const fx = Math.sin(car.h), fz = Math.cos(car.h);
       let best = null, bs = Infinity;
       for (let k = 0; k < 30; k++) {
-        const s = kerbSpot(), dx = s.x - car.x, dz = s.z - car.z, d = Math.hypot(dx, dz);
+        const s = kerbSpotNear(onIsland(car.x)), dx = s.x - car.x, dz = s.z - car.z, d = Math.hypot(dx, dz);
         if (d < 30 || d > 85) continue;
         const score = d - 25 * (dx * fx + dz * fz) / d;
         if (score < bs) { bs = score; best = s; }
@@ -137,9 +152,14 @@
       return true;
     }
     function pickDestination() {
+      if (islandStreets.length && Math.random() < .3) {
+        const s = kerbSpotNear(!onIsland(S.car.x));
+        if (s) { const r = route(S.car.x, S.car.z, s.cx, s.cz); S.far = true; return { s, len: r.len }; }
+      }
+      S.far = false;
       let best = null, bd = Infinity;
       for (let k = 0; k < 40; k++) {
-        const s = kerbSpot(), r = route(S.car.x, S.car.z, s.cx, s.cz);
+        const s = kerbSpotNear(onIsland(S.car.x)), r = route(S.car.x, S.car.z, s.cx, s.cz);
         const miss = r.len < 140 ? 140 - r.len : r.len > 330 ? r.len - 330 : 0;
         if (miss < bd) { bd = miss; best = { s, len: r.len }; if (!miss) break; }
       }
@@ -153,7 +173,7 @@
       S.dest = d.s; S.base = Math.round(12 + d.len * .2); S.limit = S.timer = Math.round(14 + d.len / 8);
       S.hits = 0; S.late = false; S.phase = 'ride';
       fareMark.visible = false; destMark.visible = true; destMark.position.set(d.s.cx, 0, d.s.cz);
-      o.flash('«' + pick(HELLO) + '» — везите в район «' + world.districtAt(d.s.x, d.s.z) + '»', 3.5);
+      o.flash('«' + pick(HELLO) + '» — везите в район «' + world.districtAt(d.s.x, d.s.z) + '»' + (S.far ? ' · дальняя поездка через мост!' : ''), 3.5);
     }
     function arrive() {
       const mood = Math.max(.4, 1 - S.hits * .12);

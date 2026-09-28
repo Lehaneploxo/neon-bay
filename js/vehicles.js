@@ -124,7 +124,8 @@
       }
       car.geo.attributes.position.needsUpdate = true;
     }
-    function impact(car, strength, px, pz, nx, nz) {
+    function impact(car, strength, px, pz, nx, nz, other) {
+      if (strength >= 2.5 && (car.driver === 'player' || (other && other.driver === 'player'))) car.blame = true;
       if (strength < 2.5) return;
       if (car.hitT > 0 && strength < 8) return;
       car.hitT = .25;
@@ -277,7 +278,7 @@
             if (!a.ai) { a.vx -= nx * jimp * wa; a.vz -= nz * jimp * wa; a.awake = true; }
             if (!b.ai) { b.vx += nx * jimp * wb; b.vz += nz * jimp * wb; b.awake = true; }
             const px = (ca[0] + cb[0]) / 2, pz = (ca[1] + cb[1]) / 2;
-            impact(a, -vn, px, pz, -nx, -nz); impact(b, -vn, px, pz, nx, nz);
+            impact(a, -vn, px, pz, -nx, -nz, b); impact(b, -vn, px, pz, nx, nz, a);
             if (a.ai) a.ai.shock = 1.5; if (b.ai) b.ai.shock = 1.5;
           }
         }
@@ -301,15 +302,15 @@
     if (IR) {
       const base = NET.nodes.length;
       for (const [x, z] of IR.nodes) addNode(x, z);
-      for (const [a, b] of IR.links) addEdge(base + a, base + b, IR.lane);
+      for (const [a, b] of IR.links) { addEdge(base + a, base + b, IR.lane); NET.edges[NET.edges.length - 1].island = true; }
       const [cx, cz] = IR.bridge.city, from = NET.nodes.find(n => n.x === cx && n.z === cz);
       if (from) addEdge(from.id, base + IR.bridge.island, LANE, true);
     }
     // shortest distances between all junctions, for the police and the ambulances finding their way
-    const NN = NET.nodes.length, DIST = [];
-    for (let i = 0; i < NN; i++) { DIST.push(new Float32Array(NN).fill(1e9)); DIST[i][i] = 0; }
-    for (const e of NET.edges) { DIST[e.a][e.b] = DIST[e.b][e.a] = e.len; }
-    for (let k = 0; k < NN; k++) for (let i = 0; i < NN; i++) for (let j = 0; j < NN; j++) if (DIST[i][k] + DIST[k][j] < DIST[i][j]) DIST[i][j] = DIST[i][k] + DIST[k][j];
+    const NN = NET.nodes.length, DIST = [], HOP = [];
+    for (let i = 0; i < NN; i++) { DIST.push(new Float32Array(NN).fill(1e9)); DIST[i][i] = 0; HOP.push(new Int16Array(NN).fill(-1)); HOP[i][i] = i; }
+    for (const e of NET.edges) { DIST[e.a][e.b] = DIST[e.b][e.a] = e.len; HOP[e.a][e.b] = e.b; HOP[e.b][e.a] = e.a; }
+    for (let k = 0; k < NN; k++) for (let i = 0; i < NN; i++) for (let j = 0; j < NN; j++) if (DIST[i][k] + DIST[k][j] < DIST[i][j]) { DIST[i][j] = DIST[i][k] + DIST[k][j]; HOP[i][j] = HOP[i][k]; }
     const unit = (A, B) => { const dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz) || 1; return [dx / L, dz / L]; };
     const laneOff = (d, lane) => [-d[1] * lane, d[0] * lane];
     // the edge nearest a point: the edge, the distance to it, and the point on it
@@ -318,9 +319,39 @@
       for (const e of NET.edges) {
         const A = NET.nodes[e.a], B = NET.nodes[e.b], dx = B.x - A.x, dz = B.z - A.z;
         const t = U.clamp(((x - A.x) * dx + (z - A.z) * dz) / (dx * dx + dz * dz), 0, 1), d = Math.hypot(A.x + dx * t - x, A.z + dz * t - z);
-        if (d < bd) { bd = d; best = e; }
+        if (d < bd) { bd = d; best = { e, px: A.x + dx * t, pz: A.z + dz * t }; }
       }
-      return { e: best, d: bd };
+      return { e: best.e, d: bd, px: best.px, pz: best.pz };
+    }
+    // the shortest way along the streets from (ax, az) to (bx, bz): points to draw and its length
+    function route(ax, az, bx, bz) {
+      const A = nearestEdge(ax, az), B = nearestEdge(bx, bz), pts = [[ax, az], [A.px, A.pz]];
+      if (A.e !== B.e) {
+        let best = null, bc = Infinity;
+        for (const i of [A.e.a, A.e.b]) for (const j of [B.e.a, B.e.b]) {
+          const I = NET.nodes[i], J = NET.nodes[j], c = Math.hypot(I.x - A.px, I.z - A.pz) + DIST[i][j] + Math.hypot(J.x - B.px, J.z - B.pz);
+          if (c < bc) { bc = c; best = [i, j]; }
+        }
+        for (let k = best[0], n = 0; k >= 0 && n < NN; n++) { pts.push([NET.nodes[k].x, NET.nodes[k].z]); if (k === best[1]) break; k = HOP[k][best[1]]; }
+      }
+      pts.push([B.px, B.pz], [bx, bz]);
+      let len = 0; for (let k = 1; k < pts.length; k++) len += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+      return { pts, len };
+    }
+    // where a car stops at the kerb nearest (x, z): on the road, a few metres off the centre line on that side
+    function kerbPoint(x, z, off) {
+      const n = nearestEdge(x, z), dx = x - n.px, dz = z - n.pz, L = Math.hypot(dx, dz) || 1;
+      return [n.px + dx / L * (off || 3.4), n.pz + dz / L * (off || 3.4)];
+    }
+    // a service vehicle leaving its base: on the road at (ex, ez), in the lane heading towards (tx, tz)
+    function spawnDepot(id, ex, ez, tx, tz) {
+      const n = nearestEdge(ex, ez), A = NET.nodes[n.e.a], B = NET.nodes[n.e.b];
+      let d = unit(A, B); if ((tx - n.px) * d[0] + (tz - n.pz) * d[1] < 0) d = [-d[0], -d[1]];
+      const [ox, oz] = laneOff(d, n.e.lane), x = n.px + ox, z = n.pz + oz;
+      if (cars.some(c => Math.hypot(c.x - x, c.z - z) < (c.parked && !c.awake ? 2.4 : 7))) return null;   // traffic in the way, or a car parked right there
+      const car = makeCar(byId[id], x, z, Math.atan2(d[0], d[1]));
+      car.parked = false; car.awake = true; car.driver = byId[id].police ? 'cop' : 'ems'; car.driverMesh.visible = true;
+      return car;
     }
     function releaseLock(car) { if (car.ai && car.ai.lock != null && locks.get(car.ai.lock) === car) locks.delete(car.ai.lock); if (car.ai) car.ai.lock = null; }
     function extend(ai) {
@@ -426,7 +457,7 @@
 
     /* ---------- parked cars along the kerbs and in the car park ---------- */
     // nothing is parked in the way of the spray shop's door
-    const sr = world.spray && world.spray.keepClear, clear = (x, z) => !sr || x < sr.x0 || x > sr.x1 || z < sr.z0 || z > sr.z1;
+    const keep = [world.spray, world.fireStation].filter(Boolean).map(o => o.keepClear), clear = (x, z) => keep.every(r => x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1);
     for (const L of ROADS) for (let s = 0; s < ROADS.length - 1; s++) {
       const a = ROADS[s] + 12, b = ROADS[s + 1] - 12;
       for (const side of [-1, 1]) for (let t = a; t < b; t += rand(6.5, 9)) {
@@ -475,9 +506,8 @@
     let heat = 0;   // the current wanted level, for how hard the cars drive
     const HQ = world.station ? { x: ROADS.find(r => r > world.station.cx) || ROADS[0], z: world.station.cz } : { x: ROADS[1], z: 0 };
     function dispatchUnit(t) {
-      const north = t.z > HQ.z, x = HQ.x + (north ? -LANE : LANE), z = HQ.z;
-      if (cars.some(c => Math.hypot(c.x - x, c.z - z) < 7)) return null;
-      const car = makeCar(byId.police, x, z, north ? 0 : Math.PI);
+      const car = spawnDepot('police', HQ.x, HQ.z, t.x, t.z);
+      if (!car) return null;
       startPursuit(car); car.unit = true; car.crew = 2;
       return car;
     }
@@ -612,6 +642,70 @@
       s.material.color.setScalar(dark ? .35 : .8);
     }
 
+    /* ---------- fire and explosions ---------- */
+    // a car smashed or shot up badly enough catches fire; if nobody puts it out it blows up after a few seconds,
+    // hurting everyone near it, throwing cars about (which may catch fire in turn) and leaving a burnt-out wreck
+    const BURN_AT = 200, BURN_TIME = 8;
+    const flameTex = U.canvasTex(64, 64, (g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(255,245,200,1)'); gr.addColorStop(.35, 'rgba(255,170,60,.9)'); gr.addColorStop(.7, 'rgba(230,70,20,.45)'); gr.addColorStop(1, 'rgba(160,30,10,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); }, false);
+    const flames = [];
+    for (let i = 0; i < 70; i++) { const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); f.visible = false; f.life = 0; scene.add(f); flames.push(f); }
+    let flameHead = 0;
+    function flame(x, y, z, size, life, vy) {
+      const f = flames[flameHead]; flameHead = (flameHead + 1) % flames.length;
+      f.position.set(x, y, z); f.life = f.max = life; f.size = size; f.vy = vy; f.visible = true; f.scale.set(size, size, 1); f.material.opacity = 1;
+    }
+    const scorch = [];
+    const scorchMat = new THREE.MeshBasicMaterial({ color: 0x0c0a0a, transparent: true, opacity: .55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    function explode(car) {
+      const x = car.x, z = car.z, y = car.y, blame = !!car.blame;
+      car.wreck = true; car.burnT = 0; car.wreckFireT = 30; car.damage = Math.max(car.damage, 300); car.sirenOn = false;
+      if (car.ai) { releaseLock(car); car.ai = null; }
+      car.pursuit = null; car.goto = null; car.exited = false; car.returning = false; car.parked = false; car.awake = true;
+      if (car !== driving) { car.driver = null; car.driverMesh.visible = false; }
+      car.color = '#1c1917'; car.accent = '#141210'; paint(car);
+      car.hop = 1; car.vx += (Math.random() - .5) * 3; car.vz += (Math.random() - .5) * 3;
+      // the fireball
+      for (let k = 0; k < 16; k++) flame(x + (Math.random() - .5) * 3, y + .8 + Math.random() * 2.2, z + (Math.random() - .5) * 3, 2.5 + Math.random() * 3, .6 + Math.random() * .5, 2 + Math.random() * 3);
+      for (let k = 0; k < 10; k++) puff(x + (Math.random() - .5) * 3, y + 1.5 + Math.random() * 2, z + (Math.random() - .5) * 3, true);
+      if (scorch.length > 12) scene.remove(scorch.shift());
+      const sc = new THREE.Mesh(new THREE.CircleGeometry(3.2, 20).rotateX(-Math.PI / 2), scorchMat); sc.position.set(x, floorAt(x, z, y + .5) + .03, z); scene.add(sc); scorch.push(sc);
+      audio.explosion([x, y + 1, z]);
+      // the blast: other cars are shoved and damaged
+      for (const c of cars) {
+        if (c === car || c.model.heli && c.y > y + 4) continue;
+        const dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz); if (d > 9 || d < .01) continue;
+        const k = 1 - d / 9;
+        if (c.ai) { c.ai.shock = 2.5; } else { c.vx += dx / d * 9 * k; c.vz += dz / d * 9 * k; c.awake = true; }
+        c.damage += 130 * k; if (blame) c.blame = true; paint(c);
+      }
+      if (opts.onExplode) opts.onExplode(x, y, z, blame, car);
+    }
+    function fireStep(dt, player) {
+      for (const c of cars) {
+        if (c.model.heli || c.model.boat || c.flooded) continue;
+        if (!c.wreck && !c.burnT && c.damage >= BURN_AT) { c.burnT = BURN_TIME; if (c === driving && opts.onCarFire) opts.onCarFire(c); }
+        if (c.burnT > 0) { c.burnT -= dt; if (c.burnT <= 0) { c.burnT = 0; explode(c); } }
+        if (c.wreckFireT > 0) c.wreckFireT -= dt;
+        if (c.hop > 0) c.hop = Math.max(0, c.hop - dt * 1.6);
+        const burning = c.burnT > 0 || c.wreckFireT > 0;
+        if (!burning || !c.visible) continue;
+        const d = Math.hypot(c.x - player.x, c.z - player.z); if (d > 90) continue;
+        c.flameT = (c.flameT || 0) - dt;
+        if (c.flameT <= 0) {
+          const [fx, fz] = fwd(c), big = c.wreck ? Math.max(.4, c.wreckFireT / 30) : .5 + (1 - c.burnT / BURN_TIME) * .8;
+          const ex = c.wreck ? 0 : c.model.l / 2 - .9;
+          c.flameT = .05;
+          flame(c.x + fx * ex + (Math.random() - .5) * c.model.w * .7, c.y + .9 + Math.random() * .4, c.z + fz * ex + (Math.random() - .5) * 1.2, 1.1 * big + Math.random() * .6, .5 + Math.random() * .3, 1.6);
+          if (Math.random() < .35) puff(c.x + fx * ex, c.y + 1.6, c.z + fz * ex, true);
+        }
+      }
+      for (const f of flames) if (f.visible) {
+        f.life -= dt; f.position.y += f.vy * dt; const k = f.life / f.max;
+        f.scale.set(f.size * (1.2 - k * .4), f.size * (1.3 - k * .3), 1); f.material.opacity = Math.max(0, k);
+        if (f.life <= 0) f.visible = false;
+      }
+    }
+
     /* ---------- public ---------- */
     let popT = 0, first = true, driving = null;
     const api = {
@@ -622,6 +716,7 @@
       nearest(player) {
         let best = null, bd = Infinity;
         for (const c of cars) {
+          if (c.wreck) continue;
           const dx = player.x - c.x, dz = player.z - c.z, [fx, fz] = fwd(c);
           const a = Math.abs(dx * fx + dz * fz), b = Math.abs(dx * fz - dz * fx);
           if (a < c.model.l / 2 + .6 && b < c.model.w / 2 + 1.4) { const d = Math.hypot(dx, dz); if (d < bd) { bd = d; best = c; } }
@@ -709,6 +804,7 @@
             const d = Math.hypot(c.x - player.x, c.z - player.z);
             if (c.ai && d > 150) removeCar(c);
             else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
+            else if (c.wreck && !c.visible && d > 110) removeCar(c);
           }
           const traffic = cars.filter(c => c.ai).length;
           const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
@@ -788,7 +884,8 @@
           }
           const fy = floorAt(c.x, c.z, c.y);
           c.y = fy > c.y + 1.5 ? c.y : U.damp(c.y, fy, fy > c.y ? 26 : 14, dt);
-          c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
+          const hop = c.hop > 0 ? Math.sin(c.hop * Math.PI) * 1.6 : 0;
+          c.root.position.set(c.x, c.y + hop, c.z); c.root.rotation.y = c.h;
           const vF = speedOf(c);
           c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(-c.yawRate * vF * .006, -.07, .07), 6, dt);
           c.body.rotation.x = U.damp(c.body.rotation.x, U.clamp(-(c.accel || 0) * .004, -.04, .04), 6, dt);
@@ -797,12 +894,13 @@
             for (const w of c.wheels) { w.w.rotation.x = c.spin; if (w.front) w.g.rotation.y = c.steer; }
           }
           // smoke when badly damaged
-          if (c.damage > 90 && d < 70 && !c.flooded) {
+          if (c.damage > 90 && d < 70 && !c.flooded && !c.burnT && !c.wreck) {
             c.smokeT -= dt;
             if (c.smokeT <= 0) { c.smokeT = c.damage > 150 ? .06 : .14; const [fx, fz] = fwd(c); puff(c.x + fx * (c.model.l / 2 - .8), c.y + 1.1, c.z + fz * (c.model.l / 2 - .8), c.damage > 150); }
           }
         }
         collideCars();
+        fireStep(dt, player);
         heat = (ctx.police || { wanted: 0 }).wanted;
         spotUpdate(ctx.target || player);
         for (const m of wakes) if (m.visible) { m.life -= dt; const f = 1 - m.life / 1.8; m.scale.set(m.w * (1 + f * 2.2), 1, 1.2 + f); m.material.opacity = Math.max(0, (1 - f) * .45); if (m.life <= 0) m.visible = false; }
@@ -857,6 +955,7 @@
         return hit ? { t: best, car: hit } : null;
       },
       bulletHit(car, dmg, x, z, nx, nz) {
+        car.blame = true;
         car.damage += dmg * .35; paint(car);
         if (Math.random() < .4) dent(car, x, z, nx, nz, .03);
         if (car.ai) car.ai.shock = Math.max(car.ai.shock, 1.2);
@@ -869,6 +968,12 @@
         car.parked = false; car.awake = true; car.driver = 'ems'; car.driverMesh.visible = true;
         return car;
       },
+      route, kerbPoint, spawnDepot,
+      // island streets, for taxi fares over there: [x0, z0, x1, z1] centre lines
+      islandStreets() { return NET.edges.filter(e => e.island).map(e => [NET.nodes[e.a].x, NET.nodes[e.a].z, NET.nodes[e.b].x, NET.nodes[e.b].z]); },
+      // fires the fire brigade should go to: burning cars and burning wrecks
+      fires() { return cars.filter(c => (c.burnT > 0 || c.wreckFireT > 3) && !c.model.heli); },
+      extinguish(c) { if (c.burnT > 0) { c.burnT = 0; c.damage = BURN_AT - 40; paint(c); } c.wreckFireT = 0; },
       driveTo(car, x, z, speed) { car.goto = { x, z, speed, arrived: false }; car.parked = false; car.awake = true; },
       remove(car) { if (cars.includes(car)) removeCar(car); },
       setNight(n) { night = n; beamMat.opacity = n * .5; },

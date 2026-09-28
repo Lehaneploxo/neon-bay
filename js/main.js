@@ -158,6 +158,7 @@
     onScream: p => audio.scream([p.x, 1.6, p.z]),
     onGroan: p => audio.groan([p.x, .4, p.z])
   });
+  const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s) });
   const ems = NB.createEMS(world, {
     crowd, vehicles, say: (p, t) => say(p, t),
     onDispatch: u => { if (Math.hypot(u.patient.x - player.x, u.patient.z - player.z) < 45) flashTip('Скорая выехала на вызов', 2); }
@@ -166,6 +167,19 @@
     onHeroHit: v => heroDamage(v * 2.2),
     onFlood: () => { audio.engineOn(false); flashTip('Машина заглохла в воде — выплывайте (F)', 2.6); },
     // two officers get out; if the hero is inside the building by the car, they go in through the front door
+    onExplode: (x, y, z, blame, car) => {
+      const d = Math.hypot(player.x - x, player.z - z);
+      shake = Math.min(.9, shake + Math.max(0, 1 - d / 45) * .9);
+      for (const p of crowd.people.slice()) {
+        const dp = Math.hypot(p.x - x, p.z - z);
+        if (dp < 7 && !p.dead && Math.abs(p.y - y) < 3) crowd.damage(p, 150 * (1 - dp / 7) + 25, { byPlayer: blame, kind: 'explosion', x, z });
+      }
+      if (car === vehicles.driving) { leaveCar(); heroDamage(250); }
+      else if (d < 7 && Math.abs(player.y - y) < 3) heroDamage(90 * (1 - d / 7) + 10);
+      crowd.panic(x, z, 40, blame);
+      if (blame) police.reportCrime('shoot', x, z);
+    },
+    onCarFire: () => flashTip('Машина горит! Выходите, пока не взорвалась (F)', 3),
     onCopsExit: car => {
       const rx = -Math.cos(car.h), rz = Math.sin(car.h), pl = places.current, door = pl && pl.door;
       const inside = door && pl.copEntry && Math.hypot(car.x - door.x, car.z - door.z) < 30;
@@ -550,7 +564,8 @@
     }
     icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
-    icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);   // with stars on, the spray shop shows at the edge
+    icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
+    if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);   // with stars on, the spray shop shows at the edge
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
     for (const m of taxi.markers) {
       const q = toMap(m.x, m.z, true);
@@ -576,6 +591,7 @@
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
+    if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
     for (const c of world.street.carts) add(c.x, c.z, c.kind === 'hotdog' ? '#e8202a' : '#ff9fc3', '#fff', c.kind === 'hotdog' ? 'Х' : 'М', c.kind === 'hotdog' ? 'Хот-доги' : 'Мороженое');
     for (const b of world.street.buskers) add(b.x, b.z, '#2a2240', '#ffd84f', '♪', 'Уличный музыкант');
     add(125, -30, '#f5f0d8', '#2a6fe8', 'V', 'Пляжный волейбол');
@@ -749,6 +765,7 @@
       combat.update(dt, input, aim, !!vehicles.driving || player.swim);   // no fighting while swimming
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
+      fire.update(dt, player);
       taxi.update(dt);
       places.update(dt);
       world.spray.update(dt); world.street.update(dt);
@@ -829,7 +846,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, crowd, animals, world, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, crowd, animals, world, fire, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };

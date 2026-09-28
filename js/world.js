@@ -479,6 +479,7 @@
 
     /* ---------- the spray shop, food carts, buskers and the volleyball court ---------- */
     const spray = NB.buildSpray({ scene, col, C, mapShapes });
+    const fireStation = NB.buildFireStation({ scene, col, C, mapShapes });
     const street = NB.buildStreet({ scene, col, C, palms });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
@@ -620,7 +621,7 @@
     }
 
     return {
-      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, spray, street, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {

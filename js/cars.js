@@ -161,6 +161,22 @@
         B(.1, .42, .1, 0, .68, .45, 'black'), B(.72, .05, .06, 0, .9, .5, 'black'),
         B(.14, .06, .05, 0, .5, 1.75, '#fff6d8'), B(.2, .06, .05, 0, .45, -1.42, '#ff2a3a')] }
   );
+  // The fire engine: a red cab and body with lockers, a white band and a ladder on the roof. Never in traffic.
+  MODELS.push({ id: 'firetruck', name: 'Fire Engine', fire: true, w: 2.3, l: 7.4, r: .45, seat: [.5, 1.1, 2.55], barZ: 2.6, barY: 2.42,
+    perf: { accel: 6, top: 27, grip: 7, steer: .42, brake: 11 },
+    palette: ['#c81e1e'], accent: ['#f5f5f0'], bar: [0xff2244, 0xffffff],
+    parts: () => {
+      const out = [
+        B(2.1, .45, 7.2, 0, .6, 0, 'black'),
+        B(2.3, 1.75, 2.0, 0, 1.45, 2.6, 'body'), B(2.12, .75, .06, 0, 1.8, 3.62, 'glass'), B(2.32, .55, 1.3, 0, 1.85, 2.7, 'glass'),
+        B(2.3, 1.95, 5.1, 0, 1.55, -1.05, 'body'), B(2.33, .2, 7.3, 0, 1.0, -.05, 'accent'),
+        B(2.3, .3, .2, 0, .55, 3.7, 'chrome'), B(2.3, .3, .2, 0, .55, -3.7, 'black'), B(1.3, .35, .04, 0, 1.05, 3.62, 'grille')];
+      for (let z = -3; z < 1.2; z += 1.4) for (const x of [1.16, -1.16]) out.push(B(.03, .85, 1.2, x, 1.75, z, 'chrome'));
+      for (const x of [.45, -.45]) out.push(B(.08, .08, 6.2, x, 2.62, -.8, 'chrome'));
+      for (let z = -3.7; z < 2.2; z += .5) out.push(B(.9, .05, .05, 0, 2.62, z, 'chrome'));
+      out.push(B(.3, .3, .3, 0, 2.7, -3.9, 'chrome'), ...lights(2.3, 7.4, .95, 1.05, .82));
+      return out;
+    } });
   // A light helicopter. The main and tail rotors are separate meshes added in vehicles.js so they can spin.
   MODELS.push({ id: 'heli', name: 'Neon Hawk', heli: true, w: 1.8, l: 7, r: .3, seat: [.35, .95, .9],
     perf: { accel: 7, top: 30, grip: 1, steer: 1.4, brake: 6 },

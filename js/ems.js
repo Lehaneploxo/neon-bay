@@ -8,16 +8,10 @@
   const MEDIC = ['Пульс есть!', 'Держись, приятель!', 'Разряд!', 'Дышит!'];
 
   NB.createEMS = function (world, o) {
-    const { ROADS } = world.layout;
     const units = [];
     let scanT = 1;
-    const nearestIdx = v => { let bi = 0; for (let i = 1; i < ROADS.length; i++) if (Math.abs(ROADS[i] - v) < Math.abs(ROADS[bi] - v)) bi = i; return bi; };
-    // a stopping point at the kerb of the road nearest the patient
-    function kerbPoint(x, z) {
-      const i = nearestIdx(x), j = nearestIdx(z);
-      if (Math.abs(x - ROADS[i]) < Math.abs(z - ROADS[j])) return [ROADS[i] + (x >= ROADS[i] ? 3.4 : -3.4), U.clamp(z, -103, 103)];
-      return [U.clamp(x, -103, 103), ROADS[j] + (z >= ROADS[j] ? 3.4 : -3.4)];
-    }
+    // a stopping point at the kerb of the street nearest the patient (city, bridge or island)
+    const kerbPoint = (x, z) => o.vehicles.kerbPoint(x, z, 3.4);
     const alive = p => p && o.crowd.people.includes(p) && !p.dead;
     function releaseMedics(u) { for (const m of u.medics) if (alive(m)) o.crowd.releaseMedic(m); u.medics = []; }
     function leave(u) {
@@ -40,13 +34,13 @@
         if (scanT <= 0) {
           scanT = .8;
           if (units.length < maxUnits) {
-            let best = null, bd = 100;
+            let best = null, bd = 130;
             for (const p of o.crowd.people) {
-              if (!(p.dead || p.down) || p.ems || p.fallT < 2) continue;
+              if (!(p.dead || p.down) || p.ems || p.fallT < 2 || p.x > 1000) continue;   // not inside the buildings
               const d = Math.hypot(p.x - player.x, p.z - player.z); if (d < bd) { bd = d; best = p; }
             }
             if (best) {
-              const car = o.vehicles.spawnService('ambulance', player.x, player.z, -Math.sin(camYaw), -Math.cos(camYaw), 55, 120);
+              const h = world.hospital, car = h ? o.vehicles.spawnDepot('ambulance', h.x, h.z, best.x, best.z) : null;
               if (car) {
                 const [tx, tz] = kerbPoint(best.x, best.z);
                 o.vehicles.driveTo(car, tx, tz, 14); car.sirenOn = true;
@@ -78,7 +72,7 @@
                   if (m) { m.medic.goal = [spots[k][0], spots[k][1]]; m.medic.face = spots[k][2]; u.medics.push(m); }
                 }
                 u.state = 'approach'; u.t = 0;
-              } else if (u.t > 75) leave(u);
+              } else if (u.t > 110) leave(u);   // the hospital can be a long drive away
               break;
             case 'approach':
               if (!patientOk || u.medics.some(m => !alive(m))) { releaseMedics(u); leave(u); break; }

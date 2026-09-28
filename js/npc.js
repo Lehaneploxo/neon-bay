@@ -138,6 +138,11 @@
         L.long = chance(.5); show('shades'); set('shades', '#141018'); if (chance(.4)) { show('brim crown'); set('brim crown', '#2a2a2a'); }
         L.speed = 1.2; break;
       }
+      case 'firefighter': {
+        set('torso', '#c9a24a'); sleeves('long', '#c9a24a'); legs('pants', '#c9a24a'); set('shoeL shoeR', '#141414');
+        show('brim crown tie'); set('crown', '#c81e1e'); set('brim', '#c81e1e'); set('tie', '#e8f060');
+        L.speed = 1.4; break;
+      }
       case 'bouncer': { // club security: tall, very broad, black tank top, shaved head, shades
         L.hs = rand(1.1, 1.15); L.ws = rand(1.4, 1.5);
         set('torso', '#141418'); sleeves('none'); legs('pants', '#1c1c24'); set('shoeL shoeR', '#0c0c0e');
@@ -544,7 +549,7 @@
       goalStep(p, m, dt, 'idle');
       if (m.arrived) { c.crew = Math.max(0, (c.crew || 0) - 1); boarding.push(p); }
     }
-    function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : 'idle'); }
+    function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : p.medic.anim || 'idle'); }
     // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
     // to the window, a guest to the sofa); a waitress or a bellboy keeps doing rounds
     function homeStep(p, dt) {
@@ -689,6 +694,7 @@
         // puppets: surfers and beach volleyball players (moved by street.js)
         case 'surf': { const w = Math.sin(t * 1.3 + p.seed); tL = -.35; tR = .25; kL = .7; kR = .6; aL = -.3 + w * .25; aR = -.25 - w * .25; eL = eR = -.3; P.spread = .9; P.lean = .3; P.twist = .7 + w * .15; P.headY = -.6; P.bob = -.12 + w * .02; break; }
         case 'paddle': { const s = Math.sin(t * 4 + p.seed); aL = -2.6 + s * 1.1; aR = -2.6 - s * 1.1; eL = eR = -.1; P.headP = -.5; tL = tR = 0; kL = kR = .1; break; }
+        case 'hose': { const w = Math.sin(t * 2 + p.seed) * .08; P.bob = breathe; aL = -1.35 + w; aR = -1.2 + w; eL = -.25; eR = -.5; P.spread = -.2; P.lean = .15; tL = -.25; tR = .1; kL = .3; P.twist = -.15; break; }
         case 'ready': P.bob = -.06 + breathe; tL = tR = -.35; kL = kR = .7; aL = aR = -.75; eL = eR = -.25; P.lean = .3; P.spread = -.05; break;
         case 'volley': { const k = p.hitT > 0 ? Math.sin((1 - p.hitT / .4) * Math.PI) : 0; aL = aR = -1.2 - k * 1.8; eL = eR = -.1; P.lean = .1 - k * .15; tL = tR = -.2 + k * .1; kL = kR = .4 - k * .3; P.bob = k * .1; break; }
         case 'lie': P.spread = .12; P.bob = breathe * .5; tL = .03; tR = -.03; break;
@@ -847,6 +853,7 @@
       dropOff(x, z, h, look, text, stumble) {
         const p = spawn(look || makeLook(typeFor(TYPE_MIX.town)), x, z, 'graph');
         if (!p) return null;
+        if (x > 300) { p.fare = { goal: [x + Math.sin(h) * 3, z + Math.cos(h) * 3], face: null, hail: false, arrived: false }; p.heading = h; p.bumpT = -9; if (text) bumpCallback(p, text); return p; }
         const ni = nearestNode(x, z);
         p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
         p.heading = h; p.bumpT = -9;
@@ -966,8 +973,8 @@
         return p;
       },
       cops() { return people.filter(p => p.cop && !p.dead); },
-      spawnMedic(x, z) {
-        const p = spawn(makeLook('medic'), x, z, 'medic');
+      spawnMedic(x, z, type) {
+        const p = spawn(makeLook(type || 'medic'), x, z, 'medic');
         if (p) p.medic = { goal: null, face: null, kneel: false, arrived: false };
         return p;
       },
