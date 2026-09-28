@@ -74,6 +74,8 @@
   const vehOpts = { audio, slip: () => weather.slip(), onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); if (s > 11 && vehicles.driving && vehicles.driving.model.bike) setTimeout(() => thrownOff(s)); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
   // the car radio: on while you're in a vehicle; tap the station name (or press R) for the next one
+  // the banner plane over the bay
+  const plane = NB.createPlane(scene);
   const radio = NB.createRadio(audio);
   radio.onChange = t => { $('radio').textContent = '📻 ' + t; };
   $('radio').textContent = '📻 ' + radio.label();
@@ -844,6 +846,7 @@
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000; last = now;
     radio.update(state === 'playing' && !!vehicles.driving);
+    if (state === 'playing' || state === 'menu') plane.update(Math.min(raw, .05));
     if (state === 'map') { drawBigMap(); return; }   // the city waits behind the map
     const dt = Math.min(raw, .05);
     if (state === 'playing') {
@@ -899,7 +902,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, radio, audio, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, radio, audio, plane, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };
