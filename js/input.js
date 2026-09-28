@@ -20,7 +20,7 @@
     }
     function setRun(on) { runOn = on; btnRun.classList.toggle('on', on); }
 
-    const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyF', 'KeyH', 'KeyE', 'KeyQ', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'KeyM', 'Tab'];
+    const GAME_KEYS = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyF', 'KeyH', 'KeyE', 'KeyQ', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'KeyM', 'Tab', 'KeyR'];
     addEventListener('keydown', e => {
       if (!hooks.active()) return;
       if (GAME_KEYS.includes(e.code)) { e.preventDefault(); setTouch(false); }
@@ -29,6 +29,7 @@
       if ((e.code === 'KeyF' || e.code === 'KeyE') && !e.repeat) I.action = true;
       if (e.code === 'KeyQ' && !e.repeat) I.cycle = 1;
       if (e.code === 'KeyM' && !e.repeat && hooks.onMute) hooks.onMute();
+      if (e.code === 'KeyR' && !e.repeat && hooks.onRadio) hooks.onRadio();
       if (e.code === 'Tab' && !e.repeat && hooks.onMap) hooks.onMap();
       if (/^Digit[1-6]$/.test(e.code)) I.select = +e.code.slice(5) - 1;
       if (e.code === 'Escape' && hooks.onEscape) hooks.onEscape();

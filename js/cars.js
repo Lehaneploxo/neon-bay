@@ -1,4 +1,4 @@
-// Car models: ten fictional 80s cars built from boxes and tapered prisms.
+// Car models: fictional 80s cars and motorbikes built from boxes and tapered prisms.
 // Each model is one merged geometry with vertex colours; per car we clone it and repaint the body.
 (function (NB) {
   'use strict';
@@ -238,6 +238,41 @@
         B(.5, .12, .04, .45, .3, -2.5, 'chrome'), B(.5, .12, .04, -.45, .3, -2.5, 'chrome'),
         B(.1, .12, .22, 1.0, .95, .75, 'body'), B(.1, .12, .22, -1.0, .95, .75, 'body')] }
   );
+  // Motorbikes: a sports bike, a long chopper and a little scooter. Two wheels in line; they lean into turns (vehicles.js).
+  const R = (w, h, d, x, y, z, key, rx) => B(w, h, d, x, y, z, key, rx || 0);
+  MODELS.push(
+    { id: 'vento', name: 'Vento RS', bike: true, w: .8, l: 2.1, r: .32, wz: .72, seat: [0, .82, -.28], lean: .45,
+      perf: { accel: 14, top: 46, grip: 9, steer: .62, brake: 18 },
+      palette: ['#e8202a', '#2a6fe8', '#ffd23d', '#f5f5f0', '#141418', '#8cff6b'], accent: ['#f5f5f0', '#141418'],
+      parts: () => [
+        R(.34, .34, .6, 0, .46, .02, 'black'), R(.38, .24, .56, 0, .84, .2, 'body'), R(.4, .06, .5, 0, .72, .2, 'accent'),
+        P(.44, .46, .3, .26, .46, .06, 0, .6, .62, 'body'), R(.3, .22, .04, 0, 1.14, .78, 'glass', -.55),
+        R(.3, .1, .56, 0, .8, -.3, 'black'), P(.32, .5, .12, .3, .2, -.12, 0, .74, -.66, 'body'),
+        R(.06, .62, .06, .12, .56, .66, 'chrome', .35), R(.06, .62, .06, -.12, .56, .66, 'chrome', .35),
+        R(.06, .08, .72, .14, .36, -.4, 'chrome'), R(.06, .08, .72, -.14, .36, -.4, 'chrome'),
+        R(.62, .04, .04, 0, 1.02, .52, 'black'), R(.11, .11, .62, .22, .42, -.46, 'chrome'),
+        R(.2, .12, .05, 0, .86, .9, '#fff6d8'), R(.16, .06, .05, 0, .86, -.93, '#ff2a3a')] },
+    { id: 'hog', name: 'Freeway Hog', bike: true, w: .9, l: 2.5, r: .34, wz: .92, seat: [0, .66, -.36], lean: .1,
+      perf: { accel: 9.5, top: 37, grip: 8.5, steer: .5, brake: 14 },
+      palette: ['#141418', '#8a1f2a', '#2a3f6b', '#5a2a4a', '#c9a227'], accent: ['chrome'],
+      parts: () => [
+        R(.08, .08, 1.5, 0, .55, 0, 'chrome'), R(.34, .38, .46, 0, .46, -.04, 'chrome'), R(.2, .2, .2, 0, .72, -.04, 'black'),
+        R(.32, .2, .48, 0, .86, .26, 'body'), R(.34, .08, .5, 0, .64, -.38, 'black'), R(.3, .06, .3, 0, .7, -.62, 'black'),
+        R(.04, .5, .04, 0, .94, -.66, 'chrome'), R(.24, .08, .56, 0, .72, -.92, 'body'), R(.2, .08, .4, 0, .72, .98, 'body'),
+        R(.05, 1.0, .05, .1, .8, .78, 'chrome', .55), R(.05, 1.0, .05, -.1, .8, .78, 'chrome', .55),
+        R(.04, .34, .04, .3, 1.24, .5, 'chrome'), R(.04, .34, .04, -.3, 1.24, .5, 'chrome'), R(.72, .05, .05, 0, 1.41, .5, 'chrome'),
+        R(.08, .08, 1.1, .22, .34, -.42, 'chrome'), R(.08, .08, 1.1, -.22, .34, -.42, 'chrome'),
+        R(.22, .22, .08, 0, 1.02, 1.08, '#fff6d8'), R(.14, .06, .05, 0, .8, -1.22, '#ff2a3a')] },
+    { id: 'vespino', name: 'Vespino', bike: true, w: .7, l: 1.7, r: .22, wz: .6, seat: [0, .74, -.3], lean: 0,
+      perf: { accel: 7, top: 22, grip: 8, steer: .62, brake: 12 },
+      palette: ['#3fe6e0', '#ff4fa3', '#f5f5f0', '#ffd23d', '#8cff6b', '#e8202a'], accent: ['#f5f5f0'],
+      parts: () => [
+        R(.4, .08, .64, 0, .3, .02, 'body'), R(.46, .74, .1, 0, .66, .42, 'body', -.2), R(.44, .38, .64, 0, .54, -.36, 'body'),
+        R(.46, .06, .66, 0, .72, -.36, 'accent'), R(.32, .1, .56, 0, .8, -.32, 'black'),
+        R(.06, .52, .06, 0, .96, .5, 'chrome', -.2), R(.56, .05, .05, 0, 1.2, .45, 'black'), R(.2, .1, .14, 0, 1.2, .5, 'body'),
+        R(.24, .08, .36, 0, .5, .62, 'body'),
+        R(.14, .1, .05, 0, 1.14, .58, '#fff6d8'), R(.12, .06, .05, 0, .62, -.69, '#ff2a3a')] }
+  );
   // A light helicopter. The main and tail rotors are separate meshes added in vehicles.js so they can spin.
   MODELS.push({ id: 'heli', name: 'Neon Hawk', heli: true, w: 1.8, l: 7, r: .3, seat: [.35, .95, .9],
     perf: { accel: 7, top: 30, grip: 1, steer: 1.4, brake: 6 },
@@ -279,12 +314,14 @@
     model.geo = g; model.ranges = ranges;
     if (model.boat || model.heli) { model.wheels = []; model.wheelbase = model.l * .55; return; }
     // wheel: tyre plus hub cap, axis along x
-    const tyre = new THREE.CylinderGeometry(model.r, model.r, .26, 14).rotateZ(Math.PI / 2);
-    const hub = new THREE.CylinderGeometry(model.r * .55, model.r * .55, .28, 10).rotateZ(Math.PI / 2);
+    const tw = model.bike ? .12 : .26;
+    const tyre = new THREE.CylinderGeometry(model.r, model.r, tw, 14).rotateZ(Math.PI / 2);
+    const hub = new THREE.CylinderGeometry(model.r * .55, model.r * .55, tw + .02, 10).rotateZ(Math.PI / 2);
     model.wheelGeo = NB.mergeParts([[tyre, M4(), new THREE.Color(FIXED.tyre)], [hub, M4(), new THREE.Color(FIXED.hub)]]);
     const wz = model.l / 2 - (model.l > 6 ? 1.2 : .85);
     model.wheels = [[model.w / 2 - .14, wz, true], [-model.w / 2 + .14, wz, true], [model.w / 2 - .14, -wz, false], [-model.w / 2 + .14, -wz, false]];
     model.wheelbase = wz * 2;
+    if (model.bike) { model.wheels = [[0, model.wz, true], [0, -model.wz, false]]; model.wheelbase = model.wz * 2; }
   }
   MODELS.forEach(build);
 
@@ -294,9 +331,21 @@
     [new THREE.BoxGeometry(.22, .25, .23), M4().makeTranslation(0, .66, 0), new THREE.Color(FIXED.skin)],
     [new THREE.BoxGeometry(.235, .07, .245), M4().makeTranslation(0, .79, 0), new THREE.Color('#2a1c14')]]);
 
+  // Someone riding a motorbike: leaning forward, knees on the tank, feet on the pegs, hands on the bars
+  const riderGeo = NB.mergeParts([
+    [new THREE.BoxGeometry(.4, .5, .24), M4().makeRotationX(.32).setPosition(0, .24, .08), new THREE.Color(FIXED.shirt)],
+    [new THREE.BoxGeometry(.22, .25, .23), M4().makeTranslation(0, .64, .24), new THREE.Color(FIXED.skin)],
+    [new THREE.BoxGeometry(.235, .07, .245), M4().makeTranslation(0, .77, .24), new THREE.Color('#2a1c14')],
+    [new THREE.BoxGeometry(.15, .15, .5), M4().makeTranslation(.13, .02, .2), new THREE.Color('#2a2a3a')],
+    [new THREE.BoxGeometry(.15, .15, .5), M4().makeTranslation(-.13, .02, .2), new THREE.Color('#2a2a3a')],
+    [new THREE.BoxGeometry(.13, .42, .14), M4().makeTranslation(.15, -.2, .42), new THREE.Color('#2a2a3a')],
+    [new THREE.BoxGeometry(.13, .42, .14), M4().makeTranslation(-.15, -.2, .42), new THREE.Color('#2a2a3a')],
+    [new THREE.BoxGeometry(.1, .1, .5), M4().makeRotationX(.35).setPosition(.25, .38, .4), new THREE.Color(FIXED.shirt)],
+    [new THREE.BoxGeometry(.1, .1, .5), M4().makeRotationX(.35).setPosition(-.25, .38, .4), new THREE.Color(FIXED.shirt)]]);
+  NB.riderGeo = riderGeo;
   NB.CAR_MODELS = MODELS;
   NB.CAR_FIXED = FIXED;
   NB.driverGeo = driverGeo;
   // Traffic mix: common cars often, exotic ones rarely.
-  NB.CAR_WEIGHTS = { zefiro: .06, meridian: .16, cab: .1, maldiva: .1, hayride: .1, beachcomber: .1, corsaro: .1, piccolo: .12, outbacker: .06, royale: .02, gwagon: .04, panamo: .04 };
+  NB.CAR_WEIGHTS = { zefiro: .06, meridian: .16, cab: .1, maldiva: .1, hayride: .1, beachcomber: .1, corsaro: .1, piccolo: .12, outbacker: .06, royale: .02, gwagon: .04, panamo: .04, vento: .04, hog: .03, vespino: .05 };
 })(window.NB);

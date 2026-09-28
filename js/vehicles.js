@@ -53,7 +53,7 @@
       paint(car);
       car.mesh = new THREE.Mesh(car.geo, matMain); car.mesh.castShadow = true; car.body.add(car.mesh);
       car.body.add(new THREE.Mesh(model.lightGeo, matLights));
-      car.driverMesh = new THREE.Mesh(NB.driverGeo, matMain); car.driverMesh.position.set(...model.seat); car.driverMesh.visible = false; car.body.add(car.driverMesh);
+      car.driverMesh = new THREE.Mesh(model.bike ? NB.riderGeo : NB.driverGeo, matMain); car.driverMesh.position.set(...model.seat); car.driverMesh.visible = false; car.body.add(car.driverMesh);
       car.wheels = model.wheels.map(([wx, wz, front]) => {
         const g = new THREE.Group(); g.position.set(wx, model.r, wz);
         const w = new THREE.Mesh(model.wheelGeo, matWheel); g.add(w); car.root.add(g);
@@ -483,7 +483,7 @@
     if (world.island) for (const p of world.island.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // cars parked on Palm Island
     if (world.north) for (const p of world.north.parking) { const c = makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h); c.damage = Math.random() * 80; paint(c); }   // old bangers on the North Side
     // a Gelendwagen at the kerb outside the villa, a Porta Panamo outside Hotel OCEAN (whatever was parked there moves off)
-    for (const [id, x, z, h] of [['gwagon', 104.9, 88, Math.PI], ['panamo', 95.1, -27, 0]]) {
+    for (const [id, x, z, h] of [['gwagon', 104.9, 88, Math.PI], ['panamo', 95.1, -27, 0], ['vento', 104.9, 82.5, Math.PI], ['vespino', 95.1, -21.5, 0], ['hog', 95.1, -33, 0]]) {
       for (const c of cars.slice()) if (Math.hypot(c.x - x, c.z - z) < 5) removeCar(c);
       makeCar(byId[id], x, z, h);
     }
@@ -901,7 +901,9 @@
           const hop = c.hop > 0 ? Math.sin(c.hop * Math.PI) * 1.6 : 0;
           c.root.position.set(c.x, c.y + hop, c.z); c.root.rotation.y = c.h;
           const vF = speedOf(c);
-          c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(-c.yawRate * vF * .006, -.07, .07), 6, dt);
+          // a motorbike leans into the turn (and stands upright when it stops); a car just rolls a little
+          if (c.model.bike) c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(c.yawRate * vF * .05, -.6, .6), 5, dt);
+          else c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(-c.yawRate * vF * .006, -.07, .07), 6, dt);
           c.body.rotation.x = U.damp(c.body.rotation.x, U.clamp(-(c.accel || 0) * .004, -.04, .04), 6, dt);
           if (c.rockT > 0) { c.rockT -= dt; const s = Math.sin(performance.now() / 1000 * 13); c.body.rotation.z = s * .045; c.body.position.y = Math.abs(s) * .035; } else if (c.body.position.y) c.body.position.y = 0;
           if (d < 60) {

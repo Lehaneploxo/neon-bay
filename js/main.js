@@ -71,8 +71,13 @@
   const weather = NB.createWeather(scene, camera, { audio, lowQuality: () => settings.quality === 'low' || isTouchDevice });   // fewer raindrops on phones
   crowdOpts.rain = () => weather.rain;
   player.onSplash = big => audio.splash(big); player.onStroke = () => audio.stroke();
-  const vehOpts = { audio, slip: () => weather.slip(), onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); } };
+  const vehOpts = { audio, slip: () => weather.slip(), onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); if (s > 11 && vehicles.driving && vehicles.driving.model.bike) setTimeout(() => thrownOff(s)); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
+  // the car radio: on while you're in a vehicle; tap the station name (or press R) for the next one
+  const radio = NB.createRadio(audio);
+  radio.onChange = t => { $('radio').textContent = '📻 ' + t; };
+  $('radio').textContent = '📻 ' + radio.label();
+  $('radio').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); radio.next(); });
   // gulls, pigeons, dogs, crabs and dolphins
   const animals = NB.createAnimals(scene, world, { crowd, vehicles, player, audio, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), onBite: d => { heroDamage(d); flashTip('Собака кусается!', 1.4); } });
   crowdOpts.onPanic = (x, z, r) => animals.scare(x, z, r);
@@ -287,6 +292,12 @@
     player.hp = Math.max(0, player.hp - d); vignette = Math.min(1, vignette + (d > 0 ? .45 : .2)); audio.hurt();
     if (player.hp <= 0) endLife('wasted');
   }
+  // a hard crash on a motorbike throws the rider off onto the road
+  function thrownOff(s) {
+    if (!vehicles.driving || !vehicles.driving.model.bike) return;
+    leaveCar(); player.blob.visible = true; rig.snap(player);
+    heroDamage(Math.min(60, s * 1.6)); flashTip('Вы вылетели с мотоцикла!', 1.8);
+  }
   function leaveCar() {
     if (!vehicles.driving) return;
     vehicles.exit(player, true);
@@ -407,6 +418,7 @@
     onEscape: () => { if (!locked) pause(); },
     onZoom: s => { rig.dist = U.clamp(rig.dist + s * .6, 2.6, 9); },
     onMute: () => toggleMute(),
+    onRadio: () => { if (vehicles.driving) radio.next(); },
     onMap: () => openMap(),
     onMode: () => onResize()
   });
@@ -831,6 +843,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     const raw = (now - last) / 1000; last = now;
+    radio.update(state === 'playing' && !!vehicles.driving);
     if (state === 'map') { drawBigMap(); return; }   // the city waits behind the map
     const dt = Math.min(raw, .05);
     if (state === 'playing') {
@@ -886,7 +899,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, radio, audio, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };

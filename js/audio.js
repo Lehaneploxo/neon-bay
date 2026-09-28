@@ -19,6 +19,8 @@
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     };
     const ok = () => AC && AC.state === 'running';
+    // for the car radio (radio.js): the context, the master bus, white noise, the volume setting
+    A.ctx = () => AC; A.bus = () => master; A.noiseBuf = () => noiseBuf; A.volume = () => volume;
     function out(pos) {
       const g = AC.createGain();
       if (pos) {
@@ -57,7 +59,7 @@
       if (eng) eng.g.gain.setTargetAtTime(on ? .05 : 0, AC.currentTime, .15);
       if (!on && skid) skid.sg.gain.setTargetAtTime(0, AC.currentTime, .05);
     };
-    const VOICE = { zefiro: 1.25, corsaro: .8, hayride: .7, beachcomber: .75, outbacker: .75, royale: .85, piccolo: 1.35, speedboat: .72, jetski: 1.55 };
+    const VOICE = { zefiro: 1.25, corsaro: .8, hayride: .7, beachcomber: .75, outbacker: .75, royale: .85, piccolo: 1.35, speedboat: .72, jetski: 1.55, vento: 1.6, hog: .6, vespino: 1.9 };
     A.engine = function (rpm, load, id) {
       if (!eng) { A.engineOn(true); if (!eng) return; }
       const t = AC.currentTime, base = 34 * (VOICE[id] || 1), f = base + rpm * base * 2.4;
