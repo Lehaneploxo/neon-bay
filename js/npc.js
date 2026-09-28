@@ -156,6 +156,9 @@
         L.speed = rand(.72, .92); L.lean = .14; extras(.45, .3);
       }
     }
+    // a painted face to go with who they are (faces.js); sunglasses come with the face
+    L.face = NB.faces.pick({ female, old: type === 'elderly', hairHex: hair, shades: !L.hide.has('shades'), type });
+    L.hide.add('shades');
     // per-part centre and size, with the body variations baked in
     L.cs = new Float32Array(PARTS * 6);
     BASE.forEach((b, i) => {
@@ -220,9 +223,17 @@
     const ZERO = new THREE.Matrix4().makeScale(0, 0, 0), WHITE = new THREE.Color(1, 1, 1);
     for (let i = 0; i < CAP * PARTS; i++) { mesh.setMatrixAt(i, ZERO); mesh.setColorAt(i, WHITE); }
     scene.add(mesh);
+    // faces: a small quad on the front of every head, its tile of the face atlas picked per person
+    const faceGeo = new THREE.PlaneGeometry(1, 1), faceTile = new THREE.InstancedBufferAttribute(new Float32Array(CAP * 2), 2);
+    faceGeo.setAttribute('aTile', faceTile);
+    const faceMat = new THREE.MeshLambertMaterial({ map: NB.faces.atlas.tex, alphaTest: .5 });
+    faceMat.onBeforeCompile = sh => { sh.vertexShader = 'attribute vec2 aTile;\n' + sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n  vUv = (vUv + aTile) / 8.0;'); };
+    const faces = new THREE.InstancedMesh(faceGeo, faceMat, CAP);
+    faces.instanceMatrix.setUsage(THREE.DynamicDrawUsage); faces.frustumCulled = false;
+    const FACE = new THREE.Matrix4().makeScale(.205, .215, 1).setPosition(0, .19, .1235);
     const blobs = new THREE.InstancedMesh(new THREE.CircleGeometry(.4, 12).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .25, depthWrite: false }), CAP);
-    blobs.frustumCulled = false; for (let i = 0; i < CAP; i++) blobs.setMatrixAt(i, ZERO); scene.add(blobs);
+    blobs.frustumCulled = false; for (let i = 0; i < CAP; i++) { blobs.setMatrixAt(i, ZERO); faces.setMatrixAt(i, ZERO); } scene.add(blobs, faces);
 
     const free = []; for (let i = CAP - 1; i >= 0; i--) free.push(i);
     const people = [];
@@ -357,12 +368,13 @@
       const c = new THREE.Color();
       BASE.forEach((b, i) => { const hex = look.col[b[0]]; c.set(hex || '#ffffff'); mesh.setColorAt(slot * PARTS + i, c); if (look.cs[i * 6 + 3] === 0) mesh.setMatrixAt(slot * PARTS + i, ZERO); });
       mesh.instanceColor.needsUpdate = true;
+      const fi = look.face || 0; faceTile.setXY(slot, fi % NB.faces.GRID, NB.faces.GRID - 1 - ((fi / NB.faces.GRID) | 0)); faceTile.needsUpdate = true;
       people.push(p);
       return p;
     }
     function despawn(p) {
       for (let i = 0; i < PARTS; i++) mesh.setMatrixAt(p.slot * PARTS + i, ZERO);
-      blobs.setMatrixAt(p.slot, ZERO);
+      blobs.setMatrixAt(p.slot, ZERO); faces.setMatrixAt(p.slot, ZERO);
       free.push(p.slot);
       people.splice(people.indexOf(p), 1);
       if (p.spot) p.spot.person = null;
@@ -743,6 +755,7 @@
         TM.makeScale(cs[o + 3], cs[o + 4], cs[o + 5]); TM.setPosition(cs[o], cs[o + 1], cs[o + 2]);
         OUT.multiplyMatrices(JM[JOINT[i]], TM); mesh.setMatrixAt(base + i, OUT);
       }
+      OUT.multiplyMatrices(JM[3], FACE); faces.setMatrixAt(p.slot, OUT);
       if (p.anim === 'lie' || p.anim === 'dead' || p.noBlob) blobs.setMatrixAt(p.slot, ZERO);
       else { TM.makeTranslation(p.x, (p.anim === 'sit' ? .15 : p.y) + .02, p.z); blobs.setMatrixAt(p.slot, TM); }
     }
@@ -846,7 +859,7 @@
           const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
           if (d < .55 && d > 1e-4) { const k = (.55 - d) / d * .5; if (!a.spot) { a.x -= dx * k; a.z -= dz * k; } if (!b.spot) { b.x += dx * k; b.z += dz * k; } }
         }
-        mesh.instanceMatrix.needsUpdate = true; blobs.instanceMatrix.needsUpdate = true;
+        mesh.instanceMatrix.needsUpdate = true; blobs.instanceMatrix.needsUpdate = true; faces.instanceMatrix.needsUpdate = true;
       },
       setShadows(on) { mesh.castShadow = on; },
       // the driver the hero pulled out of a car: lands on the road, complains, then walks off

@@ -48,7 +48,12 @@
     B(.22, .25, .23, skin, 0, .2, .005, head);
     B(.235, .07, .245, hair, 0, .33, -.005, head);
     B(.235, .17, .07, hair, 0, .24, -.095, head);
-    B(.21, .055, .02, shades, 0, .225, .122, head);
+    {
+      const A = NB.faces.atlas, i = A.tiles.findIndex(t => t.g === 'm' && t.hair === 'stubble' && t.tone === 'dark' && !t.shades), [u0, v0, u1, v1] = NB.faces.uv(Math.max(0, i));
+      const fg = new THREE.PlaneGeometry(.205, .215), uv = fg.attributes.uv;
+      for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) ? u1 : u0, uv.getY(k) ? v1 : v0);
+      const face = new THREE.Mesh(fg, L({ map: A.tex, alphaTest: .5 })); face.position.set(0, .19, .1235); head.add(face);
+    }
     // police cap, only with the uniform
     const cap = G(0, 0, 0, head); cap.visible = false;
     B(.25, .09, .26, L({ color: 0x18223c }), 0, .38, -.005, cap); B(.25, .03, .16, L({ color: 0x111111 }), 0, .34, .1, cap); B(.06, .05, .02, L({ color: 0xe8c547 }), 0, .39, .13, cap);
