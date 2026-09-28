@@ -48,6 +48,7 @@
     B(.22, .25, .23, skin, 0, .2, .005, head);
     B(.235, .07, .245, hair, 0, .33, -.005, head);
     B(.235, .17, .07, hair, 0, .24, -.095, head);
+    B(.045, .055, .035, skin, 0, .17, .128, head); B(.03, .065, .055, skin, -.118, .2, 0, head); B(.03, .065, .055, skin, .118, .2, 0, head);
     {
       const A = NB.faces.atlas, i = A.tiles.findIndex(t => t.g === 'm' && t.hair === 'stubble' && t.tone === 'dark' && !t.shades), [u0, v0, u1, v1] = NB.faces.uv(Math.max(0, i));
       const fg = new THREE.PlaneGeometry(.205, .215), uv = fg.attributes.uv;

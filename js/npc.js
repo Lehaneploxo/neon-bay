@@ -20,8 +20,29 @@
     ['bag', 7, 0, -.42, .02, .08, .28, .36],
     ['thighL', 8, 0, -.23, 0, .15, .46, .17], ['shinL', 9, 0, -.21, 0, .13, .42, .15], ['shoeL', 9, 0, -.45, .05, .14, .08, .27],
     ['thighR', 10, 0, -.23, 0, .15, .46, .17], ['shinR', 11, 0, -.21, 0, .13, .42, .15], ['shoeR', 11, 0, -.45, .05, .14, .08, .27],
-    ['skirt', 1, 0, -.12, 0, .38, .3, .27]
+    ['skirt', 1, 0, -.12, 0, .38, .3, .27],
+    ['nose', 3, 0, .17, .128, .045, .055, .035], ['earL', 3, -.118, .2, .0, .03, .065, .055], ['earR', 3, .118, .2, .0, .03, .065, .055],
+    ['fringe', 3, 0, .305, .112, .2, .05, .03], ['sideL', 3, -.118, .22, -.02, .025, .2, .2], ['sideR', 3, .118, .22, -.02, .025, .2, .2],
+    ['pony', 3, 0, .14, -.17, .08, .26, .07], ['bun', 3, 0, .37, -.09, .13, .1, .11], ['afro', 3, 0, .31, -.01, .3, .18, .3],
+    ['shoulders', 2, 0, .44, 0, .44, .08, .22], ['thumbL', 5, .035, -.25, .035, .03, .06, .03], ['thumbR', 7, -.035, -.25, .035, .03, .06, .03]
   ];
+  // hairstyles: which hair parts show and how big they are ([cx, cy, cz, sx, sy, sz] overrides; 1 = as built)
+  const HAIRSTYLES = {
+    long: { hairTop: 1, hairBack: [0, .12, -.1, .235, .4, .07], sideL: 1, sideR: 1 },
+    bob: { hairTop: 1, hairBack: [0, .2, -.1, .235, .22, .07], sideL: [-.118, .235, -.01, .025, .15, .2], sideR: [.118, .235, -.01, .025, .15, .2], fringe: 1 },
+    pony: { hairTop: 1, hairBack: [0, .27, -.1, .235, .12, .07], pony: 1 },
+    bun: { hairTop: 1, hairBack: [0, .27, -.1, .235, .12, .07], bun: 1 },
+    curly: { afro: [0, .3, -.015, .28, .15, .28], hairBack: [0, .2, -.1, .27, .24, .1] },
+    afro: { afro: [0, .33, -.015, .37, .25, .35] },
+    pixie: { hairTop: 1, hairBack: [0, .26, -.095, .235, .12, .07], fringe: [.03, .3, .112, .15, .045, .03] },
+    short: { hairTop: 1, hairBack: 1 },
+    quiff: { hairTop: 1, hairBack: 1, fringe: [0, .35, .1, .2, .07, .07] },
+    buzz: { hairTop: [0, .325, -.005, .228, .03, .238], hairBack: [0, .24, -.095, .228, .12, .05] },
+    mullet: { hairTop: 1, hairBack: [0, .13, -.1, .235, .36, .07], fringe: [0, .315, .11, .2, .04, .03] },
+    manbun: { hairTop: 1, hairBack: [0, .26, -.095, .235, .12, .07], bun: [0, .33, -.15, .1, .09, .09] },
+    bald: {}
+  };
+  const HAIR_PARTS = ['hairTop', 'hairBack', 'fringe', 'sideL', 'sideR', 'pony', 'bun', 'afro'];
   const PARTS = BASE.length, KEY = {}, JOINT = BASE.map(b => b[1]);
   BASE.forEach((b, i) => { KEY[b[0]] = i; });
 
@@ -44,14 +65,13 @@
 
   function makeLook(type) {
     const female = /_f$/.test(type) || type === 'waitress' || type === 'escort' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
-    const L = { type, female, hs: female ? rand(.9, 1) : rand(.96, 1.08), ws: rand(.92, 1.18), col: {}, hide: new Set(['tie', 'top', 'brim', 'crown', 'shades', 'bag', 'skirt']),
+    const L = { type, female, hs: female ? rand(.9, 1) : rand(.96, 1.08), ws: rand(.92, 1.18), col: {}, hide: new Set(['tie', 'top', 'brim', 'crown', 'shades', 'bag', 'skirt', 'fringe', 'sideL', 'sideR', 'pony', 'bun', 'afro']),
       long: false, skirt: 0, purse: false, speed: rand(1.1, 1.4), lean: 0, run: false };
     const skin = pick(SKIN), hair = type === 'elderly' ? pick(['#9a9a9a', '#c9c9c9', '#e5e5e5']) : pick(HAIR);
     const set = (keys, c) => keys.split(' ').forEach(k => { L.col[k] = c; });
     const show = keys => keys.split(' ').forEach(k => L.hide.delete(k));
-    set('neck head handL handR', skin); set('hairTop hairBack', hair);
+    set('neck head handL handR nose earL earR thumbL thumbR', skin); set('hairTop hairBack', hair);
     L.long = female && chance(.75);
-    if (!female && chance(.12)) L.hide.add('hairTop');
     const sleeves = (kind, c) => { set('uaL uaR', kind === 'none' ? skin : c); set('ua2L ua2R', kind === 'long' ? c : skin); set('faL faR', kind === 'long' ? c : skin); };
     const legs = (kind, c) => { set('pelvis', c); set('thighL thighR', kind === 'bare' ? skin : c); set('shinL shinR', kind === 'pants' ? c : skin); };
     const extras = (hat, shades) => {
@@ -164,6 +184,27 @@
         L.speed = rand(.72, .92); L.lean = .14; extras(.45, .3);
       }
     }
+    // the hairstyle: chosen by who they are; under a hat only what shows below the brim
+    const hat = !L.hide.has('crown');
+    let style;
+    if (type === 'bouncer') style = 'bald';
+    else if (type === 'cop' || type === 'security' || type === 'medic' || type === 'firefighter' || type === 'bellboy') style = female ? pick(['bun', 'pony', 'bob']) : pick(['short', 'buzz', 'short']);
+    else if (type === 'business_m' || type === 'croupier') style = pick(['short', 'short', 'quiff', 'buzz', 'bald']);
+    else if (type === 'elderly') style = female ? pick(['bob', 'bun', 'pixie', 'curly']) : pick(['short', 'bald', 'bald', 'buzz']);
+    else if (type === 'waitress' || type === 'cook') style = female ? pick(['pony', 'bun']) : 'short';
+    else if (type === 'escort') style = pick(['long', 'long', 'curly', 'pony', 'afro']);
+    else if (type === 'musician') style = pick(['long', 'mullet', 'afro', 'manbun', 'quiff']);
+    else if (female) style = L.long ? pick(['long', 'long', 'curly', 'pony', 'afro']) : pick(['bob', 'pixie', 'bun', 'pony']);
+    else style = pick(['short', 'short', 'quiff', 'buzz', 'bald', 'mullet', 'curly', 'afro', 'long', 'manbun']);
+    if (hat && (style === 'afro' || style === 'curly' || style === 'bun' || style === 'manbun' || style === 'quiff')) style = female ? 'long' : 'short';
+    L.hairStyle = style; L.hairOv = HAIRSTYLES[style];
+    for (const k of HAIR_PARTS) { if (L.hairOv[k]) L.hide.delete(k); else L.hide.add(k); }
+    if (hat) L.hide.add('fringe');
+    if (L.hairOv.sideL) { L.hide.add('earL'); L.hide.add('earR'); }   // long hair over the ears
+    set('fringe sideL sideR pony bun afro', L.col.hairTop);
+    // shoulders the colour of what they wear on top; a bust on women (a bikini top is one already)
+    set('shoulders', L.col.torso || skin);
+    if (female && L.hide.has('top')) { show('top'); set('top', L.col.torso || skin); L.bust = true; }
     // a painted face to go with who they are (faces.js); sunglasses come with the face
     L.face = NB.faces.pick({ female, old: type === 'elderly', hairHex: hair, shades: !L.hide.has('shades'), type });
     L.hide.add('shades');
@@ -176,7 +217,11 @@
       if (k === 'top') { sx *= (female ? .9 : 1) * L.ws + .01; sz = .24 * L.ws + .01; }
       if (k === 'pelvis') sx *= (female ? 1.04 : 1) * L.ws;
       if (k === 'tie') cz = .118 * L.ws;
-      if (k === 'hairBack' && L.long) { sy = .4; cy = .12; }
+      const ov = L.hairOv && L.hairOv[k];
+      if (Array.isArray(ov)) [cx, cy, cz, sx, sy, sz] = ov;
+      if (k === 'shoulders') { sx = (female ? .36 : .47) * L.ws; sy = female ? .06 : .09; sz = .22 * L.ws; }
+      if (k === 'top' && L.bust) { cy = .36; cz = .02; sx = .34 * L.ws; sy = .12; sz = .24 * L.ws; }
+      if (k === 'pelvis' && female) sx = .37 * L.ws;
       if (k === 'skirt') { if (L.skirt === 2) { sy = .66; cy = -.3; sx = .42 * L.ws; sz = .3; } else { sx = .37 * L.ws; } }
       if (k === 'bag' && L.purse) { sx = .07; sy = .2; sz = .26; cy = -.36; }
       if (type === 'medic') { // red cross patch, medical bag
