@@ -46,12 +46,14 @@
   const bubbles = [...document.querySelectorAll('.bubble')].map(el => ({ el, owner: null, t: 0 }));
   function say(p, text) {
     const b = bubbles.find(x => !x.owner) || bubbles.reduce((a, c) => (a.t < c.t ? a : c));
+    if (b.owner && b.owner.bubble === b) b.owner.bubble = null;   // taken over from someone else
     b.owner = p; b.t = 2.2; b.el.textContent = text; b.el.hidden = false; p.bubble = b;
   }
   const projV = new THREE.Vector3();
   function updateBubbles(dt) {
     for (const b of bubbles) {
-      if (!b.owner) continue;
+      // the speaker is gone (walked off, knocked out, dead): the bubble goes too, it must not stay stuck on screen
+      if (!b.owner) { if (!b.el.hidden) b.el.hidden = true; continue; }
       b.t -= dt;
       if (b.t <= 0 || !crowd.people.includes(b.owner)) { b.owner = null; b.el.hidden = true; continue; }
       const p = b.owner; projV.set(p.x, p.y + 2.05 * p.look.hs, p.z).project(camera);

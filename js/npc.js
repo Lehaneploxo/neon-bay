@@ -368,7 +368,7 @@
       if (p.spot) p.spot.person = null;
       if (p.homeSpot && p.homeSpot.person === p) p.homeSpot.person = null;
       if (p.home && p.home.spot.person === p) p.home.spot.person = null;
-      if (p.bubble) p.bubble.owner = null;
+      if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
     }
     function nextNode(p) {
       const nb = nodes[p.node].nb;
@@ -921,14 +921,14 @@
         if (p.hp <= 0 && src && src.kind === 'melee' && !p.medic) {
           p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
           if (src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
-          if (p.bubble) p.bubble.owner = null;
+          if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
           call('onHurt', p, src); call('onDown', p, src);
           return;
         }
         if (p.hp <= 0) {
           p.dead = true; p.hp = 0; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.running = false;
           if (src && src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
-          if (p.bubble) { p.bubble.owner = null; }
+          if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
           call('onKill', p, src || {});
           return;
         }
