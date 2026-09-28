@@ -183,6 +183,13 @@
         show('brim crown tie'); set('crown', '#c81e1e'); set('brim', '#c81e1e'); set('tie', '#e8f060');
         L.speed = 1.4; break;
       }
+      case 'bodyguard': { // a hired bodyguard: big, a black suit over a white shirt, dark glasses, a pistol in hand
+        L.hs = rand(1.08, 1.14); L.ws = rand(1.3, 1.4);
+        set('torso', '#15151a'); sleeves('long', '#15151a'); legs('pants', '#15151a'); set('shoeL shoeR', '#0a0a0c');
+        show('tie'); set('tie', '#e8e8e8'); show('shades'); set('shades', '#0a0a0e');
+        show('bag'); set('bag', '#151515'); L.gun = true;
+        L.speed = 1.5; break;
+      }
       case 'bouncer': { // club security: tall, very broad, black tank top, shaved head, shades
         L.hs = rand(1.1, 1.15); L.ws = rand(1.4, 1.5);
         set('torso', '#141418'); sleeves('none'); legs('pants', '#1c1c24'); set('shoeL shoeR', '#0c0c0e');
@@ -200,6 +207,7 @@
     const hat = !L.hide.has('crown');
     let style;
     if (type === 'bouncer') style = 'bald';
+    else if (type === 'bodyguard') style = pick(['bald', 'buzz', 'buzz', 'short']);
     else if (type === 'gang_red' || type === 'gang_green') style = pick(['buzz', 'bald', 'short']);
     else if (type === 'cop' || type === 'security' || type === 'medic' || type === 'firefighter' || type === 'bellboy') style = female ? pick(['bun', 'pony', 'bob']) : pick(['short', 'buzz', 'short']);
     else if (type === 'business_m' || type === 'croupier') style = pick(['short', 'short', 'quiff', 'buzz', 'bald']);
@@ -242,6 +250,7 @@
         if (k === 'bag') { cy = -.36; cz = .02; sx = .14; sy = .2; sz = .3; }
       }
       if (type === 'gang_red' || type === 'gang_green') { if (k === 'crown') { cy = .35; sy = .07; } if (k === 'bag') { cy = -.33; cz = .1; sx = .05; sy = .11; sz = .2; } }   // a bandana, a pistol in hand
+      if (type === 'bodyguard' && k === 'bag') { cy = -.33; cz = .1; sx = .05; sy = .11; sz = .2; }   // the pistol
       if (type === 'cop') { // peaked cap, badge, pistol in hand
         if (k === 'brim') { cy = .345; cz = .1; sx = .25; sy = .03; sz = .16; }
         if (k === 'crown') { cy = .39; sx = .245; sy = .09; sz = .25; }
@@ -274,6 +283,7 @@
   function maxHp(look) {
     const t = look.type;
     if (t === 'bouncer') return 260;
+    if (t === 'bodyguard') return 320;
     if (t === 'cop' || t === 'security') return 100;
     if (t === 'gang_red' || t === 'gang_green') return 130;
     if (t === 'elderly') return look.female ? 50 : 55;
@@ -605,15 +615,19 @@
     }
     function fight(p, dt, player) {
       p.fightT -= dt; p.punchT -= dt;
-      const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
-      if (d > (p.bouncer ? 60 : 16) || player.inCar || player.dead || p.fightT <= 0) { resumeRoute(p); return; }
-      const run = p.bouncer ? 4.6 : 3.8, door = viaDoor(p, player.x, player.z);
+      // a bodyguard who stepped in becomes the one to fight (while he's standing and close)
+      const foe = p.foe && !p.foe.dead && !p.foe.down && people.includes(p.foe) && Math.hypot(p.foe.x - p.x, p.foe.z - p.z) < 12 ? p.foe : null;
+      if (!foe) p.foe = null;
+      const T = foe || player;
+      const dx = T.x - p.x, dz = T.z - p.z, d = Math.hypot(dx, dz) || .001;
+      if (!foe && (d > (p.bouncer ? 60 : 16) || player.inCar || player.dead) || p.fightT <= 0) { resumeRoute(p); return; }
+      const run = p.bouncer ? 4.6 : 3.8, door = viaDoor(p, T.x, T.z);
       if (door) { runTo(p, door, run, dt); return; }
       p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
       if (d > 1.05) { stepMove(p, dx / d, dz / d, run, dt); p.running = true; p.anim = 'walk'; unstick(p, dt, dx / d, dz / d); }
       else {
         p.speed = 0; p.running = false; p.anim = 'punch'; p.punchCD -= dt;
-        if (p.punchCD <= 0) { p.punchCD = p.bouncer ? rand(.9, 1.3) : rand(.8, 1.3); p.punchT = .35; call('onHitPlayer', p.bouncer ? rand(9, 13) : rand(5, 9), p); }
+        if (p.punchCD <= 0) { p.punchCD = p.bouncer ? rand(.9, 1.3) : rand(.8, 1.3); p.punchT = .35; const dmg = p.bouncer ? rand(9, 13) : rand(5, 9); if (foe) { api.damage(foe, dmg * 1.5, { byPlayer: false, kind: 'melee', x: p.x, z: p.z }); call('onPunchSound', foe); } else call('onHitPlayer', dmg, p); }
       }
     }
     // walk (or jog when far) to m.goal, then turn to m.face; paramedics and taxi passengers
@@ -661,7 +675,8 @@
       p.losT -= dt;
       if (p.losT <= 0) { p.losT = .25; const sy = p.y + 1.5, ty = player.y + 1.2, L3 = Math.hypot(dx, ty - sy, dz); p.los = d < 45 && col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - .5; }
       let move = !p.los || d > 14 ? 1 : d < 5 ? -.5 : 0;
-      if (p.los && d < 30) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.7, 1.4); call('onGangShoot', p); } }
+      const foe = p.foe && !p.foe.dead && !p.foe.down && people.includes(p.foe) && Math.hypot(p.foe.x - p.x, p.foe.z - p.z) < d ? p.foe : null;
+      if (p.los && d < 30) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.7, 1.4); if (foe) call('onGangShootAt', p, foe); else call('onGangShoot', p); } }
       if (move) { const vx = dx / d * move, vz = dz / d * move; stepMove(p, vx, vz, move > 0 ? 4.2 : 1.6, dt); p.running = move > 0; p.anim = p.los ? 'aimwalk' : 'walk'; unstick(p, dt, dx / d, dz / d); }
       else { p.speed = 0; p.running = false; p.anim = 'aim'; }
       p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
@@ -677,6 +692,70 @@
       else { p.speed = 0; p.anim = 'aim'; }
       if (p.look.gun && d < 26) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.8, 1.6); call('onGangShootAt', p, best); if (Math.random() < .15) bumpCallback(p, pick(GANG_TALK.war)); } }
       return true;
+    }
+    /* ---------- hired bodyguards (guards.js hires them, gets them in and out of cars) ---------- */
+    // who is going for the hero right now, and whether they are armed
+    function threatOf(q, player) {
+      if (q.dead || q.down || q.bodyguard || q.medic) return 0;
+      const d = Math.hypot(q.x - player.x, q.z - player.z);
+      if (q.foe && q.foe.bodyguard && q.fightT > 0) return 1;                                  // already fighting one of us
+      if (q.fightT > 0 && !q.fare && d < 18) return 1;                                         // fists
+      if (q.gang && gangHeat[q.gang] > 0 && d < 45) return q.look.gun ? 2 : 1;                 // a gang after him
+      if (q.cop && pol.wanted > 0 && d < 45 && (q.chasing || d < 25)) return pol.wanted >= 2 ? 2 : 1;   // the police
+      return 0;
+    }
+    function guardStep(p, dt, player) {
+      const G = p.bodyguard;
+      G.scanT -= dt;
+      if (G.scanT <= 0) {
+        G.scanT = .3 + Math.random() * .1;
+        let best = null, bd = 1e9, armed = 0;
+        for (const q of people) {
+          const k = threatOf(q, player); if (!k) continue;
+          const d = Math.hypot(q.x - p.x, q.z - p.z) + (q === G.target ? -6 : 0);   // stick with the one he's on
+          if (d < bd) { bd = d; best = q; armed = k; }
+        }
+        G.target = best; G.armed = armed === 2;
+      }
+      const T = G.target, far = Math.hypot(player.x - p.x, player.z - p.z);
+      // lost far behind (the hero ran, swam or went somewhere): he catches up out of sight
+      if (far > 60) { const a = player.heading + Math.PI + (G.idx - (G.of - 1) / 2) * .6; p.x = player.x + Math.sin(a) * 3; p.z = player.z + Math.cos(a) * 3; p.y = surfaceAt(p.x, p.z); G.target = null; return; }
+      if (T && (T.dead || T.down || !people.includes(T) || far > 45)) { G.target = null; }
+      if (G.target) {
+        const dx = T.x - p.x, dz = T.z - p.z, d = Math.hypot(dx, dz) || .001;
+        p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
+        if (G.armed) {
+          // pistols: keep a sensible distance, line of sight, and fire steadily
+          p.losT -= dt;
+          if (p.losT <= 0) { p.losT = .25; const sy = p.y + 1.5, ty = T.y + 1.2, L3 = Math.hypot(dx, ty - sy, dz); p.los = d < 40 && col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - .5; }
+          const move = !p.los || d > 16 ? 1 : d < 5 ? -.5 : 0;
+          if (move) { stepMove(p, dx / d * move, dz / d * move, move > 0 ? 5 : 1.8, dt); p.running = move > 0; p.anim = p.los ? 'aimwalk' : 'walk'; unstick(p, dt, dx / d, dz / d); }
+          else { p.speed = 0; p.running = false; p.anim = 'aim'; }
+          if (p.los && d < 32) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.45, .85); T.foe = p; call('onGuardShoot', p, T); } }
+        } else {
+          // fists: close in and hit hard
+          p.punchT -= dt;
+          if (d > 1.05) { stepMove(p, dx / d, dz / d, 5, dt); p.running = true; p.anim = 'walk'; unstick(p, dt, dx / d, dz / d); }
+          else {
+            p.speed = 0; p.running = false; p.anim = 'punch'; p.punchCD -= dt;
+            if (p.punchCD <= 0) {
+              p.punchCD = rand(.55, .85); p.punchT = .35;
+              if (T.fightT > 0 || T.gang) T.foe = p;
+              api.damage(T, rand(24, 32), { byPlayer: false, kind: 'melee', x: p.x, z: p.z }); call('onPunchSound', T);
+              if (T.cop && !T.down && !T.dead) T.stumbleT = .6;
+            }
+          }
+        }
+        return;
+      }
+      // nothing to do: walk with the hero, a couple of steps behind him, spread out
+      const a = player.heading + Math.PI + (G.idx - (G.of - 1) / 2) * .62, r = 1.9 + (G.idx % 2) * .7;
+      const gx = player.x + Math.sin(a) * r, gz = player.z + Math.cos(a) * r, dx = gx - p.x, dz = gz - p.z, d = Math.hypot(dx, dz);
+      if (d > .45) {
+        const sp = d > 7 ? 6.2 : d > 2.5 ? Math.max(3.2, player.speed || 0) : 1.6;
+        stepMove(p, dx / d, dz / d, sp, dt); p.running = sp > 3; p.anim = 'walk'; unstick(p, dt, dx / d, dz / d);
+        p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
+      } else { p.speed = 0; p.running = false; p.anim = 'guard'; p.heading += U.angDiff(p.heading, player.heading) * Math.min(1, dt * 4); }
     }
     function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : p.medic.anim || 'idle'); }
     // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
@@ -709,6 +788,7 @@
         return;
       }
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
+      if (p.bodyguard) { guardStep(p, dt, player); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
       if (p.gang && gangHeat[p.gang] > 0 && !player.dead && !player.inCar && Math.hypot(player.x - p.x, player.z - p.z) < 60) { gangChase(p, dt, player); return; }
@@ -888,6 +968,7 @@
       for (const p of people.slice()) {
         const far = Math.hypot(p.x - px, p.z - pz) > (p.cop && p.chasing ? 130 : 100);
         const lying = p.dead || p.down;
+        if (p.bodyguard && !p.dead) continue;
         if ((!p.spot && !lying && far && !p.keep) || (lying && (far || (p.deadT > 30 && !p.ems)))) despawn(p);
       }
       for (const s of spots) {
@@ -1036,6 +1117,7 @@
         const a = dx * dx + dz * dz; if (a < 1e-8) return null;
         for (const p of people) {
           if (p.dead || p.down || p === skip || p.anim === 'lie') continue;
+          if (p.bodyguard && skip && (skip.bodyguard || skip.friendly)) continue;
           const fx = ox - p.x, fz = oz - p.z, b = 2 * (fx * dx + fz * dz), c = fx * fx + fz * fz - .1;
           const disc = b * b - 4 * a * c; if (disc < 0) continue;
           const t = (-b - Math.sqrt(disc)) / (2 * a); if (t < 0 || t >= best) continue;
@@ -1082,7 +1164,7 @@
           return;
         }
         p.stumbleT = Math.max(p.stumbleT, .35);
-        if (!p.cop && !p.bouncer && !p.gang && src && src.byPlayer) {
+        if (!p.cop && !p.bouncer && !p.gang && !p.bodyguard && src && src.byPlayer) {
           const hurt = p.hp < p.maxHp * .3;
           // someone already in a fight keeps at it until he's badly hurt; a man hit for the first time may hit back
           if (src.kind === 'melee' && p.fightT > 0 && !hurt) p.fightT = 12;
@@ -1103,7 +1185,7 @@
         if (byPlayer) for (const q of people) if (q.gang && !q.dead && Math.hypot(q.x - x, q.z - z) < 30) { provoke(q.gang, q.x, q.z); break; }
         if (byPlayer && nearClub(x, z, 18)) alertBouncers();   // gunshots carry further than a scuffle
         for (const p of people) {
-          if (p.dead || p.down || p.cop || p.medic || p.bouncer || p.gang || p.fightT > 0) continue;
+          if (p.dead || p.down || p.cop || p.medic || p.bouncer || p.gang || p.bodyguard || p.fightT > 0) continue;
           const d = Math.hypot(p.x - x, p.z - z); if (d > r) continue;
           detachSpot(p);
           p.fleeT = rand(6, 10); p.fleeX = x; p.fleeZ = z; p.dodge = null;
@@ -1131,6 +1213,16 @@
         p.stumbleT = 1.1; p.fleeT = 0; p.fightT = 0;
         resumeRoute(p);
       },
+      // bodyguards (guards.js)
+      spawnGuard(x, z, heading, hp, idx, of) {
+        const p = spawn(makeLook('bodyguard'), x, z, 'guard');
+        if (!p) return null;
+        p.keep = true; p.heading = heading || 0; p.anim = 'idle'; p.hp = Math.min(p.maxHp, hp || p.maxHp);
+        p.bodyguard = { idx: idx || 0, of: of || 1, scanT: 0, target: null, armed: false };
+        return p;
+      },
+      removeGuard(p) { if (people.includes(p)) despawn(p); },
+      releaseGuard(p) { if (people.includes(p)) { p.bodyguard = null; p.keep = false; } },
       clearChase() { for (const p of people) if (p.cop && p.chasing) resumeRoute(p); },
       get gangHeat() { return gangHeat; },
       get gangWar() { return warT.t > 0; }

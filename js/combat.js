@@ -110,6 +110,7 @@
     }
 
     /* ---------- tracing ---------- */
+    const FRIENDLY = { friendly: true };   // 'skip' for the hero's own shots: they pass his bodyguards
     function trace(ox, oy, oz, dx, dy, dz, maxT, skip, withPlayer) {
       let t = col.raycast(ox, oy, oz, dx, dy, dz, maxT), kind = t < maxT ? 'world' : 'none', hit = null, head = false;
       if (dy < -1e-4) { const tg = -oy / dy; if (tg < t) { t = tg; kind = 'world'; } }
@@ -135,7 +136,7 @@
         let dx = aim.x - ox, dy = aim.y - oy, dz = aim.z - oz; const L = Math.hypot(dx, dy, dz) || 1;
         dx = dx / L + rand(-1, 1) * w.spread; dy = dy / L + rand(-1, 1) * w.spread; dz = dz / L + rand(-1, 1) * w.spread;
         const n = Math.hypot(dx, dy, dz); dx /= n; dy /= n; dz /= n;
-        const r = trace(ox, oy, oz, dx, dy, dz, w.range, null, false);
+        const r = trace(ox, oy, oz, dx, dy, dz, w.range, FRIENDLY, false);
         if (r.kind === 'person') {
           crowd.damage(r.hit, w.dmg * (r.head ? 2.5 : 1), { byPlayer: true, kind: 'gun', x: player.x, z: player.z });
           burst(r.x, r.y, r.z, r.head ? 10 : 6, BLOOD, 2);
@@ -156,7 +157,7 @@
       const fx = Math.sin(player.heading), fz = Math.cos(player.heading);
       let best = null, bd = w.reach;
       for (const p of crowd.people) {
-        if (p.dead || p.down || p.anim === 'lie') continue;
+        if (p.dead || p.down || p.anim === 'lie' || p.bodyguard) continue;
         const dx = p.x - player.x, dz = p.z - player.z, d = Math.hypot(dx, dz);
         if (d < bd && (dx * fx + dz * fz) / (d || 1) > .25) { bd = d; best = p; }
       }
@@ -168,14 +169,15 @@
     }
 
     /* ---------- police gunfire ---------- */
-    function npcShoot(p, t) {
+    // o2: { dmg, noPlayer } — a bodyguard's pistol hits harder and never hits the hero
+    function npcShoot(p, t, o2) {
       const hs = p.look.hs, fx = Math.sin(p.heading), fz = Math.cos(p.heading);
       const ox = p.x + fx * .45, oy = p.y + 1.38 * hs, oz = p.z + fz * .45;
       let dx = t.x - ox, dy = t.y + 1.2 * t.look.hs - oy, dz = t.z - oz; const L = Math.hypot(dx, dy, dz) || 1;
       dx = dx / L + rand(-1, 1) * .07; dy = dy / L + rand(-1, 1) * .04; dz = dz / L + rand(-1, 1) * .07;
       const n = Math.hypot(dx, dy, dz); dx /= n; dy /= n; dz /= n;
-      const r = trace(ox, oy, oz, dx, dy, dz, 50, p, true);
-      if (r.kind === 'person') { crowd.damage(r.hit, 34, { byPlayer: false, kind: 'gun', x: p.x, z: p.z }); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
+      const r = trace(ox, oy, oz, dx, dy, dz, 50, p, !(o2 && o2.noPlayer));
+      if (r.kind === 'person') { crowd.damage(r.hit, o2 && o2.dmg || 34, { byPlayer: false, kind: 'gun', x: p.x, z: p.z }); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
       else if (r.kind === 'player') { o.onPlayerHit(rand(5, 9), p.x, p.z); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
       else if (r.kind === 'car') { vehicles.bulletHit(r.hit, 12, r.x, r.z, -dx, -dz); burst(r.x, r.y, r.z, 4, SPARK, 3); }
       else if (r.kind === 'world') burst(r.x, r.y, r.z, 3, DUST, 2);

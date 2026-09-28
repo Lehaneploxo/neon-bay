@@ -64,6 +64,17 @@
         }) });
     }
 
+    // Shield Security: hire bodyguards, one at a time, up to five; or let them all go
+    function security(g) {
+      menu({ eyebrow: 'Охранное агентство', title: 'Shield Security', items: () => [
+        { name: 'Телохранитель', desc: 'Крепкий парень в чёрном костюме, с пистолетом. Ходит с вами везде, садится с вами в машину, дерётся и стреляет за вас — пока жив. С вами сейчас: ' + g.count + ' из ' + g.MAX,
+          price: g.count >= g.MAX ? 0 : g.PRICE, label: 'Нанять', disabled: g.count >= g.MAX ? 'Команда в сборе' : '',
+          buy: () => { g.hire(); return g.count === 1 ? 'Телохранитель с вами' : 'Теперь с вами ' + g.count + ' телохранителей'; } },
+        { name: 'Отпустить охрану', desc: 'Деньги не возвращаются', price: 0, label: 'Отпустить всех', disabled: g.count ? '' : 'Охраны нет',
+          buy: () => { g.dismiss(); return 'Охрана свободна'; } }
+      ] });
+    }
+
     /* ---------- casino: slot machine ---------- */
     const SYM = [
       { s: '7', c: '#ff3b4f', w: 1, x3: 200 }, { s: 'BAR', c: '#f5f0e6', w: 2, x3: 50 }, { s: '★', c: '#ffd84f', w: 3, x3: 20 },
@@ -261,6 +272,6 @@
       rg.fillText('ОЧКИ ' + (R.score || 0), 12, 12); rg.textAlign = 'right'; rg.fillText('РЕКОРД ' + (o.progress.records.racer || 0), W - 12, 12);
     }
 
-    return { menu, wardrobe, clothes, slots, roulette, racer, close, get open() { return open; } };
+    return { menu, wardrobe, clothes, security, slots, roulette, racer, close, get open() { return open; } };
   };
 })(window.NB);

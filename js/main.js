@@ -117,11 +117,12 @@
     onBust: () => endLife('busted'),
     disguised: () => progress.outfit === 'cop'
   });
+  let guards = null;
   const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'),
     targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
 
   /* ---------- money, armour and the saved game ---------- */
-  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0, owned: null };
+  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0, owned: null, guards: 0 };
   try { Object.assign(progress, JSON.parse(localStorage.getItem('nb_save') || '{}')); } catch (e) {}
   progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, 100);
   if (!progress.records || typeof progress.records !== 'object') progress.records = {};
@@ -135,8 +136,8 @@
   let saveT = 0;
   function saveProgress() {
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, owned } = progress;
-    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, owned, time: Math.round(time) })); } catch (e) {}
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, owned } = progress, guardsN = guards ? guards.count : progress.guards | 0;
+    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, owned, guards: guardsN, time: Math.round(time) })); } catch (e) {}
     saveT = 0;
   }
   // cars standing in the villa garage are kept between visits
@@ -172,6 +173,9 @@
     onCopShoot: p => combat.copShoot(p, police.wanted),
     onGangShoot: p => combat.copShoot(p, 2),
     onGangShootAt: (p, t) => combat.npcShoot(p, t),
+    // bodyguards: their pistols hit hard and never hit the hero; their punches land with a thud
+    onGuardShoot: (p, t) => combat.npcShoot(p, t, { dmg: 48, noPlayer: true }),
+    onPunchSound: t => audio.punch([t.x, 1.5, t.z]),
     playerArmed: () => !vehicles.driving && !combat.isMelee(),
     onHitPlayer: dmg => { heroDamage(dmg); audio.punch(null); },
     onBustTick: dt => { if (!player.inCar || vehicles.speedKmh() < 5) police.bustTick(dt); },
@@ -272,6 +276,9 @@
     openShop: () => { if (shop.canServe()) openShop(); }
   });
   // Neon Fashion, the clothes shop
+  // Shield Security: bodyguards for hire, $1000 a head, up to five
+  guards = NB.createGuards({ crowd, vehicles, player, progress, flash: (t, sec) => flashTip(t, sec), say: (p, t) => say(p, t) });
+  const securityDoor = world.security ? [{ x: world.security.x, z: world.security.z, r: 2, short: 'ОХРАНА', label: () => 'Охранное агентство Shield Security', use: () => ui.security(guards) }] : [];
   const fashionDoor = world.fashion ? [{ x: world.fashion.x, z: world.fashion.z, r: 2, short: 'ОДЕЖДА', label: () => 'Магазин одежды Neon Fashion', use: () => ui.clothes() }] : [];
   // the nearest thing to use (F / the action button), if any
   let interact = null;
@@ -279,7 +286,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor);
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor);
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -455,6 +462,7 @@
     if (input.touch) { if (!document.fullscreenElement) fullscreen(); } else lock();
     if (firstPlay) {
       firstPlay = false;
+      if (progress.guards > 0) guards.restore(progress.guards);   // the bodyguards hired last time are still with you
       flashTip(input.touch ? 'Левый палец — ходьба · правый — камера · у машины появится кнопка «СЕСТЬ»'
         : 'WASD — идти · ЛКМ — удар/огонь · ПКМ — прицел · Q — оружие · F — машина · Esc — пауза', 10);
       showDistrict(world.districtAt(player.x, player.z));
@@ -602,6 +610,7 @@
     icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
     if (world.fashion) icon(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', false);
+    if (world.security) icon(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', false);
     if (world.bay) icon(503, -433, '#3f8fe6', '#fff', '✈', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
@@ -631,6 +640,7 @@
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
     if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Магазин одежды Neon Fashion');
+    if (world.security) add(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', 'Охранное агентство Shield Security: телохранители');
     if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт Neon Bay International');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
@@ -794,6 +804,7 @@
   /* ---------- loop ---------- */
   function stepPlaying(dt, raw) {
       time += dt;
+      guards.update(dt);
       input.poll();
       if (respawnT > 0) {
         respawnT -= dt; if (respawnT <= 0) respawn();
@@ -904,7 +915,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, radio, audio, plane, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, radio, audio, plane, guards, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };
