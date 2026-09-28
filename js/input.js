@@ -85,7 +85,12 @@
       if (lookPtr && e.pointerId === lookPtr.id) lookPtr = null;
       if (dragPtr && e.pointerId === dragPtr.id) dragPtr = null;
     };
-    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+    canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up); canvas.addEventListener('lostpointercapture', up);
+    // a finger lifted anywhere on the page (over a button, the map, the edge of the screen) still lets go of the stick
+    addEventListener('pointerup', up, true); addEventListener('pointercancel', up, true);
+    // and once no finger at all is on the screen, nothing can still be held: the stick, the look, the driving buttons
+    const noFingers = e => { if (e.touches && e.touches.length === 0) { if (stick) setRun(false); stick = null; lookPtr = null; base.classList.remove('on'); for (const k in hold) hold[k] = false; document.querySelectorAll('.tbtn.on').forEach(b => { if (b !== btnRun) b.classList.remove('on'); }); } };
+    addEventListener('touchend', noFingers, true); addEventListener('touchcancel', noFingers, true);
     function releaseAll() { stick = null; lookPtr = null; dragPtr = null; base.classList.remove('on'); setRun(false); for (const k in hold) hold[k] = false; mouseFire = mouseAim = false; }
 
     const btn = (id, fn) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); setTouch(true); fn(); });
