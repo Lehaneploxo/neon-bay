@@ -4,7 +4,6 @@
   'use strict';
   const { U } = NB;
   const rand = U.rand, pick = a => a[(Math.random() * a.length) | 0], chance = p => Math.random() < p;
-  const DIRV = [[1, 0], [0, 1], [-1, 0], [0, -1]];
   const LANE = 2.6, PARK = 4.9, STOP = 8.5;
   const SPRAY_COLORS = ['#e8202a', '#f5f5f0', '#141418', '#ffd23d', '#ff4fa3', '#2a6fe8', '#3fe6e0', '#8cff6b', '#9b5cff', '#ff8a3d', '#2e8a4a', '#a0c4e8'];
 
@@ -287,42 +286,79 @@
 
     /* ---------- AI traffic on the road grid ---------- */
     const locks = new Map();
-    const valid = (i, j) => i >= 0 && i < ROADS.length && j >= 0 && j < ROADS.length;
-    const laneOff = d => [-DIRV[d][1] * LANE, DIRV[d][0] * LANE];
+    /* ---------- the road network: the city grid, the bridge and Palm Island's streets ---------- */
+    // junctions (nodes) joined by streets (edges); traffic keeps right, a lane's width from the centre line
+    const NET = { nodes: [], edges: [] };
+    const addNode = (x, z) => { NET.nodes.push({ x, z, id: NET.nodes.length, nb: [] }); return NET.nodes.length - 1; };
+    const addEdge = (a, b, lane, bridge) => {
+      const A = NET.nodes[a], B = NET.nodes[b], e = { a, b, lane: lane || LANE, bridge: !!bridge, len: Math.hypot(B.x - A.x, B.z - A.z) };
+      NET.edges.push(e); A.nb.push({ n: b, e }); B.nb.push({ n: a, e });
+    };
+    const GN = ROADS.length, gridNode = [];
+    for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) gridNode[i * GN + j] = addNode(ROADS[i], ROADS[j]);
+    for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) { if (i + 1 < GN) addEdge(gridNode[i * GN + j], gridNode[(i + 1) * GN + j]); if (j + 1 < GN) addEdge(gridNode[i * GN + j], gridNode[i * GN + j + 1]); }
+    const IR = world.island && world.island.roads;
+    if (IR) {
+      const base = NET.nodes.length;
+      for (const [x, z] of IR.nodes) addNode(x, z);
+      for (const [a, b] of IR.links) addEdge(base + a, base + b, IR.lane);
+      const [cx, cz] = IR.bridge.city, from = NET.nodes.find(n => n.x === cx && n.z === cz);
+      if (from) addEdge(from.id, base + IR.bridge.island, LANE, true);
+    }
+    // shortest distances between all junctions, for the police and the ambulances finding their way
+    const NN = NET.nodes.length, DIST = [];
+    for (let i = 0; i < NN; i++) { DIST.push(new Float32Array(NN).fill(1e9)); DIST[i][i] = 0; }
+    for (const e of NET.edges) { DIST[e.a][e.b] = DIST[e.b][e.a] = e.len; }
+    for (let k = 0; k < NN; k++) for (let i = 0; i < NN; i++) for (let j = 0; j < NN; j++) if (DIST[i][k] + DIST[k][j] < DIST[i][j]) DIST[i][j] = DIST[i][k] + DIST[k][j];
+    const unit = (A, B) => { const dx = B.x - A.x, dz = B.z - A.z, L = Math.hypot(dx, dz) || 1; return [dx / L, dz / L]; };
+    const laneOff = (d, lane) => [-d[1] * lane, d[0] * lane];
+    // the edge nearest a point: the edge, the distance to it, and the point on it
+    function nearestEdge(x, z) {
+      let best = null, bd = Infinity;
+      for (const e of NET.edges) {
+        const A = NET.nodes[e.a], B = NET.nodes[e.b], dx = B.x - A.x, dz = B.z - A.z;
+        const t = U.clamp(((x - A.x) * dx + (z - A.z) * dz) / (dx * dx + dz * dz), 0, 1), d = Math.hypot(A.x + dx * t - x, A.z + dz * t - z);
+        if (d < bd) { bd = d; best = e; }
+      }
+      return { e: best, d: bd };
+    }
     function releaseLock(car) { if (car.ai && car.ai.lock != null && locks.get(car.ai.lock) === car) locks.delete(car.ai.lock); if (car.ai) car.ai.lock = null; }
     function extend(ai) {
-      const back = (ai.d + 2) % 4, opts2 = [];
-      for (let d = 0; d < 4; d++) if (d !== back && valid(ai.i + DIRV[d][0], ai.j + DIRV[d][1])) opts2.push(d);
-      const straight = opts2.includes(ai.d) && chance(.5);
-      const dout = straight ? ai.d : (opts2.length ? pick(opts2) : back);
-      const Bx = ROADS[ai.i], Bz = ROADS[ai.j], key = ai.i * 10 + ai.j;
-      const [ox, oz] = laneOff(ai.d), [px, pz] = laneOff(dout);
-      const p0 = [Bx - DIRV[ai.d][0] * STOP + ox, Bz - DIRV[ai.d][1] * STOP + oz];
-      const p2 = [Bx + DIRV[dout][0] * STOP + px, Bz + DIRV[dout][1] * STOP + pz];
-      const p1 = dout === ai.d ? [(p0[0] + p2[0]) / 2, (p0[1] + p2[1]) / 2] : [Bx + ox + px, Bz + oz + pz];
+      const N = NET.nodes[ai.node], F = NET.nodes[ai.from], din = unit(F, N), key = N.id;
+      const opts2 = N.nb.filter(o => o.n !== ai.from), dotOf = o => { const d = unit(N, NET.nodes[o.n]); return d[0] * din[0] + d[1] * din[1]; };
+      const ahead = opts2.find(o => dotOf(o) > .95);
+      // straight on half the time; a dead end means turning round
+      const nx = ahead && chance(.5) ? ahead : opts2.length ? pick(opts2) : N.nb.find(o => o.n === ai.from);
+      const M = NET.nodes[nx.n], dout = unit(N, M), straight = dout[0] * din[0] + dout[1] * din[1] > .95;
+      const [ox, oz] = laneOff(din, ai.edge.lane), [px, pz] = laneOff(dout, nx.e.lane);
+      const p0 = [N.x - din[0] * STOP + ox, N.z - din[1] * STOP + oz];
+      const p2 = [N.x + dout[0] * STOP + px, N.z + dout[1] * STOP + pz];
+      const p1 = straight ? [(p0[0] + p2[0]) / 2, (p0[1] + p2[1]) / 2] : [N.x + ox + px, N.z + oz + pz];
       const last = ai.pts[ai.pts.length - 1]; last.lock = key;
       for (let k = 1; k <= 6; k++) {
         const t = k / 6, a = (1 - t) * (1 - t), b = 2 * t * (1 - t), c = t * t;
-        ai.pts.push({ x: a * p0[0] + b * p1[0] + c * p2[0], z: a * p0[1] + b * p1[1] + c * p2[1], curve: dout !== ai.d, unlock: k === 6 ? key : null });
+        ai.pts.push({ x: a * p0[0] + b * p1[0] + c * p2[0], z: a * p0[1] + b * p1[1] + c * p2[1], curve: !straight, unlock: k === 6 ? key : null });
       }
-      ai.i += DIRV[dout][0]; ai.j += DIRV[dout][1]; ai.d = dout;
-      const [nx, nz] = laneOff(dout);
-      ai.pts.push({ x: ROADS[ai.i] - DIRV[dout][0] * STOP + nx, z: ROADS[ai.j] - DIRV[dout][1] * STOP + nz });
+      ai.from = ai.node; ai.node = nx.n; ai.edge = nx.e;
+      const [lx, lz] = laneOff(dout, nx.e.lane);
+      ai.pts.push({ x: M.x - dout[0] * STOP + lx, z: M.z - dout[1] * STOP + lz });
     }
     function spawnTraffic(px, pz, fx, fz, near, model, minD, maxD) {
-      for (let tries = 0; tries < 10; tries++) {
-        const i = (Math.random() * ROADS.length) | 0, j = (Math.random() * ROADS.length) | 0, d = (Math.random() * 4) | 0;
-        if (!valid(i + DIRV[d][0], j + DIRV[d][1])) continue;
-        const [ox, oz] = laneOff(d), t = rand(.1, .8);
-        const ax = ROADS[i] + DIRV[d][0] * STOP + ox, az = ROADS[j] + DIRV[d][1] * STOP + oz;
-        const bx = ROADS[i + DIRV[d][0]] - DIRV[d][0] * STOP + ox, bz = ROADS[j + DIRV[d][1]] - DIRV[d][1] * STOP + oz;
+      const R = (maxD || 130) + 40;
+      const near2 = NET.edges.filter(e => { if (e.bridge) return false; const A = NET.nodes[e.a], B = NET.nodes[e.b]; return Math.hypot((A.x + B.x) / 2 - px, (A.z + B.z) / 2 - pz) < R + e.len / 2; });
+      if (!near2.length) return null;
+      for (let tries = 0; tries < 12; tries++) {
+        const e = pick(near2), fwdDir = chance(.5), a = fwdDir ? e.a : e.b, b = fwdDir ? e.b : e.a, A = NET.nodes[a], B = NET.nodes[b], d = unit(A, B);
+        const [ox, oz] = laneOff(d, e.lane), t = rand(.1, .8);
+        const ax = A.x + d[0] * STOP + ox, az = A.z + d[1] * STOP + oz;
+        const bx = B.x - d[0] * STOP + ox, bz = B.z - d[1] * STOP + oz;
         const x = ax + (bx - ax) * t, z = az + (bz - az) * t, dist = Math.hypot(x - px, z - pz);
         if (dist > (maxD || 130) || dist < (minD || (near ? 15 : 45))) continue;
         if (!near && dist < 85 && ((x - px) * fx + (z - pz) * fz) / dist > .1) continue;
         if (cars.some(c => Math.hypot(c.x - x, c.z - z) < 12)) continue;
-        const car = makeCar(model || pickModel(), x, z, Math.atan2(DIRV[d][0], DIRV[d][1]));
+        const car = makeCar(model || pickModel(), x, z, Math.atan2(d[0], d[1]));
         car.driver = 'npc'; car.driverMesh.visible = true;
-        car.ai = { i: i + DIRV[d][0], j: j + DIRV[d][1], d, pts: [{ x, z }, { x: bx, z: bz }], k: 0, t: 0, v: rand(6, 9), cruise: rand(9, 13), lock: null, waitT: 0, honkT: 0, shock: 0 };
+        car.ai = { node: b, from: a, edge: e, pts: [{ x, z }, { x: bx, z: bz }], k: 0, t: 0, v: rand(6, 9), cruise: rand(9, 13), lock: null, waitT: 0, honkT: 0, shock: 0 };
         car.aiVX = 0; car.aiVZ = 0;
         return car;
       }
@@ -414,20 +450,23 @@
     for (const c of cars) c.parked = true;
 
     /* ---------- police pursuit ---------- */
-    const nearestIdx = v => { let bi = 0; for (let i = 1; i < ROADS.length; i++) if (Math.abs(ROADS[i] - v) < Math.abs(ROADS[bi] - v)) bi = i; return bi; };
+
     // next junction to drive to, moving along the road grid towards (tx, tz)
+    // the next junction to drive to on the way to (tx, tz), along the road network
     function nextGridPoint(x, z, tx, tz) {
-      const ci = nearestIdx(x), cj = nearestIdx(z), ti = nearestIdx(tx), tj = nearestIdx(tz);
-      const onX = Math.abs(x - ROADS[ci]) < 7, onZ = Math.abs(z - ROADS[cj]) < 7;
-      if (onX && onZ) {
-        if (ci === ti && cj === tj) return [tx, tz];
-        let ni = ci, nj = cj;
-        if (ti !== ci && (Math.abs(ti - ci) >= Math.abs(tj - cj) || tj === cj)) ni += Math.sign(ti - ci); else nj += Math.sign(tj - cj);
-        return [ROADS[ni], ROADS[nj]];
-      }
-      if (onX) { let lo = 0; while (lo < ROADS.length - 2 && ROADS[lo + 1] <= z) lo++; const j = tz > z ? lo + 1 : lo; return [ROADS[ci], ROADS[j]]; }
-      if (onZ) { let lo = 0; while (lo < ROADS.length - 2 && ROADS[lo + 1] <= x) lo++; const i = tx > x ? lo + 1 : lo; return [ROADS[i], ROADS[cj]]; }
-      return [ROADS[ci], ROADS[cj]];
+      const c = nearestEdge(x, z), g = nearestEdge(tx, tz);
+      if (c.e === g.e) return [tx, tz];
+      const toGoal = k => Math.min(DIST[k][g.e.a] + Math.hypot(NET.nodes[g.e.a].x - tx, NET.nodes[g.e.a].z - tz), DIST[k][g.e.b] + Math.hypot(NET.nodes[g.e.b].x - tx, NET.nodes[g.e.b].z - tz));
+      if (c.d > 9) { let bn = NET.nodes[0], bd = Infinity; for (const n of NET.nodes) { const d = Math.hypot(n.x - x, n.z - z); if (d < bd) { bd = d; bn = n; } } return [bn.x, bn.z]; }
+      // head for whichever end of this street is on the shorter way; once there, the next junction after it
+      let k = null, kc = Infinity;
+      for (const e of [c.e.a, c.e.b]) { const n = NET.nodes[e], cost = Math.hypot(n.x - x, n.z - z) + toGoal(e); if (cost < kc) { kc = cost; k = e; } }
+      const K = NET.nodes[k];
+      if (Math.hypot(K.x - x, K.z - z) > 7) return [K.x, K.z];
+      if (k === g.e.a || k === g.e.b) return [tx, tz];
+      let bn = null, bc = Infinity;
+      for (const o of K.nb) { const cost = o.e.len + toGoal(o.n); if (cost < bc) { bc = cost; bn = NET.nodes[o.n]; } }
+      return bn ? [bn.x, bn.z] : [tx, tz];
     }
     function startPursuit(car) {
       if (car.ai) { const v = car.ai.v; releaseLock(car); car.ai = null; car.vx = Math.sin(car.h) * v; car.vz = Math.cos(car.h) * v; }

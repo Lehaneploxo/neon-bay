@@ -200,7 +200,7 @@
     const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff4d0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
     for (const s of [1, -1]) beam.add(new THREE.Mesh(new THREE.CylinderGeometry(.4, 7, 120, 16, 1, true).translate(0, 60, 0).rotateZ(s * Math.PI / 2 * .985), beamMat));
     bench(490, 20, Math.PI / 2); bench(490, -20, Math.PI / 2); talk(495, 35, 'strip'); walker(loop(478, 9, 502, 52), 'town');
-    for (let x = 391; x < 460; x += 12) parking.push({ x, z: 3.3, h: Math.PI / 2 }, { x: x + 6, z: -3.3, h: -Math.PI / 2 });
+    for (let x = 391; x < 460; x += 12) parking.push({ x, z: 4, h: Math.PI / 2 }, { x: x + 6, z: -4, h: -Math.PI / 2 });
 
     // ---- lamps along the island's streets
     for (let x = 360; x < 503; x += 16) lamps.push([x, 5.8, Math.PI, LAND], [x + 8, -5.8, 0, LAND]);
@@ -209,6 +209,11 @@
     const districtAt = (x, z) => x < IX0 - 3 ? 'Мост Неон-Бэй' : x > 476 ? 'Мыс Маяка' : z > 58 ? 'Старфиш-Хайтс' : z > 5 ? 'Старфиш-Хайтс' : z < -60 ? 'Пляж Вайс-Пойнт' : 'Вайс-Пойнт';
     return {
       spots, parking, bounds: { x0: IX0, x1: IX1, z0: IZ0, z1: IZ1 }, deckAt,
+      // the island's streets for traffic: the bridge lands on the west shore road, which runs up to the avenue;
+      // the avenue and the two cross streets with the north and south streets make a ring round Vice Point.
+      // bridge: the city junction it leaves from and the island junction it comes down at
+      roads: { lane: 1.9, nodes: [[350, BZ], [350, 0], [380, 0], [470, 0], [380, 60], [470, 60], [380, -60], [470, -60]],
+        links: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 3], [2, 6], [6, 7], [7, 3]], bridge: { city: [100, -100], island: 0 } },
       districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z - BZ) < HW + 1) return 'Мост Неон-Бэй'; return null; },
       update(t, env) { const n = env ? env.night : 0; beamMat.opacity = n * .12; beam.visible = n > .03; beam.rotation.y = t * .5; }
     };
