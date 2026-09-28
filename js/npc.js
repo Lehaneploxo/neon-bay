@@ -627,7 +627,9 @@
       const hx = player.x - p.x, hz = player.z - p.z, hd = Math.hypot(hx, hz);
       if (hd < 2.4 && hd > 1e-3 && (hx * dx + hz * dz) / hd > .2) { const w = (2.4 - hd) / 2.4; const side = (hx * dz - hz * dx) > 0 ? -1 : 1; sx += dz * side * w * 1.4; sz -= dx * side * w * 1.4; }
       let vx = dx + sx, vz = dz + sz; const vl = Math.hypot(vx, vz) || 1; vx /= vl; vz /= vl;
-      p.speed = U.damp(p.speed, p.look.speed, 4, dt);
+      const hurry = opts.rain ? opts.rain() : 0;   // caught in the rain: walk fast, some break into a run
+      p.running = hurry > .4 && p.seed % 3 < 1.2;
+      p.speed = U.damp(p.speed, p.look.speed * (1 + hurry * .5) * (p.running ? 1.8 : 1), 4, dt);
       p.x += vx * p.speed * dt; p.z += vz * p.speed * dt;
       p.blocked = 0; collide(p);
       p.y = floorAt(p.x, p.z, p.y);
@@ -770,7 +772,7 @@
       const walkers = people.filter(p => p.mode === 'graph' && !p.cop && !p.dead).length, beach = people.filter(p => (p.mode === 'beach' || p.mode === 'jog') && !p.dead).length;
       const cops = people.filter(p => p.cop && !p.dead && !p.spot).length;
       if (cops < (lim.cops || 0) && !(pol.wanted > 0)) spawnWalker(px, pz, fx, fz, first, 'cop');   // no fresh officers mid-chase: they come by car
-      const wantBeach = px > 60 ? lim.beach : 0;
+      const wantBeach = px > 60 && !(opts.rain && opts.rain() > .3) ? lim.beach : 0;
       const n = first ? 40 : 2;
       for (let k = 0; k < n; k++) {
         if (beach + k < wantBeach && chance(.5)) spawnBeach(px, pz, fx, fz, first);

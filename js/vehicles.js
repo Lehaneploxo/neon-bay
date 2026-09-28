@@ -226,7 +226,8 @@
       car.steer = U.damp(car.steer, ctl.steer * steerMax, 7, dt);
       let yaw = -vF / car.model.wheelbase * Math.tan(car.steer);
       if (ctl.handbrake) yaw *= 1.35;
-      const grip = ctl.handbrake ? 1.1 : pf.grip * (Math.abs(vR) > 6 ? .6 : 1);
+      const wet = car.driver === 'player' && opts.slip ? 1 - opts.slip() : 1;   // rain on the road
+      const grip = (ctl.handbrake ? 1.1 : pf.grip * (Math.abs(vR) > 6 ? .6 : 1)) * wet;
       vR *= Math.exp(-grip * dt);
       car.yawRate = yaw;
       car.slip = Math.abs(vR);
@@ -803,7 +804,7 @@
           for (const c of cars.slice()) {
             const d = Math.hypot(c.x - player.x, c.z - player.z);
             if (c.ai && d > 150) removeCar(c);
-            else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
+            else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && !c.autopilot && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
             else if (c.wreck && !c.visible && d > 110) removeCar(c);
           }
           const traffic = cars.filter(c => c.ai).length;
@@ -853,7 +854,8 @@
           else if (c === driving) {
             const ctl = { throttle: input.throttle, steer: input.move.x, handbrake: input.handbrake, up: input.handbrake, down: input.horn || input.sprint };
             physics(c, dt, ctl);
-          } else if (c.awake && d < 90) {
+          } else if (c.autopilot) physics(c, dt, c.autopilot(dt, c));
+          else if (c.awake && d < 90) {
             physics(c, dt, { throttle: 0, steer: 0, handbrake: true });
             if (Math.hypot(c.vx, c.vz) < .05) { c.vx = c.vz = 0; c.awake = false; }
           }
@@ -922,7 +924,7 @@
           const on = c.sirenOn, ph = Math.sin(tt * 13) > 0, bar = c.model.bar;
           c.barR.visible = !on || ph; c.barB.visible = !on || !ph;
           c.barR.material.color.setHex(on ? bar[0] : 0x441018); c.barB.material.color.setHex(on ? bar[1] : 0x202436);
-          if (on && (c.pursuit || c.goto)) sirens.push([Math.hypot(c.x - player.x, c.z - player.z), c]);
+          if (on && (c.pursuit || c.goto || c.coastGuard)) sirens.push([Math.hypot(c.x - player.x, c.z - player.z), c]);
         }
         sirens.sort((a, b) => a[0] - b[0]);
         audio.sirens(sirens.slice(0, 2).filter(s => s[0] < 110).map(s => [s[1].x, 1.4, s[1].z]));

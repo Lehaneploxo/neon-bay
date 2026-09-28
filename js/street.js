@@ -144,7 +144,9 @@
     function hit(v) { v.p.hitT = .4; v.p.puppet.anim = 'volley'; G.audio.volley([v.p.x, 1.6, v.p.z]); }
     function volleyUpdate(dt) {
       const P = G.player, near = Math.hypot(P.x - 125, P.z - NET) < 120;
-      if (V.state === 'off') { if (near && (V.cool -= dt) <= 0) startVolley(); return; }
+      const raining = G.rain && G.rain() > .3;
+      if (V.state === 'off') { if (near && !raining && (V.cool -= dt) <= 0) startVolley(); return; }
+      if (raining && V.state !== 'off') { for (const v of V.players) if (v.p) say(v.p, pick(['Дождь! Бежим!', 'Всё, доиграем потом!'])); stopVolley(); V.cool = 20; return; }
       if (!near || V.players.some(v => !v.p || !v.p.puppet || v.p.dead)) { stopVolley(); V.cool = near ? 25 : 0; return; }
       V.t += dt;
       const B = V.ball;

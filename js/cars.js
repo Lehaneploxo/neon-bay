@@ -161,6 +161,34 @@
         B(.1, .42, .1, 0, .68, .45, 'black'), B(.72, .05, .06, 0, .9, .5, 'black'),
         B(.14, .06, .05, 0, .5, 1.75, '#fff6d8'), B(.2, .06, .05, 0, .45, -1.42, '#ff2a3a')] }
   );
+  // Boats out at sea (not in the marina): a sailing yacht, a motor cruiser and the coast guard's launch
+  MODELS.push(
+    { id: 'sailboat', name: 'Sea Breeze', boat: true, draft: .5, w: 2.4, l: 7.5, r: .3, seat: [.4, .9, -2.4],
+      perf: { accel: 4, top: 9, grip: 1.2, steer: .35, brake: 3 },
+      palette: ['#f5f5f0', '#1c2a4a', '#8a1f2a'], accent: ['#f5f5f0', '#ff4fa3', '#3fe6e0', '#ffd23d'],
+      parts: () => [
+        B(2.4, .8, 5.6, 0, .4, -.8, 'body'), ...bowSteps(2.4, 1.9, 4, .8, 'body'),
+        B(2.2, .06, 6.2, 0, .82, -.4, 'seat'), B(1.4, .6, 2, 0, 1.1, -.9, 'body'), B(1.42, .2, 1.6, 0, 1.2, -.9, 'glass'),
+        B(.14, 9, .14, 0, 5.3, .6, 'chrome'), B(.1, .1, 3.2, 0, 1.6, -1, 'chrome'),
+        P(.04, 3.2, .04, .2, 7.2, 1.4, 0, 1.7, -.9, 'accent'), P(.04, 2.2, .04, .15, 6.8, -1.1, 0, 1.0, 2.1, 'white'),
+        B(.12, .07, .05, .6, .88, 2.9, '#fff6d8'), B(.12, .07, .05, -.6, .88, 2.9, '#fff6d8'), B(.3, .08, .05, 0, .7, -3.62, '#ff2a3a')] },
+    { id: 'cruiser', name: 'Ocean Queen', boat: true, draft: .7, w: 3.2, l: 11, r: .3, seat: [.6, 2.35, -1.3],
+      perf: { accel: 5, top: 16, grip: 1.1, steer: .3, brake: 4 },
+      palette: ['#f5f5f0', '#e8e2d4'], accent: ['#1c2a4a', '#8a1f2a', '#3fe6e0', '#ff4fa3'],
+      parts: () => [
+        B(3.2, 1.2, 8, 0, .6, -1.4, 'body'), ...bowSteps(3.2, 2.6, 5, 1.2, 'body'), B(3.22, .18, 8, 0, .95, -1.4, 'accent'),
+        B(2.6, 1.1, 4.8, 0, 1.75, -1.3, 'body'), B(2.62, .38, 4.2, 0, 1.85, -1.3, 'glass'),
+        B(2.2, .5, 2.4, 0, 2.55, -1.8, 'body'), B(2.0, .06, 1.8, 0, 2.82, -1.8, 'seat'), B(.1, 1.3, .1, 0, 3.4, -1.1, 'chrome'), B(.8, .08, .08, 0, 3.95, -1.1, 'chrome'),
+        B(3.0, .06, 2.4, 0, 1.22, -4.6, 'seat'),
+        B(.14, .08, .05, .9, 1.1, 4.3, '#fff6d8'), B(.14, .08, .05, -.9, 1.1, 4.3, '#fff6d8'), B(.3, .08, .05, 0, 1.1, -5.42, '#ff2a3a')] },
+    { id: 'policeboat', name: 'Coast Guard', boat: true, police: true, draft: .45, w: 2.4, l: 8.5, r: .3, seat: [.45, 1.0, -.8], barY: 1.95, barZ: -.6,
+      perf: { accel: 10, top: 33, grip: 1.4, steer: .45, brake: 6 },
+      palette: ['#1c2a4a'], accent: ['#f5f5f0'], bar: [0xff2244, 0x2266ff],
+      parts: () => [
+        B(2.4, .75, 5.8, 0, .45, -1.2, 'body'), ...bowSteps(2.4, 1.7, 4, .75, 'body'), B(2.42, .22, 5.8, 0, .7, -1.2, 'accent'),
+        B(1.8, .9, 2.2, 0, 1.25, -.6, 'accent'), B(1.82, .4, 1.8, 0, 1.4, -.6, 'glass'), B(1.9, .06, 2.4, 0, 1.72, -.6, 'body'),
+        B(.12, .07, .05, .8, .9, 2.6, '#fff6d8'), B(.12, .07, .05, -.8, .9, 2.6, '#fff6d8'), B(.3, .08, .05, 0, .7, -4.12, '#ff2a3a')] }
+  );
   // The fire engine: a red cab and body with lockers, a white band and a ladder on the roof. Never in traffic.
   MODELS.push({ id: 'firetruck', name: 'Fire Engine', fire: true, w: 2.3, l: 7.4, r: .45, seat: [.5, 1.1, 2.55], barZ: 2.6, barY: 2.42,
     perf: { accel: 6, top: 27, grip: 7, steer: .42, brake: 11 },

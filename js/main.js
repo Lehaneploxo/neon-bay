@@ -30,6 +30,7 @@
   scene.add(sun, sun.target);
   // sky, sun, moon and the colour of the light through the day; the clock starts at 19:12, one game minute per second
   const dn = NB.createDayNight(scene, hemi, sun), sky = dn.sky;
+  let fogNear0 = 70, fogFar0 = 250;   // how far you see in clear weather at this quality setting
   const START_MIN = 19 * 60 + 12, MENU_HOUR = 19.35;
 
   const world = NB.buildWorld(scene, renderer);
@@ -66,8 +67,11 @@
 
   /* ---------- cars ---------- */
   const audio = NB.createAudio();
+  // sun, clouds, fog, rain and storms
+  const weather = NB.createWeather(scene, camera, { audio, lowQuality: () => settings.quality === 'low' || isTouchDevice });   // fewer raindrops on phones
+  crowdOpts.rain = () => weather.rain;
   player.onSplash = big => audio.splash(big); player.onStroke = () => audio.stroke();
-  const vehOpts = { audio, onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); } };
+  const vehOpts = { audio, slip: () => weather.slip(), onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
   // gulls, pigeons, dogs, crabs and dolphins
   const animals = NB.createAnimals(scene, world, { crowd, vehicles, player, audio, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), onBite: d => { heroDamage(d); flashTip('Собака кусается!', 1.4); } });
@@ -83,7 +87,7 @@
         document.body.classList.remove('driving'); rig.snap(player);
       } else flashTip(car.model.heli ? 'Сначала приземлитесь' : 'Сначала остановитесь', 1.5);
     } else if (promptCar) {
-      const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto, isPolice = !!promptCar.police, isAmb = !!promptCar.ems;
+      const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto || !!promptCar.autopilot, isPolice = !!promptCar.police, isAmb = !!promptCar.ems;
       const ej = vehicles.enter(promptCar, player);
       if (ej) { if (ej.cop || isPolice) crowd.spawnCop(0, 0, 0, 0, 0, 0, ej.x, ej.z); else crowd.ejectDriver(ej.x, ej.z, ej.h); }
       if (isPolice) police.reportCrime('copcar', player.x, player.z); else if (wasDriven) police.reportCrime('carjack', player.x, player.z);
@@ -160,6 +164,9 @@
     onScream: p => audio.scream([p.x, 1.6, p.z]),
     onGroan: p => audio.groan([p.x, .4, p.z])
   });
+  const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
+    onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
+    target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
   const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s) });
   const ems = NB.createEMS(world, {
     crowd, vehicles, say: (p, t) => say(p, t),
@@ -240,7 +247,7 @@
   const wallet = { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) };
   // the spray shop and the street: food carts, buskers, surfers, volleyball
   world.spray.attach({ vehicles, police, player, audio, money: wallet, flash: (t, s) => flashTip(t, s), blink: fn => blink(fn) });
-  world.street.attach({ crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
+  world.street.attach({ rain: () => weather.rain, crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
   places.attach({
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
@@ -350,7 +357,7 @@
     if (q === 'high') { setScale(Math.min(dpr, 1.5)); setShadows(true); far = 300; }
     else if (q === 'low') { setScale(Math.min(dpr, 1) * .7); setShadows(false); far = 180; }
     else { autoMax = Math.min(dpr, 1); setScale(autoMax); setShadows(!isTouchDevice); far = 250; }
-    scene.fog.near = far * .28; scene.fog.far = far; camera.far = far + 60; camera.updateProjectionMatrix();
+    scene.fog.near = far * .28; scene.fog.far = far; fogNear0 = far * .28; fogFar0 = far; camera.far = far + 60; camera.updateProjectionMatrix();
     sky.scale.setScalar(camera.far * .9 / 480);   // keep the sky dome inside the far clipping plane
     world.setFog(scene.fog.near, scene.fog.far);
     document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
@@ -716,6 +723,7 @@
     $('hp').classList.toggle('low', player.hp <= 30);
     $('armor').hidden = progress.armor <= 0;
     const aw = Math.round(progress.armor) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
+    const wi = weather.info, wt = wi.icon + ' ' + wi.name; if ($('weather').textContent !== wt) $('weather').textContent = wt;
     const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;
     const job = places.hud || taxi.hud;
     $('job').hidden = !job;
@@ -769,6 +777,7 @@
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       fire.update(dt, player);
+      sea.update(dt);
       taxi.update(dt);
       places.update(dt);
       world.spray.update(dt); world.street.update(dt);
@@ -815,6 +824,10 @@
       camera.lookAt(70, 11, z * .7);
     }
     const env = dn.update(state === 'menu' ? MENU_HOUR : (START_MIN + time) / 60, now / 1000);
+    if (state !== 'menu') {
+      weather.update(state === 'playing' ? Math.min(raw, .05) : 0, env.hour, !places.current);
+      weather.apply(env, { sky, scene, hemi, sun, world, fogNear: fogNear0, fogFar: fogFar0 });
+    }
     // indoors the light is the building's own, whatever the time of day
     const inside = state !== 'menu' && places.current;
     if (inside && inside.light) { hemi.color.copy(inside.light.sky); hemi.groundColor.copy(inside.light.ground); hemi.intensity = inside.light.i; sun.intensity = .15; sun.color.setHex(0xffffff); }
@@ -852,7 +865,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, crowd, animals, world, fire, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { player, vehicles, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
     get state() { return state; }, get promptCar() { return promptCar; } };

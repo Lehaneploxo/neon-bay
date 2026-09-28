@@ -346,6 +346,28 @@
       for (let k = 0; k < 8; k++) noise(d, t + .4 + Math.random() * 1.2, .05, 'highpass', 2500, 1, .12);
     };
 
+    /* ---------- weather ---------- */
+    // rain: a bed of filtered noise that swells with the downpour
+    let rainV = null;
+    A.rain = function (level) {
+      if (!ok()) return;
+      if (!rainV) {
+        const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+        const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+        const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+        const g = AC.createGain(); g.gain.value = 0; s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start();
+        rainV = { g };
+      }
+      rainV.g.gain.setTargetAtTime(Math.min(1, level) * .16, AC.currentTime, .4);
+    };
+    // thunder: a crack close by, a long rolling rumble further off
+    A.thunder = function (dist) {
+      if (!ok()) return; const t = AC.currentTime, d = out(null), near = Math.max(0, 1 - dist / 300);
+      if (near > .5) noise(d, t, .25, 'highpass', 1500, .7, .35 * near);
+      noise(d, t, 3.2, 'lowpass', 180 + near * 300, .8, .55 + near * .3, 50);
+      noise(d, t + .4, 2.4, 'lowpass', 120, 1, .35, 40);
+    };
+
     /* ---------- animals ---------- */
     // a gull's "kyow-kyow": a squawk sliding down, twice or three times
     A.gull = function (pos) {

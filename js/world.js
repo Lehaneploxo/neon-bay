@@ -513,9 +513,11 @@
     /* ---------- meshes ---------- */
     const lam = (map, extra) => new THREE.MeshLambertMaterial(Object.assign({ map, vertexColors: true }, extra || {}));
     const add = (geo, mat, cast, recv) => { const m = new THREE.Mesh(geo, mat); m.castShadow = !!cast; m.receiveShadow = !!recv; m.matrixAutoUpdate = false; scene.add(m); return m; };
-    add(bAsphalt.build(), lam(asphaltTex), false, true);
-    add(bSand.build(), lam(sandTex), false, true);
-    add(bPaving.build(), lam(pavingTex), false, true);
+    // the ground materials darken when wet (weather.js)
+    const asphaltMat = lam(asphaltTex), sandMat = lam(sandTex), pavingMat = lam(pavingTex);
+    add(bAsphalt.build(), asphaltMat, false, true);
+    add(bSand.build(), sandMat, false, true);
+    add(bPaving.build(), pavingMat, false, true);
     const facadeMat = lam(facadeTex, { emissive: 0xffffff, emissiveMap: windowsTex, emissiveIntensity: 0 });
     add(bFacade.build(), facadeMat, true, true);
     add(bPlain.build(), lam(null), true, true);
@@ -576,6 +578,7 @@
     });
     lampMesh.castShadow = true; poolMesh.visible = false; scene.add(lampMesh, headMesh, poolMesh);
     const LAMP_OFF = C('#8f887e'), LAMP_ON = C('#ffe2b0');
+    let wetPools = 0;
 
     // beach umbrellas
     const poleMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(.04, .04, 2.4, 5).translate(0, 1.2, 0), new THREE.MeshLambertMaterial({ color: 0xf3efe6 }), umbrellas.length);
@@ -661,9 +664,11 @@
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);
-        poolMat.opacity = env.lamps * .5; poolMesh.visible = env.lamps > .02;
+        poolMat.opacity = env.lamps * (.5 + wetPools * .4); poolMesh.visible = env.lamps > .02;
       },
-      setFog(near, far) { seaMat.uniforms.uNear.value = near; seaMat.uniforms.uFar.value = far; }
+      setFog(near, far) { seaMat.uniforms.uNear.value = near; seaMat.uniforms.uFar.value = far; },
+      // rain: dark wet asphalt and pavements, damp sand, the lamp light pooling brighter on the wet ground
+      setWet(w) { asphaltMat.color.setScalar(1 - w * .42); pavingMat.color.setScalar(1 - w * .3); sandMat.color.setScalar(1 - w * .22); wetPools = w; }
     };
   };
 })(window.NB);
