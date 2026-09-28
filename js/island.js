@@ -134,11 +134,18 @@
     function mansion(x0, z0, x1, z1, gateSide) {
       const hex = pick(['#f6f2ec', '#f7d6e0', '#d6eef0', '#f4ead0', '#e6ddf4']), wallC = '#f2ede4';
       const gz = gateSide === 'south' ? z0 : z1, cx = (x0 + x1) / 2;
-      // perimeter wall with a gate in the middle of the street side
-      wall(x0, z0, x1, z0 + .3, 1.6, wallC === 0 ? '' : wallC); wall(x0, z1 - .3, x1, z1, 1.6, wallC);
+      // perimeter wall; on the street side it stops either side of the gate (the gate itself stays shut)
+      const gateWall = (za, zb) => { bPlain.box(x0, LAND, za, cx - 3, LAND + 1.6, zb, C(wallC)); bPlain.box(cx + 3, LAND, za, x1, LAND + 1.6, zb, C(wallC)); col.add(x0, 0, za, x1, LAND + 1.6, zb); };
+      if (gateSide === 'south') { gateWall(z0, z0 + .3); wall(x0, z1 - .3, x1, z1, 1.6, wallC); } else { wall(x0, z0, x1, z0 + .3, 1.6, wallC); gateWall(z1 - .3, z1); }
       wall(x0, z0, x0 + .3, z1, 1.6, wallC); wall(x1 - .3, z0, x1, z1, 1.6, wallC);
-      // carve the gate out of the street-side wall by covering it with drive paving (the wall collider stays for the posts)
-      bPlain.box(cx - 3, LAND + .01, gz - (gateSide === 'south' ? 0 : .3), cx + 3, LAND + 1.61, gz + (gateSide === 'south' ? .3 : 0), C('#1a1a22'));
+      // wrought-iron gates: black bars with gold tips, a rail top and bottom, so you can see the garden through them
+      const gz0 = gz - (gateSide === 'south' ? 0 : .3), gz1 = gz + (gateSide === 'south' ? .3 : 0);
+      bPlain.box(cx - 3, LAND + .05, gz0 + .12, cx + 3, LAND + .15, gz1 - .12, C('#1a1a22'));
+      bPlain.box(cx - 3, LAND + 1.55, gz0 + .12, cx + 3, LAND + 1.65, gz1 - .12, C('#1a1a22'));
+      for (let bx = cx - 2.85; bx < cx + 2.9; bx += .3) {
+        bPlain.box(bx - .03, LAND + .05, gz0 + .13, bx + .03, LAND + 1.85, gz1 - .13, C('#1a1a22'));
+        bPlain.box(bx - .05, LAND + 1.85, gz0 + .11, bx + .05, LAND + 1.95, gz1 - .11, C('#e8c547'));
+      }
       for (const s of [-1, 1]) { bPlain.box(cx + s * 3 - .3, LAND, gz - .3, cx + s * 3 + .3, LAND + 2.2, gz + .3, C(wallC)); bNeon.box(cx + s * 3 - .2, LAND + 2.2, gz - .2, cx + s * 3 + .2, LAND + 2.45, gz + .2, C('#ffd84f')); }
       grass(x0 + .3, z0 + .3, x1 - .3, z1 - .3);
       const hd = (z1 - z0) * .38, hw = (x1 - x0) * .6, hz = gateSide === 'south' ? z1 - 3 - hd : z0 + 3;
