@@ -175,7 +175,7 @@
     }
     // downtown buildings that become places you can walk into
     const SPECIAL = { '1,1,0': ['bank', 'BANK', '#4fd1ff'], '2,1,0': ['casino', 'CASINO', '#ffd84f'], '1,2,1': ['arcade', 'ARCADE', '#c28bff'], '2,2,1': ['diner', 'DINER', '#ff4fa3'] };
-    // NEOLOXO TOWER: a two-storey lobby podium and a stepped glass tower of three tiers, neon on every corner,
+    // NEPLOXO TOWER: a two-storey lobby podium and a stepped glass tower of three tiers, neon on every corner,
     // the name near the top on all four sides; the top tier's roof (pool, helipad) is built in places.js
     function buildTower(x0, z0, x1, z1, alongZ) {
       const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, face = alongZ ? '-x' : '-z', GLASS = '#b8cce6', ROOF = 150;
@@ -197,7 +197,7 @@
       // the name, lit, near the top on all four faces and over the entrance
       const nameTex = U.canvasTex(512, 128, (g, w, h) => {
         g.fillStyle = '#10081c'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ff4fa3'; g.lineWidth = 6; g.shadowColor = '#ff4fa3'; g.shadowBlur = 14; g.strokeRect(8, 8, w - 16, h - 16);
-        g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'italic bold 62px "Trebuchet MS", Arial, sans-serif'; g.fillStyle = '#ffe3f0'; g.fillText('NEOLOXO', w / 2, h / 2 - 12);
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'italic bold 62px "Trebuchet MS", Arial, sans-serif'; g.fillStyle = '#ffe3f0'; g.fillText('NEPLOXO', w / 2, h / 2 - 12);
         g.shadowColor = '#3fe6e0'; g.fillStyle = '#3fe6e0'; g.font = 'bold 30px Rubik, Arial, sans-serif'; g.fillText('T O W E R', w / 2, h / 2 + 34);
       }, false);
       const nameMat = new THREE.MeshBasicMaterial({ map: nameTex });
@@ -304,7 +304,7 @@
         const halves = splitX ? [[lx0, lz0, (lx0 + lx1) / 2 - 1.5, lz1], [(lx0 + lx1) / 2 + 1.5, lz0, lx1, lz1]]
                               : [[lx0, lz0, lx1, (lz0 + lz1) / 2 - 1.5], [lx0, (lz0 + lz1) / 2 + 1.5, lx1, lz1]];
         for (const [hi, [x0, z0, x1, z1]] of halves.entries()) {
-          // NEOLOXO TOWER takes the half of this block nearest the city centre (built into the void first, as with the club)
+          // NEPLOXO TOWER takes the half of this block nearest the city centre (built into the void first, as with the club)
           const tower = i === 2 && j === 2 && hi === 0, unmuteT = tower ? mute() : null;
           const sp = SPECIAL[i + ',' + j + ',' + hi];
           const hex = pick(COOL), h1 = rr(18, 32), h2 = h1 + rr(8, 22);

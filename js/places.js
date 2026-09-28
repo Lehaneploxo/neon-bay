@@ -494,12 +494,12 @@
       K.picture('+x', -8.83, 3.05, 6.5, 1.6, .35, T.sign('ВЕРТОЛЁТ ↑', null, '#6bffd0', '#10201c'));
     }
     /* ---------------------------------------------------------------
-       NEOLOXO TOWER: a black-and-gold lobby with a lift to the roof; up top a pool, sunbeds,
+       NEPLOXO TOWER: a black-and-gold lobby with a lift to the roof; up top a pool, sunbeds,
        a glass railing, a spire with a red light, and a helipad with a helicopter
        --------------------------------------------------------------- */
     let towerPad = null;
     if (towerRoof && doors.tower) {
-      const pl = interior('tower', 'NEOLOXO TOWER', doors.tower, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-10, -6, 10, 12], light: lit('#fff0e6', '#4a3a4a', .95), music: 'lounge' });
+      const pl = interior('tower', 'NEPLOXO TOWER', doors.tower, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-10, -6, 10, 12], light: lit('#fff0e6', '#4a3a4a', .95), music: 'lounge' });
       K.at(pl.ox, pl.oz);
       K.room(-10, -6, 10, 12, 7, { wall: '#1c1622', ceil: '#120e18', trim: '#c9a04a', neon: '#ff4fa3', gaps: { '-z': [{ c: 0, w: 2.2, h: 3.2 }] } });
       K.floor(-10, -6, 10, 12, T.marble, 2.5);
@@ -507,11 +507,11 @@
       K.box(-4, 0, 5.2, 4, 1.15, 6.1, '#101014', true); K.box(-4.05, 1.15, 5.15, 4.05, 1.22, 6.15, '#c9a04a'); K.neon(-4, .3, 5.14, 4, .36, 5.2, '#ff4fa3', false);
       spots.push(K.spot({ kind: 'idle', x: -1.5, z: 6.9, heading: Math.PI, type: 'business_f' }), K.spot({ kind: 'guard', x: 2.5, z: 6.9, heading: Math.PI, type: 'security' }));
       for (const x of [-4.5, 0, 4.5]) { K.box(x - 1, 0, 11.85, x + 1, 3, 11.99, '#c9a04a'); K.box(x - .02, 0, 11.83, x + .02, 3, 11.86, '#7a6a3a'); K.neon(x - 1.1, 3, 11.8, x + 1.1, 3.1, 11.9, '#3fe6e0'); }
-      K.picture('-z', 0, 4.8, 11.83, 8, 2, T.sign('NEOLOXO TOWER', '150 метров над Neon Bay', '#ff4fa3', '#10081c'));
+      K.picture('-z', 0, 4.8, 11.83, 8, 2, T.sign('NEPLOXO TOWER', '150 метров над Neon Bay', '#ff4fa3', '#10081c'));
       for (const [x0, x1, h] of [[-9.8, -9, Math.PI / 2], [9, 9.8, -Math.PI / 2]]) { K.box(x0, 0, -3, x1, .6, 2, '#2a2230', true); for (let z = -2.4; z < 2; z += 1.2) if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x: (x0 + x1) / 2, z, y: .66, heading: h, mix: 'downtown' })); }
       const lobbyLift = pl.P(0, 10.6);
       towerPad = { lobbyLift };
-      pl.attach = () => { pl.interactions = [{ ...lobbyLift, r: 2.2, short: 'ЛИФТ', label: () => 'Лифт на крышу — 150 м', use: () => G.teleport(towerPad.roofX, towerPad.roofZ, towerPad.roofH, null, 'Крыша NEOLOXO TOWER', towerRoof.y) }]; };
+      pl.attach = () => { pl.interactions = [{ ...lobbyLift, r: 2.2, short: 'ЛИФТ', label: () => 'Лифт на крышу — 150 м', use: () => G.teleport(towerPad.roofX, towerPad.roofZ, towerPad.roofH, null, 'Крыша NEPLOXO TOWER', towerRoof.y) }]; };
 
       // the roof: local axes u along the tower's length, v across it
       K.at(0, 0);
@@ -1062,7 +1062,7 @@
       { id: 'jetski', x: 146, z: 49.2, h: Math.PI / 2 }, { id: 'jetski', x: 149.5, z: 49.2, h: Math.PI / 2 },
       { id: 'speedboat', x: 156, z: 49.85, h: Math.PI / 2 }, { id: 'speedboat', x: 153, z: 42.15, h: Math.PI / 2 }] };
     if (heliPad) marina.slots.push({ id: 'heli', x: heliPad.x, z: heliPad.z, h: Math.PI / 2 });   // the helicopter comes back to its pad the same way
-    if (towerPad && towerPad.heli) marina.slots.push({ id: 'heli', ...towerPad.heli });   // and one on top of NEOLOXO TOWER
+    if (towerPad && towerPad.heli) marina.slots.push({ id: 'heli', ...towerPad.heli });   // and one on top of NEPLOXO TOWER
     {
       K.at(0, 0);
       const TEAK = '#a8743c', PILE = '#5a3a1e', Z0 = 44, Z1 = 48, DY = 1.0;
