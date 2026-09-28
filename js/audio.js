@@ -267,6 +267,30 @@
       }
       if (alarm) alarm.g.gain.setTargetAtTime(on ? .05 : 0, AC.currentTime, .05);
     };
+    // helicopter: the whop-whop of the blades (filtered noise chopped by a pulse) over a turbine whine
+    let rotorV = null;
+    A.rotor = function (level, pitch) {
+      if (!ok()) return;
+      const t = AC.currentTime;
+      if (!rotorV && level > .01) {
+        const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+        const bp = AC.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 420; bp.Q.value = 1.2;
+        const chop = AC.createGain(), lfo = AC.createOscillator(), depth = AC.createGain();
+        lfo.type = 'sawtooth'; lfo.frequency.value = 5; depth.gain.value = .5; chop.gain.value = .55;
+        lfo.connect(depth); depth.connect(chop.gain);
+        const out = AC.createGain(); out.gain.value = 0;
+        src.connect(bp); bp.connect(chop); chop.connect(out);
+        const whine = AC.createOscillator(), wf = AC.createBiquadFilter(), wg = AC.createGain();
+        whine.type = 'sawtooth'; whine.frequency.value = 180; wf.type = 'bandpass'; wf.frequency.value = 900; wf.Q.value = 3; wg.gain.value = .12;
+        whine.connect(wf); wf.connect(wg); wg.connect(out);
+        out.connect(master); src.start(); lfo.start(); whine.start();
+        rotorV = { out, lfo, whine };
+      }
+      if (!rotorV) return;
+      rotorV.out.gain.setTargetAtTime(Math.min(1, level) * .55, t, .15);
+      rotorV.lfo.frequency.setTargetAtTime(2 + level * 9 * pitch, t, .2);
+      rotorV.whine.frequency.setTargetAtTime(90 + level * 380 * pitch, t, .25);
+    };
     // water: a splash when jumping in, a soft swish for each swimming stroke
     A.splash = function (big) {
       if (!ok()) return; const t = AC.currentTime, d = out(null);

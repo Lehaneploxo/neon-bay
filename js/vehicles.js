@@ -61,7 +61,15 @@
       });
       car.beam = new THREE.Mesh(beamGeo, beamMat); car.beam.position.set(0, .07, model.l / 2 - .1); car.beam.visible = false; car.root.add(car.beam);
       car.root.rotation.y = h;
-      car.y = model.boat ? .05 - model.draft : floorAt(x, z, 1);
+      car.y = model.boat ? .05 - model.draft : model.heli ? floorAt(x, z, 999) : floorAt(x, z, 1);
+      if (model.heli) {   // main rotor (two long blades) and tail rotor, spun in update()
+        const bm = new THREE.MeshLambertMaterial({ color: 0x2a2a30 });
+        car.rotor = new THREE.Group(); car.rotor.position.set(0, 2.72, 0);
+        for (const a of [0, Math.PI / 2]) { const bl = new THREE.Mesh(new THREE.BoxGeometry(10.5, .05, .32), bm); bl.rotation.y = a; car.rotor.add(bl); }
+        car.tailRotor = new THREE.Group(); car.tailRotor.position.set(.14, 2.0, -5.45);
+        for (const a of [0, Math.PI / 2]) { const bl = new THREE.Mesh(new THREE.BoxGeometry(.04, 1.5, .14), bm); bl.rotation.x = a; car.tailRotor.add(bl); }
+        car.body.add(car.rotor, car.tailRotor); car.spool = 0; car.vy = 0;
+      }
       car.root.position.set(x, car.y, z);
       if (model.bar) {
         car.police = !!model.police; car.ems = !!model.ems; car.sirenOn = false;
@@ -168,8 +176,35 @@
     }
 
     /* ---------- driving physics (hero's car and loose cars) ---------- */
+    /* ---------- helicopter: spool up, hover, fly, land on anything ---------- */
+    // the ground under a helicopter: roofs, the road, or the water surface
+    const heliGround = car => { const f = floorAt(car.x, car.z, car.y + .3), W = NB.water.at(car.x, car.z); return W ? Math.max(f, W.surface() + .1) : f; };
+    function heliPhysics(car, dt, ctl) {
+      const pf = car.model.perf, piloted = car.driver === 'player';
+      car.spool = U.damp(car.spool, piloted ? 1 : 0, piloted ? .9 : .5, dt);
+      const lift = car.spool > .75, ground = heliGround(car), air = car.y > ground + .25;
+      // vertical: holds its height by itself, climbs or sinks on request, drops when the rotor stops
+      const vyT = !lift ? (air ? -9 : 0) : ctl.up ? 7 : ctl.down ? -6 : 0;
+      car.vy = U.damp(car.vy, vyT, 2.2, dt); car.y += car.vy * dt;
+      if (car.y < ground) { if (car.vy < -6) impact(car, -car.vy * 1.5, car.x, car.z, 0, 1); car.y = ground; car.vy = 0; }
+      if (car.y > 140) { car.y = 140; car.vy = Math.min(0, car.vy); }
+      // horizontal: flies forward and back, turns on the spot, slides a little
+      const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
+      let vF = car.vx * fx + car.vz * fz, vR = car.vx * rx + car.vz * rz;
+      if (air && lift) { vF += (ctl.throttle * pf.accel - vF * .28) * dt; vR *= Math.exp(-1.2 * dt); }
+      else { vF *= Math.exp(-5 * dt); vR *= Math.exp(-5 * dt); }
+      vF = U.clamp(vF, -8, pf.top);
+      const yaw = lift && (air || Math.abs(ctl.steer) > .1) ? -ctl.steer * pf.steer : 0;
+      car.yawRate = U.damp(car.yawRate || 0, yaw, 4, dt); car.h += car.yawRate * dt;
+      car.vx = fx * vF + rx * vR; car.vz = fz * vF + rz * vR;
+      car.x += car.vx * dt; car.z += car.vz * dt;
+      car.accel = (vF - (car.lastVF || 0)) / Math.max(dt, 1e-3); car.lastVF = vF;
+      collideStatic(car);
+    }
+
     function physics(car, dt, ctl) {
       if (car.model.boat) return boatPhysics(car, dt, ctl);
+      if (car.model.heli) return heliPhysics(car, dt, ctl);
       const pf = car.model.perf;
       // deep water floods the engine: no power, heavy drag, and the car is written off
       const W = NB.water.at(car.x, car.z);
@@ -224,7 +259,7 @@
         const a = cars[i], b = cars[j];
         const reach = (a.model.l + b.model.l) / 2;
         if (Math.abs(a.x - b.x) > reach || Math.abs(a.z - b.z) > reach) continue;
-        if (a.ghostT > 0 || b.ghostT > 0) continue;
+        if (a.ghostT > 0 || b.ghostT > 0 || Math.abs(a.y - b.y) > 2) continue;   // a helicopter overhead doesn't touch the cars below
         const aMove = !a.ai && (a.awake || a.driver === 'player'), bMove = !b.ai && (b.awake || b.driver === 'player');
         if (!aMove && !bMove) continue;
         for (const ca of circles(a)) for (const cb of circles(b)) {
@@ -300,7 +335,7 @@
         if (a <= 0 || a > look + car.model.l / 2) return;
         if (Math.abs(dx * rx + dz * rz) < 1.1 + halfW) { if (a < best) { best = a; isHero = hero; } }
       };
-      if (!skipCars) for (const o of cars) if (o !== car) test(o.x, o.z, o.model.w / 2, o.driver === 'player');
+      if (!skipCars) for (const o of cars) if (o !== car && Math.abs(o.y - car.y) < 2) test(o.x, o.z, o.model.w / 2, o.driver === 'player');
       for (const p of people) if (!p.spot || p.spot.kind === 'talk') test(p.x, p.z, .3, false);
       if (!player.inCar) test(player.x, player.z, .35, true);
       return [best - car.model.l / 2, isHero];
@@ -499,6 +534,16 @@
         const car = driving; if (!car) return false;
         if (!force && Math.abs(speedOf(car)) > 4) return false;
         const [rx, rz] = right(car);
+        if (car.model.heli) {
+          // only once it's down; step out onto whatever it landed on
+          if (car.y > heliGround(car) + .6) return false;
+          let bx = 0, bz = 0, by = -Infinity;
+          for (const side of [-1, 1]) { const x = car.x + rx * side * (car.model.w / 2 + .9), z = car.z + rz * side * (car.model.w / 2 + .9), f = player.floorAt(x, z, car.y + .6); if (f > by) { by = f; bx = x; bz = z; } }
+          player.place(bx, bz, car.h); player.y = by;
+          car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
+          audio.door(); if (audio.rotor) audio.rotor(0, 1);
+          return true;
+        }
         if (car.model.boat) {
           // step off onto the pier or the yacht platform if there is one alongside, otherwise into the water
           let best = null, bf = -Infinity;
@@ -526,7 +571,7 @@
       dangers() {
         const out = [];
         for (const c of cars) {
-          const v = Math.hypot(c.vx, c.vz); if (v < 2.2) continue;
+          const v = Math.hypot(c.vx, c.vz); if (v < 2.2 || c.y > 3) continue;
           const [fx, fz] = [c.vx / v, c.vz / v];
           out.push({ x: c.x, z: c.z, fx, fz, hl: c.model.l / 2, hw: c.model.w / 2, speed: v, player: c.driver === 'player' });
         }
@@ -569,7 +614,7 @@
           else if (c.pursuit) pursuitStep(c, dt, ctx.target || player);
           else if (c.goto && c !== driving) gotoStep(c, dt);
           else if (c === driving) {
-            const ctl = { throttle: input.throttle, steer: input.move.x, handbrake: input.handbrake };
+            const ctl = { throttle: input.throttle, steer: input.move.x, handbrake: input.handbrake, up: input.handbrake, down: input.horn || input.sprint };
             physics(c, dt, ctl);
           } else if (c.awake && d < 90) {
             physics(c, dt, { throttle: 0, steer: 0, handbrake: true });
@@ -578,6 +623,18 @@
           c.beam.visible = night > .05 && !!c.driver && c.visible;
           // ride height over kerbs, body lean, wheels
           if (!c.visible) continue;
+          if (c.model.heli) {
+            // blades turning, nose down in forward flight, banking into turns; ripples on the water beneath
+            if (c !== driving) heliPhysics(c, dt, { throttle: 0, steer: 0 });
+            const vH = speedOf(c);
+            c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
+            c.body.rotation.x = U.damp(c.body.rotation.x, U.clamp(vH * .011 + (c.accel || 0) * .01, -.25, .32), 3, dt);
+            c.body.rotation.z = U.damp(c.body.rotation.z, U.clamp(-(c.yawRate || 0) * vH * .02, -.35, .35), 3, dt);
+            c.rotor.rotation.y += c.spool * dt * 28; c.tailRotor.rotation.x += c.spool * dt * 45;
+            const W = NB.water.at(c.x, c.z);
+            if (W && c.spool > .5 && c.y - W.surface() < 9 && d < 90) { c.wakeT = (c.wakeT || 0) - dt; if (c.wakeT <= 0) { c.wakeT = .18; wake(c.x + (Math.random() - .5) * 3, c.z + (Math.random() - .5) * 3, 3.5 * (1 - (c.y - W.surface()) / 12), Math.random() * 6); } }
+            continue;
+          }
           if (c.model.boat) {
             // bob on the swell, lift the bow with speed, lean into turns, leave a wake
             const tt = performance.now() / 1000, vB = speedOf(c), wave = Math.sin(tt * 1.7 + c.x * .3 + c.z * .2);
@@ -629,7 +686,8 @@
         sirens.sort((a, b) => a[0] - b[0]);
         audio.sirens(sirens.slice(0, 2).filter(s => s[0] < 110).map(s => [s[1].x, 1.4, s[1].z]));
         // sound for the hero's car
-        if (driving && !driving.flooded) {
+        if (driving && driving.model.heli) { if (audio.rotor) audio.rotor(driving.spool, 1 + Math.abs(speedOf(driving)) / 60 + Math.max(0, driving.vy) * .02); }
+        else if (driving && !driving.flooded) {
           const v = Math.abs(speedOf(driving)), top = driving.model.perf.top;
           const gears = [0, .22, .42, .62, .82, 1.01], rel = v / top;
           let g = 1; while (g < gears.length - 1 && rel > gears[g]) g++;
@@ -678,7 +736,9 @@
         if (color) car.color = color; if (accent) car.accent = accent; paint(car);
         return car;
       },
-      speedKmh() { return driving ? Math.abs(speedOf(driving)) * 3.6 : 0; }
+      speedKmh() { return driving ? Math.abs(speedOf(driving)) * 3.6 : 0; },
+      // height above whatever is beneath the helicopter being flown
+      heliAlt() { return driving && driving.model.heli ? Math.max(0, driving.y - heliGround(driving)) : null; }
     };
     return api;
   };

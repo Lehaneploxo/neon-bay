@@ -439,7 +439,7 @@
     }
 
     /* ---------- places you can go into: interiors, the villa, the tiki bar, the hotel roof ---------- */
-    const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, reserved: RESERVED, palms, mapShapes });
+    const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, hospital, reserved: RESERVED, palms, mapShapes });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);

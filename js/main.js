@@ -76,7 +76,7 @@
       if (vehicles.exit(player)) {
         player.inCar = false; player.m.root.visible = true; player.blob.visible = true;
         document.body.classList.remove('driving'); rig.snap(player);
-      } else flashTip('Сначала остановитесь', 1.5);
+      } else flashTip(car.model.heli ? 'Сначала приземлитесь' : 'Сначала остановитесь', 1.5);
     } else if (promptCar) {
       const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto, isPolice = !!promptCar.police, isAmb = !!promptCar.ems;
       const ej = vehicles.enter(promptCar, player);
@@ -86,6 +86,8 @@
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
       document.body.classList.add('driving');
       showDistrict(promptCar.model.name);
+      if (promptCar.model.heli) flashTip(input.touch ? 'ВПЕРЁД / НАЗАД, джойстик — поворот, ВВЕРХ / ВНИЗ — высота. Лопасти раскручиваются…'
+        : 'W / S — вперёд и назад · A / D — поворот · Пробел — вверх · Shift — вниз. Лопасти раскручиваются…', 5);
       $('carName').textContent = promptCar.model.name;
     }
   }
@@ -442,7 +444,7 @@
   applySound();
 
   /* ---------- HUD ---------- */
-  let tipTimer = 0;
+  let tipTimer = 0, hudHeli = false;
   function flashTip(text, sec) { $('tip').textContent = text; $('tip').classList.add('on'); clearTimeout(tipTimer); tipTimer = setTimeout(() => $('tip').classList.remove('on'), sec * 1000); }
   let district = '', districtT = 0, hudT = 0;
   function showDistrict(name) { district = name; $('district').textContent = name; $('district').classList.add('on'); districtT = 3.2; }
@@ -556,6 +558,7 @@
     add(142, 46, '#3fe6e0', '#10202a', '⚓', 'Причал: катера');
     add(173, -25, '#f6f2ec', '#1c2a4a', 'Я', 'Яхта LEHA NEPLOXO');
     add(510, 0, '#e02a3a', '#fff', '▲', 'Маяк');
+    if (places.heliPad) add(places.heliPad.x + 7, places.heliPad.z - 7, '#6bffd0', '#10201c', 'В', 'Вертолёт (лифт в больнице)');
     return out;
   }
   function bmFit() {
@@ -646,7 +649,19 @@
     if (hudT > .4) { hudT = 0; const d = world.districtAt(player.x, player.z); if (d !== district) showDistrict(d); }
     if (districtT > 0) { districtT -= dt; if (districtT <= 0) $('district').classList.remove('on'); }
     const drv = vehicles.driving;
-    if (drv) { const kmh = String(Math.round(vehicles.speedKmh())); if ($('speedNum').textContent !== kmh) $('speedNum').textContent = kmh; }
+    if (drv) {
+      const kmh = String(Math.round(vehicles.speedKmh())); if ($('speedNum').textContent !== kmh) $('speedNum').textContent = kmh;
+      // in the helicopter: altitude next to the name
+      const alt = vehicles.heliAlt(), nm = alt == null ? drv.model.name : drv.model.name + ' · ' + Math.round(alt) + ' м';
+      if ($('carName').textContent !== nm) $('carName').textContent = nm;
+    }
+    // touch buttons read as flight controls in the helicopter
+    const heli = !!(drv && drv.model.heli);
+    if (heli !== hudHeli) {
+      hudHeli = heli;
+      const L = heli ? ['ВПЕРЁД', 'НАЗАД', 'ВВЕРХ', 'ВНИЗ'] : ['ГАЗ', 'ТОРМОЗ', 'РУЧНИК', 'БИП'];
+      ['btnGas', 'btnBrake', 'btnHand', 'btnHorn'].forEach((id, i) => { $(id).textContent = L[i]; });
+    }
     const promptText = input.touch || drv ? '' : interact ? 'F — ' + interact.label : promptCar ? 'F — сесть в ' + promptCar.model.name : '';
     if ($('prompt').textContent !== promptText) $('prompt').textContent = promptText;
     $('prompt').hidden = !promptText;
@@ -716,7 +731,7 @@
       promptCar = drv || player.dead || respawnT > 0 ? null : vehicles.nearest(player);
       if (drv) {
         const vF = drv.vx * Math.sin(drv.h) + drv.vz * Math.cos(drv.h);
-        Object.assign(carCam, { x: drv.x, y: drv.y, z: drv.z, heading: drv.h, speed: vF, camDist: 5.2 + drv.model.l * .45 + Math.abs(vF) * .05 });
+        Object.assign(carCam, { x: drv.x, y: drv.y, z: drv.z, heading: drv.h, speed: vF, camDist: drv.model.heli ? 11 + Math.abs(vF) * .08 : 5.2 + drv.model.l * .45 + Math.abs(vF) * .05, camH: drv.model.heli ? 2.6 : 1.7 });
         rig.update(dt, carCam);
       } else rig.update(dt, player);
       if (drunkT > 0) { drunkT -= dt; const k = Math.min(1, drunkT / 8); camera.position.x += Math.sin(time * 1.1) * .25 * k; camera.position.y += Math.sin(time * .8) * .12 * k; camera.rotateZ(Math.sin(time * .7) * .07 * k); }   // a few drinks: the world sways

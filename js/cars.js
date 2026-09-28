@@ -161,6 +161,20 @@
         B(.1, .42, .1, 0, .68, .45, 'black'), B(.72, .05, .06, 0, .9, .5, 'black'),
         B(.14, .06, .05, 0, .5, 1.75, '#fff6d8'), B(.2, .06, .05, 0, .45, -1.42, '#ff2a3a')] }
   );
+  // A light helicopter. The main and tail rotors are separate meshes added in vehicles.js so they can spin.
+  MODELS.push({ id: 'heli', name: 'Neon Hawk', heli: true, w: 1.8, l: 7, r: .3, seat: [.35, .95, .9],
+    perf: { accel: 7, top: 30, grip: 1, steer: 1.4, brake: 6 },
+    palette: ['#f5f5f0', '#141418', '#2a6fe8', '#ff4fa3'], accent: ['#ff4fa3', '#3fe6e0', '#ffd23d'],
+    parts: () => [
+      B(1.6, 1.3, 3.0, 0, 1.25, .1, 'body'), B(1.62, .16, 3.0, 0, 1.0, .1, 'accent'),
+      P(1.55, 1.3, 1.1, .5, 1.0, .35, 0, .6, 1.95, 'glass'), B(1.3, .5, .9, 0, .85, 2.0, 'body'),
+      B(1.05, .45, 1.7, 0, 2.1, -.25, 'body'), B(.14, .4, .14, 0, 2.5, 0, 'black'),
+      B(.36, .36, 4.2, 0, 1.55, -3.5, 'body'), B(.38, .08, 4.2, 0, 1.45, -3.5, 'accent'),
+      B(.08, 1.1, .75, 0, 2.05, -5.35, 'accent'), B(1.2, .06, .4, 0, 1.6, -5.2, 'body'),
+      B(.08, .08, 3.2, .78, .08, .1, 'chrome'), B(.08, .08, 3.2, -.78, .08, .1, 'chrome'),
+      B(.06, .55, .06, .72, .38, .9, 'chrome'), B(.06, .55, .06, -.72, .38, .9, 'chrome'), B(.06, .55, .06, .72, .38, -.8, 'chrome'), B(.06, .55, .06, -.72, .38, -.8, 'chrome'),
+      B(.5, .3, .05, 0, 1.55, 1.62, 'interior'),
+      B(.14, .1, .05, .5, .75, 2.46, '#fff6d8'), B(.14, .1, .05, -.5, .75, 2.46, '#fff6d8'), B(.12, .12, .12, 0, 2.62, -5.72, '#ff2a3a')] });
   function sedan() {
     return [
       B(1.85, .62, 4.8, 0, .51, 0, 'body'),
@@ -186,7 +200,7 @@
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.computeBoundingSphere();
     model.geo = g; model.ranges = ranges;
-    if (model.boat) { model.wheels = []; model.wheelbase = model.l * .55; return; }
+    if (model.boat || model.heli) { model.wheels = []; model.wheelbase = model.l * .55; return; }
     // wheel: tyre plus hub cap, axis along x
     const tyre = new THREE.CylinderGeometry(model.r, model.r, .26, 14).rotateZ(Math.PI / 2);
     const hub = new THREE.CylinderGeometry(model.r * .55, model.r * .55, .28, 10).rotateZ(Math.PI / 2);

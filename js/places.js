@@ -206,7 +206,7 @@
      places
      ===================================================================== */
   NB.buildPlaces = function (ctx) {
-    const { scene, col, C, doors, hotelRoof, palms, mapShapes } = ctx;
+    const { scene, col, C, doors, hotelRoof, hospital, palms, mapShapes } = ctx;
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
@@ -487,7 +487,23 @@
             { name: 'Бронежилет', desc: 'Со склада больницы, дешевле, чем в магазине', price: 150, disabled: G.getArmor() >= 100 ? 'Уже надет' : '', buy: () => { G.setArmor(100); return 'Бронежилет надет'; } },
             { name: 'Сдать кровь', desc: '−25 здоровья, +$25. Раз в 5 минут', price: -25, disabled: Date.now() - bloodT < 300000 ? 'Приходите позже' : G.player.hp <= 30 ? 'Слишком мало здоровья' : '', buy: () => { bloodT = Date.now(); G.player.hp -= 25; return 'Спасибо, вы спасли жизнь!'; } }
           ] }) }];
+        if (heliPad) pl.interactions.push({ ...pl.P(-8.1, 6.5), r: 1.4, short: 'ЛИФТ', label: () => 'Лифт на крышу — вертолёт', use: () => G.teleport(heliPad.liftX, heliPad.z, Math.PI / 2, null, 'Крыша больницы', heliPad.y) });
       };
+      // the lift up to the helipad, on the west wall
+      K.box(-8.99, 0, 5.6, -8.86, 2.6, 7.4, '#b8bcc8'); K.box(-8.87, 0, 6.48, -8.84, 2.6, 6.52, '#7a7e8a'); K.neon(-8.9, 2.6, 5.5, -8.84, 2.7, 7.5, '#6bffd0');
+      K.picture('+x', -8.83, 3.05, 6.5, 1.6, .35, T.sign('ВЕРТОЛЁТ ↑', null, '#6bffd0', '#10201c'));
+    }
+    // the helipad on the hospital roof: a lift hut to come up and go down, and the helicopter itself
+    let heliPad = null;
+    if (hospital) {
+      K.at(0, 0);
+      const y = 13.7, x = hospital.cx, z = hospital.cz;
+      K.box(x - 10.3, y, z - 1.2, x - 8.1, y + 2.7, z + 1.2, '#f4f6f8', true); K.box(x - 8.1, y, z - .6, x - 8.05, y + 2.3, z + .6, '#b8bcc8');
+      K.neon(x - 8.08, y + 2.3, z - .7, x - 8.02, y + 2.4, z + .7, '#6bffd0');
+      for (const [a, b] of [[-4.3, -4.2], [4.2, 4.3]]) { K.neon(x - 4.3, y + .06, z + a, x + 4.3, y + .1, z + b, '#ffd84f', false); K.neon(x + a, y + .06, z - 4.3, x + b, y + .1, z + 4.3, '#ffd84f', false); }
+      heliPad = { x: x + .8, z, y, liftX: x - 7.4 };
+      const hosp = places.find(p => p.id === 'hospital'), down = hosp.P(-7.4, 6.5);
+      outdoor.push({ x: x - 7.6, z, y, r: 1.4, short: 'ЛИФТ', label: () => 'Лифт вниз', use: () => G.teleport(down.x, down.z, Math.PI / 2, hosp, hosp.name) });
     }
 
     /* ---------------------------------------------------------------
@@ -972,6 +988,7 @@
     const marina = { slots: [
       { id: 'jetski', x: 146, z: 49.2, h: Math.PI / 2 }, { id: 'jetski', x: 149.5, z: 49.2, h: Math.PI / 2 },
       { id: 'speedboat', x: 156, z: 49.85, h: Math.PI / 2 }, { id: 'speedboat', x: 153, z: 42.15, h: Math.PI / 2 }] };
+    if (heliPad) marina.slots.push({ id: 'heli', x: heliPad.x, z: heliPad.z, h: Math.PI / 2 });   // the helicopter comes back to its pad the same way
     {
       K.at(0, 0);
       const TEAK = '#a8743c', PILE = '#5a3a1e', Z0 = 44, Z1 = 48, DY = 1.0;
@@ -1002,7 +1019,7 @@
        ===================================================================== */
     for (const pl of places) if (!pl.update) pl.update = () => {};
     const api = {
-      list: places, spots, VILLA_PRICE, garage, tiki,
+      list: places, spots, VILLA_PRICE, garage, tiki, heliPad,
       current: null,
       byId: id => places.find(p => p.id === id),
       // which interior a point is in
