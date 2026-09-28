@@ -27,7 +27,26 @@
     sport: { name: 'Спортивный костюм', tex: () => U.canvasTex(128, 128, (g, s) => { g.fillStyle = '#1a1a22'; g.fillRect(0, 0, s, s); g.fillStyle = '#3fe6e0'; g.fillRect(0, s * .3, s, 10); g.fillStyle = '#ff4fa3'; g.fillRect(0, s * .3 + 12, s, 6); g.fillStyle = '#ffffff'; g.fillRect(s * .48, 0, 4, s); }, true, 4), pants: 0x1a1a22 },
     cop: { name: 'Полицейская форма', tex: () => U.canvasTex(128, 128, (g, s) => { g.fillStyle = '#23407a'; g.fillRect(0, 0, s, s); g.fillStyle = '#e8c547'; g.beginPath(); g.moveTo(34, 30); g.lineTo(44, 36); g.lineTo(40, 48); g.lineTo(28, 48); g.lineTo(24, 36); g.closePath(); g.fill(); g.fillStyle = '#1a2f5a'; g.fillRect(s * .49, 0, 3, s); for (let y = 12; y < s; y += 22) { g.fillStyle = '#d9d9e2'; g.beginPath(); g.arc(s * .5 + 7, y, 3, 0, 7); g.fill(); } }, true, 4), pants: 0x18223c, cap: true }
   };
+  // the rest are sold at Neon Fashion in the city (price in dollars); a jacket over a shirt is a band down the middle
+  const T = draw => () => U.canvasTex(128, 128, draw, true, 4);
+  const jacket = (coat, shirt, extra) => T((g, s) => { g.fillStyle = coat; g.fillRect(0, 0, s, s); g.fillStyle = shirt; g.fillRect(s * .38, 0, s * .24, s); if (extra) extra(g, s); });
+  Object.assign(OUTFITS, {
+    tank: { name: 'Белая майка', price: 60, tex: T((g, s) => { g.fillStyle = '#f5f5f0'; g.fillRect(0, 0, s, s); }), pants: 0x2b3d6b },
+    mechanic: { name: 'Комбинезон механика', price: 120, tex: T((g, s) => { g.fillStyle = '#c86a1e'; g.fillRect(0, 0, s, s); g.fillStyle = '#9a4f14'; g.fillRect(s * .47, 0, 4, s); g.fillStyle = '#f5f5f0'; g.fillRect(s * .2, s * .25, 16, 8); }), pants: 0xc86a1e },
+    tommy: { name: 'Синяя гавайка, как у Томми', price: 150, tex: () => flowerShirt('#2a6fe8', '#1a4fb0', ['#ffffff', '#ffd23d']), pants: 0x3b5a8a },
+    denim: { name: 'Джинсовая рубашка', price: 180, tex: T((g, s) => { g.fillStyle = '#4a6fa0'; g.fillRect(0, 0, s, s); for (let y = 8; y < s; y += 18) { g.fillStyle = '#e8e2d4'; g.fillRect(s * .5 - 2, y, 4, 4); } g.fillStyle = '#3a5a88'; g.fillRect(s * .25, s * .2, 20, 14); g.fillRect(s * .6, s * .2, 20, 14); }), pants: 0x2a2a30 },
+    golf: { name: 'Поло для гольфа', price: 300, tex: T((g, s) => { g.fillStyle = '#ffd6e4'; g.fillRect(0, 0, s, s); g.fillStyle = '#f5f5f0'; g.fillRect(0, 0, s, 10); g.fillStyle = '#3fb3c7'; g.fillRect(s * .2, s * .3, 10, 10); }), pants: 0xf5f0e6 },
+    camo: { name: 'Камуфляж', price: 350, tex: T((g, s) => { g.fillStyle = '#5a6a3a'; g.fillRect(0, 0, s, s); for (let k = 0; k < 40; k++) { g.fillStyle = ['#3a4a2a', '#7a7a4a', '#2a2a1e'][k % 3]; g.beginPath(); g.ellipse(Math.random() * s, Math.random() * s, U.rand(6, 14), U.rand(4, 9), Math.random() * 3, 0, 7); g.fill(); } }), pants: 0x4a5a3a },
+    leather: { name: 'Кожаная куртка', price: 400, tex: jacket('#1a1a1e', '#f5f5f0', (g, s) => { g.fillStyle = '#3a3a40'; g.fillRect(s * .36, 0, 3, s); g.fillRect(s * .62, 0, 3, s); }), pants: 0x2b3d6b },
+    tiger: { name: 'Тигровая рубашка', price: 500, tex: T((g, s) => { g.fillStyle = '#ff8a1e'; g.fillRect(0, 0, s, s); g.strokeStyle = '#141418'; g.lineWidth = 5; for (let k = 0; k < 14; k++) { const x = Math.random() * s; g.beginPath(); g.moveTo(x, Math.random() * s); g.quadraticCurveTo(x + 10, Math.random() * s, x + U.rand(-8, 8), Math.random() * s); g.stroke(); } }), pants: 0x141418 },
+    neon: { name: 'Неоновая ветровка', price: 600, tex: T((g, s) => { g.fillStyle = '#9b5cff'; g.fillRect(0, 0, s, s * .4); g.fillStyle = '#ff4fa3'; g.fillRect(0, s * .4, s, s * .3); g.fillStyle = '#3fe6e0'; g.fillRect(0, s * .7, s, s * .3); g.fillStyle = '#f5f5f0'; g.fillRect(s * .49, 0, 3, s); }), pants: 0x141418 },
+    miami: { name: 'Пастельный пиджак, как в «Полиции Майами»', price: 900, tex: jacket('#a9d8f5', '#ff9fc3'), pants: 0xf5f0e6 },
+    tuxedo: { name: 'Смокинг', price: 1200, tex: jacket('#141418', '#f5f5f0', (g, s) => { g.fillStyle = '#141418'; g.fillRect(s * .42, 6, s * .16, 7); for (let y = 24; y < s; y += 16) g.fillRect(s * .5 - 2, y, 4, 4); }), pants: 0x141418 },
+    redsuit: { name: 'Красный костюм', price: 1500, tex: jacket('#b0203a', '#141418', (g, s) => { g.fillStyle = '#8a1f2a'; g.fillRect(s * .33, 0, 3, s); g.fillRect(s * .64, 0, 3, s); }), pants: 0x8a1f2a },
+    gold: { name: 'Золотой пиджак', price: 2500, tex: jacket('#c9a227', '#141418', (g, s) => { for (let k = 0; k < 160; k++) { g.fillStyle = Math.random() < .5 ? '#fff3b0' : '#8a6a14'; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); } }), pants: 0x141418 }
+  });
   NB.OUTFITS = OUTFITS;
+  NB.STARTER_OUTFITS = ['hawaii', 'vice', 'pink', 'sport'];
 
   function makeHero() {
     const L = c => new THREE.MeshLambertMaterial(c);

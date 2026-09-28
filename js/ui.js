@@ -49,10 +49,19 @@
       render();
     }
     function wardrobe() {
-      menu({ eyebrow: 'Вилла', title: 'Гардероб', items: () => Object.keys(NB.OUTFITS).filter(k => k !== 'cop').map(k => ({
+      menu({ eyebrow: 'Вилла', title: 'Гардероб', items: () => Object.keys(NB.OUTFITS).filter(k => k !== 'cop' && o.progress.owned.includes(k)).map(k => ({
         name: NB.OUTFITS[k].name, desc: '', price: 0, label: 'Надеть', current: o.progress.outfit === k,
         disabled: o.progress.outfit === k ? 'Надето' : '', buy: () => { o.setOutfit(k); return 'Отлично выглядите!'; }
       })) });
+    }
+
+    function clothes() {
+      menu({ eyebrow: 'Магазин одежды', title: 'Neon Fashion', items: () => Object.keys(NB.OUTFITS).filter(k => k !== 'cop')
+        .sort((a, b) => (NB.OUTFITS[a].price || 0) - (NB.OUTFITS[b].price || 0)).map(k => {
+          const it = NB.OUTFITS[k], own = o.progress.owned.includes(k), on = o.progress.outfit === k;
+          return { name: it.name, desc: own ? 'Уже ваша' : '', price: own ? 0 : it.price || 0, label: own ? 'Надеть' : 'Купить и надеть', current: on, disabled: on ? 'Надето' : '',
+            buy: () => { if (!own) o.progress.owned.push(k); o.setOutfit(k); return own ? 'Переоделись' : 'Отличный выбор! Теперь это ваше'; } };
+        }) });
     }
 
     /* ---------- casino: slot machine ---------- */
@@ -252,6 +261,6 @@
       rg.fillText('ОЧКИ ' + (R.score || 0), 12, 12); rg.textAlign = 'right'; rg.fillText('РЕКОРД ' + (o.progress.records.racer || 0), W - 12, 12);
     }
 
-    return { menu, wardrobe, slots, roulette, racer, close, get open() { return open; } };
+    return { menu, wardrobe, clothes, slots, roulette, racer, close, get open() { return open; } };
   };
 })(window.NB);

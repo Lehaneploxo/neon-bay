@@ -205,6 +205,39 @@
       out.push(B(.3, .3, .3, 0, 2.7, -3.9, 'chrome'), ...lights(2.3, 7.4, .95, 1.05, .82));
       return out;
     } });
+  // Two expensive ones: a boxy German off-roader and a long, low four-door sports saloon
+  MODELS.push(
+    { id: 'gwagon', name: 'Gelendwagen', w: 2.0, l: 4.8, r: .42, seat: [.42, .78, -.25],
+      perf: { accel: 8.5, top: 36, grip: 8.5, steer: .48, brake: 14 },
+      palette: ['#141418', '#f5f5f0', '#5a6a4a', '#8a8f98', '#1c2a4a', '#6a1e2a'], accent: ['#141418'],
+      parts: () => [
+        B(1.98, .8, 4.62, 0, .74, 0, 'body'),
+        B(1.9, .78, 2.95, 0, 1.52, -.4, 'body'), B(1.93, .44, 2.75, 0, 1.55, -.4, 'glass'), B(1.72, .5, .05, 0, 1.55, 1.08, 'glass'),
+        B(1.92, .06, 3.0, 0, 1.93, -.4, 'body'), B(1.4, .05, .7, 0, 1.97, -1.2, 'black'),
+        B(1.9, .05, 1.35, 0, 1.15, 1.6, 'body'),
+        B(1.2, .38, .04, 0, .86, 2.32, 'grille'), B(1.2, .04, .05, 0, .98, 2.34, 'chrome'), B(1.2, .04, .05, 0, .82, 2.34, 'chrome'),
+        B(.27, .27, .05, .72, .92, 2.33, '#fff6d8'), B(.27, .27, .05, -.72, .92, 2.33, '#fff6d8'),
+        B(.18, .08, .16, .86, 1.2, 2.05, '#ffb52e'), B(.18, .08, .16, -.86, 1.2, 2.05, '#ffb52e'),
+        B(.15, .42, .05, .88, .98, -2.33, '#ff2a3a'), B(.15, .42, .05, -.88, .98, -2.33, '#ff2a3a'),
+        B(2.02, .24, .22, 0, .44, 2.38, 'black'), B(2.02, .24, .22, 0, .44, -2.38, 'black'),
+        B(.8, .8, .26, 0, 1.05, -2.47, 'black'), B(.4, .4, .28, 0, 1.05, -2.47, 'chrome'),
+        B(.12, .08, 2.5, 1.04, .44, 0, 'black'), B(.12, .08, 2.5, -1.04, .44, 0, 'black'),
+        B(.1, .24, 1.1, 1.0, .64, 1.55, 'black'), B(.1, .24, 1.1, -1.0, .64, 1.55, 'black'), B(.1, .24, 1.1, 1.0, .64, -1.55, 'black'), B(.1, .24, 1.1, -1.0, .64, -1.55, 'black'),
+        B(.1, .16, .24, 1.03, 1.45, .9, 'black'), B(.1, .16, .24, -1.03, 1.45, .9, 'black')] },
+    { id: 'panamo', name: 'Porta Panamo', w: 1.96, l: 5.0, r: .36, seat: [.4, .2, -.35],
+      perf: { accel: 12.5, top: 45, grip: 9.5, steer: .54, brake: 17 },
+      palette: ['#1a1a1e', '#f5f5f0', '#8a8f98', '#2a6fe8', '#8a1f2a', '#3b5a3a', '#c9a227'], accent: ['#141418'],
+      parts: () => [
+        P(1.96, 5.0, 1.9, 4.8, .5, 0, 0, .22, 0, 'body'),
+        P(1.86, 1.7, 1.76, 1.5, .1, -.1, 0, .72, 1.6, 'body'),
+        P(1.78, 3.0, 1.28, 1.2, .55, -.4, 0, .72, -.45, 'glass'), B(1.26, .04, 1.2, 0, 1.285, -.85, 'body'),
+        P(1.86, 1.5, 1.6, 1.0, .12, -.15, 0, .72, -1.85, 'body'), B(1.5, .04, .32, 0, .9, -2.3, 'accent'),
+        B(1.7, .07, .05, 0, .66, -2.51, '#ff2a3a'), B(.42, .1, .05, .62, .6, 2.51, '#fff6d8'), B(.42, .1, .05, -.62, .6, 2.51, '#fff6d8'),
+        B(1.4, .2, .04, 0, .38, 2.5, 'black'), B(.5, .15, .04, .72, .33, 2.49, 'black'), B(.5, .15, .04, -.72, .33, 2.49, 'black'),
+        B(.06, .12, 3.2, .99, .3, 0, 'black'), B(.06, .12, 3.2, -.99, .3, 0, 'black'),
+        B(.5, .12, .04, .45, .3, -2.5, 'chrome'), B(.5, .12, .04, -.45, .3, -2.5, 'chrome'),
+        B(.1, .12, .22, 1.0, .95, .75, 'body'), B(.1, .12, .22, -1.0, .95, .75, 'body')] }
+  );
   // A light helicopter. The main and tail rotors are separate meshes added in vehicles.js so they can spin.
   MODELS.push({ id: 'heli', name: 'Neon Hawk', heli: true, w: 1.8, l: 7, r: .3, seat: [.35, .95, .9],
     perf: { accel: 7, top: 30, grip: 1, steer: 1.4, brake: 6 },
@@ -265,5 +298,5 @@
   NB.CAR_FIXED = FIXED;
   NB.driverGeo = driverGeo;
   // Traffic mix: common cars often, exotic ones rarely.
-  NB.CAR_WEIGHTS = { zefiro: .06, meridian: .2, cab: .12, maldiva: .1, hayride: .1, beachcomber: .1, corsaro: .1, piccolo: .14, outbacker: .06, royale: .02 };
+  NB.CAR_WEIGHTS = { zefiro: .06, meridian: .16, cab: .1, maldiva: .1, hayride: .1, beachcomber: .1, corsaro: .1, piccolo: .12, outbacker: .06, royale: .02, gwagon: .04, panamo: .04 };
 })(window.NB);

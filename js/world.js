@@ -11,7 +11,7 @@
   const EMB = 112;                         // the embankment's sea edge on the west, north and south
   // the whole playable world: past these walls there's only open ocean
   const WORLD = { x0: -240, x1: 650, z0: -470, z1: 260 };
-  const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK', 'SUNSET', 'CORAL', 'BREEZE', 'LAGUNA', 'MARLIN', 'TROPIC', 'RIVIERA', 'PARADISE', 'LIQUOR', 'PAWN', 'LAUNDRY', 'GARAGE'];
+  const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK', 'SUNSET', 'CORAL', 'BREEZE', 'LAGUNA', 'MARLIN', 'TROPIC', 'RIVIERA', 'PARADISE', 'LIQUOR', 'PAWN', 'LAUNDRY', 'GARAGE', 'FASHION'];
   const NEON = ['#ff4fa3', '#3fe6e0', '#ffd84f', '#8cff6b', '#c28bff', '#ff8a3d'];
   const PASTEL = ['#f7b5c9', '#aee8d3', '#f7e7a1', '#cdb8f0', '#ffc9a8', '#a9d8f5', '#f3efe6', '#ffd6e4', '#c6f0e8'];
   const COOL = ['#d9d4cc', '#b9c7d8', '#c7b8a8', '#8fb0cf', '#e4dccf', '#a7b7c4'];
@@ -72,7 +72,7 @@
       g.fillStyle = '#ecd29a'; g.fillRect(0, 0, s, s);
       U.speckle(g, s, s, 7000, ['#d6b87c', '#f7e4b8', '#c9a86c'], .2, .6, 1, 2);
     }, true, aniso);
-    const signTex = U.canvasTex(512, 512, (g) => {
+    const signTex = U.canvasTex(512, 576, (g) => {
       SIGN_WORDS.forEach((w, k) => {
         const x = (k % 4) * 128, y = ((k / 4) | 0) * 64, c = NEON[k % NEON.length];
         g.fillStyle = '#1b1030'; roundRect(g, x + 4, y + 4, 120, 56, 9); g.fill();
@@ -89,7 +89,7 @@
       g.beginPath(); g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r); g.lineTo(x + w, y + h - r);
       g.quadraticCurveTo(x + w, y + h, x + w - r, y + h); g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r); g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath();
     }
-    const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 8 + .005, (c + 1) / 4 - .004, 1 - r / 8 - .005]; };
+    const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 9 + .004, (c + 1) / 4 - .004, 1 - r / 9 - .004]; };
 
     /* ---------- builders ---------- */
     let bFacade = new GeoBuilder(), bPlain = new GeoBuilder(), bNeon = new GeoBuilder(), bGlow = new GeoBuilder(), bSign = new GeoBuilder();
@@ -108,6 +108,7 @@
     let hotelN = 0;
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
+    let fashion = null;
     let station = null, hospital = null, gunShop = null, hotelRoof = null, towerRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
     const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -107, z1: -89 }, NB.STREET_RESERVED];
@@ -339,11 +340,13 @@
           const f = faceToward(b, cx, cz);
           // the gun shop takes one of these buildings; the seeded random calls stay the same so the city doesn't change
           const isGun = i === 2 && j === 3 && ix === 1 && iz === 0;
+          const isFashion = i === 1 && j === 3 && ix === 1 && iz === 0;   // Neon Fashion, the clothes shop
           awning(f, b, pick(['#ff7eb6', '#4fd1c5', '#ffcf5c', '#b388ff', '#ff9966']), 5.5);
           const word = (R() * 16) | 0;
-          sign(f, b, 3.45, 4.95, 1.5, isGun ? 'AMMO' : word);
+          sign(f, b, 3.45, 4.95, 1.5, isGun ? 'AMMO' : isFashion ? 'FASHION' : word);
           if (R() < .35) neonRing(b.x0, b.z0, b.x1, b.z1, h - .3, pick(NEON));
           if (isGun) gunShopFront(f, b, h);
+          if (isFashion) { neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff4fa3'); const d = frontDoor('fashion', f, b, 0, '#ff7eb6'); fashion = { x: d.x, z: d.z, cx: d.cx, cz: d.cz }; mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#ff9fc3', k: 'b' }); }
           rooftop(b);
         }
       } else if (t === 'park') {
@@ -669,7 +672,7 @@
     }
 
     return {
-      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, north, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, club, places, island, north, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {

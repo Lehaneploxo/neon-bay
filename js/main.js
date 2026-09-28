@@ -114,18 +114,22 @@
     targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
 
   /* ---------- money, armour and the saved game ---------- */
-  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0 };
+  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0, owned: null };
   try { Object.assign(progress, JSON.parse(localStorage.getItem('nb_save') || '{}')); } catch (e) {}
   progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, 100);
   if (!progress.records || typeof progress.records !== 'object') progress.records = {};
   if (!Array.isArray(progress.garage)) progress.garage = [];
+  // outfits you own: the starter ones, plus whatever was bought at Neon Fashion
+  if (!Array.isArray(progress.owned)) progress.owned = NB.STARTER_OUTFITS.slice();
+  progress.owned = progress.owned.filter(k => NB.OUTFITS[k]);
+  if (!progress.owned.includes(progress.outfit) && progress.outfit !== 'cop') progress.owned.push(progress.outfit);
   combat.load(progress.inv);
   player.setOutfit(progress.outfit);
   let saveT = 0;
   function saveProgress() {
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage } = progress;
-    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, time: Math.round(time) })); } catch (e) {}
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, owned } = progress;
+    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, owned, time: Math.round(time) })); } catch (e) {}
     saveT = 0;
   }
   // cars standing in the villa garage are kept between visits
@@ -260,13 +264,15 @@
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     openShop: () => { if (shop.canServe()) openShop(); }
   });
+  // Neon Fashion, the clothes shop
+  const fashionDoor = world.fashion ? [{ x: world.fashion.x, z: world.fashion.z, r: 2, short: 'ОДЕЖДА', label: () => 'Магазин одежды Neon Fashion', use: () => ui.clothes() }] : [];
   // the nearest thing to use (F / the action button), if any
   let interact = null;
   function findInteraction() {
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player));
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor);
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -581,6 +587,7 @@
     }
     icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
+    if (world.fashion) icon(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
@@ -608,6 +615,7 @@
     for (const [id, bg, ch, label] of [['bank', '#1a8a5a', '$', 'Банк'], ['casino', '#c9a04a', '♦', 'Казино'], ['arcade', '#8a5ad8', '★', 'Игровые автоматы'], ['diner', '#e0286a', 'D', 'Закусочная'], ['hotel', '#2fa8a0', 'H', 'Отель OCEAN']]) { const p = P(id); if (p && p.door) add(p.door.cx, p.door.cz, bg, '#fff', ch, label); }
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
+    if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Магазин одежды Neon Fashion');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');

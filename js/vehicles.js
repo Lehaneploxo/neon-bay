@@ -482,6 +482,11 @@
     if (world.hospital) for (const [x, z, h] of world.hospital.parking) makeCar(byId.ambulance, x, z, h);
     if (world.island) for (const p of world.island.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // cars parked on Palm Island
     if (world.north) for (const p of world.north.parking) { const c = makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h); c.damage = Math.random() * 80; paint(c); }   // old bangers on the North Side
+    // a Gelendwagen at the kerb outside the villa, a Porta Panamo outside Hotel OCEAN (whatever was parked there moves off)
+    for (const [id, x, z, h] of [['gwagon', 104.9, 88, Math.PI], ['panamo', 95.1, -27, 0]]) {
+      for (const c of cars.slice()) if (Math.hypot(c.x - x, c.z - z) < 5) removeCar(c);
+      makeCar(byId[id], x, z, h);
+    }
     for (const c of cars) c.parked = true;
 
     /* ---------- police pursuit ---------- */
