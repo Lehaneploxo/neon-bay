@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], tower: [1900, 1500] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], tower: [1900, 1500], airport: [2000, 1512] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -784,6 +784,164 @@
           .concat(slots.map(s => ({ ...pl.P(s.x, s.z), r: .95, short: 'СЛОТЫ', label: () => 'Игровой автомат', use: () => G.ui.slots() })));
       };
       pl.render = (t) => { wheel.rotation.y = t * .8; };
+    }
+
+    /* ---------------------------------------------------------------
+       8b. NEON BAY INTERNATIONAL: the airport terminal on Bayview. A tall hall: check-in desks with
+       queues and luggage belts, departure boards that keep changing, security with metal detectors,
+       a Duty Free shop, a café, and the gates with rows of seats in front of a window onto the runway
+       --------------------------------------------------------------- */
+    if (doors.airport) {
+      const pl = interior('airport', 'Аэропорт Neon Bay International', doors.airport, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-30, -6, 30, 34], light: lit('#f6f8fc', '#8a8a96', 1.05), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      const H = 8;
+      K.room(-30, -6, 30, 34, H, { wall: '#e8e6e0', ceil: '#dde2ea', trim: '#8a8a96', neon: '#3fe6e0', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-30, -6, 30, 24, T.marble, 2.5);
+      const blueCarpet = K.tex(64, 64, (g, s) => { g.fillStyle = '#2a4a7a'; g.fillRect(0, 0, s, s); U.speckle(g, s, s, 700, ['#24406c', '#335a8e'], .3, .6, 1, 2); });
+      K.floor(-30, 24, 30, 34, blueCarpet, 1.5);
+      // tall glass on the front wall, strip lights under the roof, white columns
+      for (const [a, b] of [[-29, -2], [2, 29]]) { K.box(a, .6, -5.8, b, 6.8, -5.75, '#a8c8dc'); for (let x = a; x <= b; x += 3) K.box(x - .06, .6, -5.82, x + .06, 6.8, -5.7, '#d0d4dc'); }
+      for (const z of [-1, 7, 15, 23, 31]) K.neon(-27, H - .45, z, 27, H - .4, z + .35, '#f4f8ff', false);
+      for (const x of [-15, 15]) for (const z of [3, 19]) K.box(x - .45, 0, z - .45, x + .45, H, z + .45, '#f5f5f0', true);
+      // hanging direction signs over the main corridor
+      K.box(-4, 5.2, 1.4, 4, 6.2, 1.6, '#1c2a4a'); K.picture('-z', 0, 5.7, 1.38, 7.6, .9, T.sign('К САМОЛЁТАМ →', 'GATES · DUTY FREE · CAFÉ', '#ffd84f', '#1c2a4a'));
+      K.picture('+z', 0, 5.7, 1.62, 7.6, .9, T.sign('← В ГОРОД', 'EXIT · TAXI', '#3fe6e0', '#1c2a4a'));
+
+      /* --- departure boards: flights, gates and times; the statuses move on every so often --- */
+      const CITIES = ['МАЙАМИ', 'НЬЮ-ЙОРК', 'ГАВАНА', 'ЛОС-АНДЖЕЛЕС', 'РИО', 'ЧИКАГО', 'НАССАУ', 'МЕХИКО', 'ЛАС-ВЕГАС', 'КАНКУН', 'БОСТОН', 'САН-ХУАН'];
+      const STATUS = [['ПО ГРАФИКУ', '#8cff6b'], ['РЕГИСТРАЦИЯ', '#3fe6e0'], ['ПОСАДКА', '#ffd84f'], ['ВЫЛЕТЕЛ', '#b0b0c0'], ['ЗАДЕРЖАН', '#ff4f5a']];
+      const flights = CITIES.slice(0, 8).map((c, i) => ({ city: c, code: ['NB', 'PA', 'EA', 'VX'][i % 4] + ' ' + (100 + i * 37 % 900), gate: 1 + i % 3, min: 13 * 60 + 20 + i * 35, st: i % 3 }));
+      const boards = [];
+      const drawBoard = (g, w, h, title) => {
+        g.fillStyle = '#0c0e16'; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#ffd84f'; g.font = 'bold 34px Rubik, Arial, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+        g.fillText(title, 24, 30); g.fillStyle = '#8a8fa8'; g.font = '600 20px Rubik, Arial, sans-serif';
+        g.fillText('ВРЕМЯ', 24, 70); g.fillText('НАПРАВЛЕНИЕ', 150, 70); g.fillText('РЕЙС', 520, 70); g.fillText('ВЫХОД', 660, 70); g.fillText('СТАТУС', 780, 70);
+        flights.forEach((f, i) => {
+          const y = 104 + i * 27; g.fillStyle = i % 2 ? '#141826' : '#10131e'; g.fillRect(16, y - 13, w - 32, 26);
+          g.font = 'bold 22px "Courier New", monospace'; g.fillStyle = '#f5e8c8';
+          g.fillText(String((f.min / 60 | 0) % 24).padStart(2, '0') + ':' + String(f.min % 60).padStart(2, '0'), 24, y);
+          g.fillText(f.city, 150, y); g.fillText(f.code, 520, y); g.fillText(String(f.gate), 690, y);
+          g.fillStyle = STATUS[f.st][1]; g.fillText(STATUS[f.st][0], 780, y);
+        });
+      };
+      const board = (face, cx, cy, cz, w, hh) => { const t = K.tex(1024, 320, (g, W, Hh) => drawBoard(g, W, Hh, 'ВЫЛЕТ · DEPARTURES'), false); K.picture(face, cx, cy, cz, w, hh, t); boards.push(t); };
+      function tickBoards() {
+        for (const f of flights) { f.st++; if (f.st > 3) { f.st = Math.random() < .2 ? 4 : 0; f.min += 8 * 60 + ((Math.random() * 12) | 0) * 5; f.city = CITIES[(Math.random() * CITIES.length) | 0]; } }
+        flights.sort((a, b) => a.min - b.min);
+        for (const t of boards) { const g = t.image.getContext('2d'); drawBoard(g, t.image.width, t.image.height, 'ВЫЛЕТ · DEPARTURES'); t.needsUpdate = true; }
+      }
+
+      /* --- check-in: four airline desks with agents, belts, queues, airline boards behind --- */
+      K.box(-28.5, 0, 11.6, -8.5, 3.4, 11.95, '#1c2a4a', true);
+      K.neon(-28.5, 3.4, 11.55, -8.5, 3.48, 11.6, '#ff4fa3', false);
+      const AIR = [['NEON AIR', '#ff4fa3'], ['PAN ATLANTIC', '#3fe6e0'], ['EASTWIND', '#ffd84f'], ['VICE EXPRESS', '#8cff6b']];
+      [-25, -20.5, -16, -11.5].forEach((x, i) => {
+        K.box(x - 1.6, 0, 9, x + 1.6, 1.05, 9.8, '#f5f5f0', true); K.box(x - 1.65, 1.05, 8.95, x + 1.65, 1.12, 9.85, '#8a8a96');
+        K.box(x - 1.6, .25, 8.96, x + 1.6, .34, 9.0, AIR[i][1]);
+        K.box(x + 1.7, 0, 9, x + 2.5, .55, 11.4, '#3a3a42', true); K.box(x + 1.75, .55, 9.05, x + 2.45, .58, 11.35, '#1a1a1e');   // the luggage belt
+        K.picture('-z', x, 2.3, 11.55, 3.6, .9, T.sign(AIR[i][0], 'стойка регистрации ' + (i + 1), AIR[i][1], '#101828'));
+        spots.push(K.spot({ kind: 'idle', x, z: 10.5, heading: Math.PI, type: i % 2 ? 'business_m' : 'business_f', home: true }));
+        // a queue between ribbon posts
+        for (const px of [x - 1.1, x + 1.1]) for (let z = 3.6; z <= 7.6; z += 2) { K.box(px - .05, 0, z - .05, px + .05, .95, z + .05, '#c8c8d0'); }
+        for (const px of [x - 1.1, x + 1.1]) K.box(px - .02, .85, 3.6, px + .02, .92, 7.6, '#2a4a8a');
+        for (let z = 7.8, n = 0; z > 3.4 && n < 4; z -= 1.1, n++) if (Math.random() < .7) spots.push(K.spot({ kind: 'idle', x: x + (Math.random() - .5) * .3, z, heading: 0, mix: 'town', home: true }));
+      });
+      board('-z', -18.5, 5.6, 11.52, 14, 4.3);
+      K.box(-28.5, 0, -2, -26.5, .9, 1, '#8a6a4a', true); K.box(-28.45, .9, -1.9, -26.55, 1.5, .9, '#6a4a3a');   // a stack of luggage by the wall
+      // seats by the entrance for people waiting to be picked up
+      for (let x = 8; x < 26; x += 1) { K.box(x, 0, 2.2, x + .8, .45, 3, '#2a4a7a'); K.box(x, .45, 2.95, x + .8, 1, 3.05, '#2a4a7a'); if (Math.random() < .3) spots.push(K.spot({ kind: 'sit', x: x + .4, z: 2.6, y: .5, heading: Math.PI, mix: 'town', home: true })); }
+      K.solid(8, 0, 2.2, 26, .5, 3.05);
+      board('-z', 17, 5.6, 11.52, 14, 4.3); K.box(9, 3.2, 11.6, 25, 7.8, 11.95, '#1c2a4a', true);
+
+      /* --- security: glass partitions, two metal detector arches with scanners, officers --- */
+      for (const [a, b] of [[-29.8, -5.2], [5.2, 29.8]]) { K.box(a, 0, 12.9, b, 2.2, 13.1, '#a8c8dc', true); K.box(a, 2.2, 12.85, b, 2.3, 13.15, '#8a8a96'); }
+      for (const x of [-2, 2]) {
+        for (const s of [-1, 1]) K.box(x + s * .8 - .1, 0, 12.8, x + s * .8 + .1, 2.3, 13.2, '#d0d4dc', true);
+        K.box(x - .9, 2.3, 12.8, x + .9, 2.55, 13.2, '#d0d4dc'); K.neon(x - .6, 2.32, 12.78, x + .6, 2.4, 12.8, '#8cff6b', false);
+        const bx = x + (x < 0 ? -1.9 : 1.9);
+        K.box(bx - .45, 0, 11, bx + .45, .85, 15, '#5a5a64', true); K.box(bx - .5, .85, 12.5, bx + .5, 1.6, 13.5, '#8a8a96');   // the X-ray belt
+        K.screen(x < 0 ? '+z' : '+z', bx, 1.4, 13.52, .7, .45, 3);
+        spots.push(K.spot({ kind: 'guard', x: x + (x < 0 ? -1 : 1) * 1.5, z: 14.1, heading: Math.PI, mix: 'guard', home: true }));
+      }
+      K.box(-5.2, 0, 12.9, -2.9, 1, 13.1, '#a8c8dc', true); K.box(2.9, 0, 12.9, 5.2, 1, 13.1, '#a8c8dc', true);
+
+      /* --- Duty Free: shelves of bottles, perfume counters, a cashier --- */
+      K.floor(8, 16, 29.8, 25.5, T.darkTile, 1.2, .006);
+      K.box(8, 5.2, 15.6, 29.8, 6.3, 15.9, '#141018'); K.picture('-z', 19, 5.75, 15.58, 9, 1.05, T.sign('DUTY FREE', 'духи · виски · сигары · сувениры', '#ff4fa3', '#141018'));
+      const BOT = ['#ffd84f', '#3fe6e0', '#ff4fa3', '#8cff6b', '#f5e8c8', '#c28bff', '#ff8a3d'];
+      const shelf = (x0, z0, x1, z1, alongX) => {
+        K.box(x0, 0, z0, x1, 2.2, z1, '#3a2a30', true);
+        for (let lv = 0; lv < 3; lv++) for (let s = (alongX ? x0 : z0) + .25; s < (alongX ? x1 : z1) - .2; s += .32) {
+          const y = .55 + lv * .6, c = BOT[(Math.random() * BOT.length) | 0];
+          if (alongX) K.neon(s, y, z0 - .12, s + .16, y + .32, z0 - .02, c, false); else K.neon(x0 - .12, y, s, x0 - .02, y + .32, s + .16, c, false);
+        }
+      };
+      shelf(28.8, 17, 29.6, 25, false); shelf(10, 25, 28, 25.6, true);
+      for (const x of [13, 19, 25]) { K.box(x - 1.2, 0, 19.2, x + 1.2, .95, 20.4, '#f5f5f0', true); K.box(x - 1.15, .95, 19.25, x + 1.15, 1.35, 20.35, '#bfe0f0'); for (let k = 0; k < 5; k++) K.neon(x - 1 + k * .45, .98, 19.6, x - .8 + k * .45, 1.2, 19.9, BOT[(k + x) % BOT.length], false); K.neon(x - 1.2, .2, 19.18, x + 1.2, .26, 19.22, '#ff4fa3', false); }
+      K.box(9, 0, 22.5, 12.5, 1.05, 23.4, '#141018', true); K.neon(9, 1.05, 22.45, 12.5, 1.1, 23.45, '#ff4fa3', false);
+      spots.push(K.spot({ kind: 'idle', x: 10.7, z: 24, heading: Math.PI, type: 'business_f', home: true }));
+      spots.push(K.spot({ kind: 'walk', x: 12, z: 17.2, heading: 0, mix: 'town', patrol: [[12, 17.3], [26, 17.3], [26, 21.8], [15, 21.8]] }));
+      spots.push(K.spot({ kind: 'walk', x: 24, z: 21.6, heading: 0, mix: 'town', patrol: [[26.5, 21.7], [16, 21.7], [16, 17.4], [26.5, 17.4]] }));
+
+      /* --- the café: a counter, a coffee machine, tables --- */
+      K.box(-29.6, 0, 16.5, -28.2, 1.05, 24.5, '#8a5a3a', true); K.box(-29.65, 1.05, 16.45, -28.15, 1.12, 24.55, '#f5f0e6');
+      K.box(-29.8, 1.12, 18, -29.3, 1.8, 19, '#3a3a42'); K.neon(-29.3, 1.5, 18.2, -29.28, 1.6, 18.8, '#ff4f5a', false);
+      K.picture('+x', -29.78, 3.4, 20.5, 6, 1.1, T.sign('CAFÉ AEROPORT', 'кофе · сэндвичи · пончики', '#ffd84f', '#2a1810'));
+      spots.push(K.spot({ kind: 'idle', x: -29.05, z: 21, heading: Math.PI / 2, type: 'waitress', home: true }));
+      for (const x of [-24, -19.5]) for (const z of [18.5, 22.5]) {
+        K.box(x - .5, 0, z - .5, x + .5, .78, z + .5, '#f5f5f0', true);
+        for (const s of [-1, 1]) { K.box(x + s * .95 - .25, 0, z - .25, x + s * .95 + .25, .48, z + .25, '#8a5a3a', true); if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: x + s * .95, z, y: .52, heading: s < 0 ? Math.PI / 2 : -Math.PI / 2, mix: 'town', home: true })); }
+      }
+
+      /* --- the gates: rows of seats facing the window, three desks, the runway outside --- */
+      const view = K.tex(1024, 180, (g, w, h) => {
+        const sky = g.createLinearGradient(0, 0, 0, h * .6); sky.addColorStop(0, '#6fa8e0'); sky.addColorStop(1, '#f4c0a0'); g.fillStyle = sky; g.fillRect(0, 0, w, h * .6);
+        g.fillStyle = '#4fb8c8'; g.fillRect(0, h * .5, w, h * .1); g.fillStyle = '#6aa860'; g.fillRect(0, h * .6, w, h * .4);
+        g.fillStyle = '#48454f'; g.fillRect(0, h * .68, w, h * .16); g.fillStyle = '#f5f5f0'; for (let x = 10; x < w; x += 60) g.fillRect(x, h * .755, 30, 3);
+        const plane = (x, y, s, liv) => { g.fillStyle = '#f5f5f0'; g.fillRect(x, y, 200 * s, 26 * s); g.beginPath(); g.moveTo(x + 200 * s, y); g.lineTo(x + 230 * s, y + 13 * s); g.lineTo(x + 200 * s, y + 26 * s); g.fill();
+          g.fillStyle = liv; g.fillRect(x, y + 17 * s, 200 * s, 4 * s); g.beginPath(); g.moveTo(x, y); g.lineTo(x + 10 * s, y - 36 * s); g.lineTo(x + 36 * s, y - 36 * s); g.lineTo(x + 44 * s, y); g.fill();
+          g.fillStyle = '#d8d8e0'; g.fillRect(x + 80 * s, y + 18 * s, 60 * s, 8 * s); g.fillStyle = '#22304a'; for (let k = 0; k < 16; k++) g.fillRect(x + 50 * s + k * 9 * s, y + 8 * s, 5 * s, 5 * s); };
+        plane(140, h * .6, .9, '#ff4fa3'); plane(620, h * .52, .55, '#2a6fe8');
+        g.fillStyle = '#d8d8e0'; g.fillRect(880, h * .3, 14, h * .35); g.fillStyle = '#28405a'; g.fillRect(870, h * .26, 34, 14);
+      }, false);
+      K.picture('-z', 0, 4.4, 33.8, 58, 6.2, view);
+      for (let x = -28; x <= 28; x += 4) K.box(x - .08, .8, 33.7, x + .08, 7.5, 33.85, '#d0d4dc');
+      for (const z of [28, 30.6]) for (const [a, b] of [[-26, -3], [3, 26]]) {
+        for (let x = a; x < b - .2; x += .9) { K.box(x, 0, z - .35, x + .8, .45, z + .35, '#3a5a8a'); K.box(x, .45, z - .42, x + .8, 1, z - .34, '#3a5a8a'); if (Math.random() < .16) spots.push(K.spot({ kind: 'sit', x: x + .4, z, y: .5, heading: 0, mix: 'town', home: true })); }
+        K.box(a, 0, z - .1, b, .2, z + .1, '#8a8a96'); K.solid(a, 0, z - .42, b, .5, z + .35);
+      }
+      [[-16, 1, 'МАЙАМИ'], [0, 2, 'НЬЮ-ЙОРК'], [16, 3, 'ГАВАНА']].forEach(([x, n, city]) => {
+        K.box(x - 1.3, 0, 32.2, x + 1.3, 1.05, 33, '#1c2a4a', true); K.box(x - 1.35, 1.05, 32.15, x + 1.35, 1.12, 33.05, '#8a8a96');
+        K.picture('-z', x, 7.1, 33.5, 3.6, .9, T.sign('GATE ' + n, city, ['#ff4fa3', '#3fe6e0', '#ffd84f'][n - 1], '#101828'));
+        spots.push(K.spot({ kind: 'idle', x, z: 33.4, heading: Math.PI, type: n % 2 ? 'business_f' : 'business_m', home: true }));
+        for (let k = 0; k < 3; k++) if (Math.random() < .7) spots.push(K.spot({ kind: 'idle', x: x - .8 + k * .8, z: 31.6, heading: 0, mix: 'town', home: true }));
+      });
+      board('-z', -24, 5.6, 26.2, 9, 2.8); K.box(-28.6, 3.9, 26.25, -19.4, 7.3, 26.4, '#1c2a4a');
+      // people on the move between the entrance, security, the café and the gates
+      for (const pts of [[[-4, -1], [-4, 25.5], [4, 25.5], [4, -1]], [[-5, 15.3], [-26.3, 15.3], [-26.3, 25], [-5, 25]], [[-26, 26.7], [26, 26.7], [26, 27], [-26, 27]], [[-26, -2.5], [-7, -2.5], [-7, 1.6], [-26, 1.6]], [[26, -2.5], [6, -2.5], [6, .5], [26, .5]]])
+        for (const off of [0, 2]) spots.push(K.spot({ kind: 'walk', x: pts[off][0], z: pts[off][1], heading: 0, mix: 'town', patrol: off ? pts.slice(off).concat(pts.slice(0, off)) : pts }));
+
+      let bt = 0;
+      pl.update = (dt) => { bt += dt; if (bt > 14) { bt = 0; tickBoards(); } };
+      pl.attach = () => {
+        pl.interactions = [
+          { ...pl.P(10.7, 21.7), r: 1.8, short: 'КУПИТЬ', label: () => 'Duty Free', use: () => G.ui.menu({ eyebrow: 'Аэропорт', title: 'Duty Free', items: () => [
+            { name: 'Шоколад «Neon»', desc: '+15 здоровья', price: 8, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Тает во рту'; } },
+            { name: 'Виски «Neon Gold»', desc: '+40 здоровья, для храбрости', price: 60, disabled: G.player.hp >= 100 ? 'Вы и так бодры' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 40); return 'Мягкий, с дымком'; } },
+            { name: 'Сигары «Habana Royal»', desc: 'коробка из 10 штук', price: 50, buy: () => 'Настоящий Майами-стиль' },
+            { name: 'Духи «Pink Flamingo»', desc: 'для особого случая', price: 120, buy: () => 'Пахнет закатом и деньгами' },
+            { name: 'Очки-авиаторы', desc: 'как у пилотов', price: 90, buy: () => 'Сидят идеально' },
+            { name: 'Золотые часы', desc: 'швейцарские, почти', price: 1500, buy: () => 'Время — деньги' }
+          ] }) },
+          { ...pl.P(-27.6, 20.5), r: 1.9, short: 'КАФЕ', label: () => 'Café Aeroport', use: () => G.ui.menu({ eyebrow: 'Аэропорт', title: 'Café Aeroport', items: () => [
+            { name: 'Капучино', desc: '+10 здоровья', price: 4, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'С корицей'; } },
+            { name: 'Сэндвич с тунцом', desc: '+30 здоровья', price: 9, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 30); return 'Свежий!'; } },
+            { name: 'Пончик в глазури', desc: '+15 здоровья', price: 3, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Розовая глазурь, конечно'; } }
+          ] }) },
+          { ...pl.P(-18.5, 7.2), r: 3, short: 'ТАБЛО', label: () => 'Табло вылетов', use: () => { const f = flights.find(q => q.st === 1 || q.st === 2) || flights[0]; G.flash('Рейс ' + f.code + ' в ' + f.city + ': ' + STATUS[f.st][0].toLowerCase() + ', выход ' + f.gate, 3); } }
+        ];
+      };
     }
 
     /* ---------------------------------------------------------------

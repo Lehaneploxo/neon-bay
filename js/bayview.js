@@ -494,7 +494,8 @@
     links.push([id(2, 4), T1], [T1, T2], [T2, id(4, 4)]);
     let lastT = null;
     return {
-      spots, parking, blocks, walkways, bounds: B, districtAt, airport: { x0: B.x0, x1: B.x1, z0: B.z0, z1: AZ },
+      spots, parking, blocks, walkways, bounds: B, districtAt,
+      door: { x: (TB.x0 + TB.x1) / 2, z: TB.z1 + 1.3, y: Y, heading: 0, nx: 0, nz: 1, hex: '#3fe6e0', cx: (TB.x0 + TB.x1) / 2, cz: (TB.z0 + TB.z1) / 2 }, airport: { x0: B.x0, x1: B.x1, z0: B.z0, z1: AZ },
       roads: { lane: 2.6, nodes, links, island: true, bridges: [{ from: [250, HZ], to: id(0, 2) }, { from: [PBX, -60], to: id(2, 0) }] },
       update(t) { const dt = lastT == null ? 0 : U.clamp(t - lastT, 0, .1); lastT = t; flyStep(dt); }
     };

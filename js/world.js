@@ -498,6 +498,7 @@
 
     /* ---------- Bayview: the island with the airport, bridged to the North Side and to Palm Island ---------- */
     const bay = NB.buildBayview({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, FT });
+    if (bay.door) doors.airport = bay.door;   // the terminal's front door (places.js builds the inside)
 
     /* ---------- (formerly the city's boundary wall and a distant skyline: now open sea) ---------- */
     const unmuteEdge = mute();
