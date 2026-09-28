@@ -577,7 +577,8 @@
     icon(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', true);
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
-    if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);   // with stars on, the spray shop shows at the edge
+    if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
+    const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
     for (const m of taxi.markers) {
       const q = toMap(m.x, m.z, true);
@@ -604,6 +605,7 @@
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
+    const ns = world.street.nightSpot(); if (ns) add(ns.x, ns.z, '#ff2d7a', '#fff', '♥', 'Девушки у Отеля OCEAN (с 19:00 до 5:00)');
     for (const c of world.street.carts) add(c.x, c.z, c.kind === 'hotdog' ? '#e8202a' : '#ff9fc3', '#fff', c.kind === 'hotdog' ? 'Х' : 'М', c.kind === 'hotdog' ? 'Хот-доги' : 'Мороженое');
     for (const b of world.street.buskers) add(b.x, b.z, '#2a2240', '#ffd84f', '♪', 'Уличный музыкант');
     add(125, -30, '#f5f0d8', '#2a6fe8', 'V', 'Пляжный волейбол');

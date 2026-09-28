@@ -319,8 +319,11 @@
       }
     }
 
+    let girlsT = 3;
     const api = {
       spots,
+      // where the girls stand, while it's their hours (for the map)
+      nightSpot() { return night() && girls.length ? { x: girls[1].x, z: girls[1].z } : null; },
       carts,
       buskers,
       court: COURT,
@@ -330,6 +333,12 @@
         for (const b of buskers) b.inst.visible = onShow(b.spot);
         volleyUpdate(dt);
         nightUpdate(dt);
+        // the girls call out to the hero passing by
+        if (night() && (girlsT -= dt) <= 0) {
+          girlsT = rand(9, 16);
+          const P = G.player, s = girls.find(g => g.person && g.person.spot === g && Math.hypot(g.x - P.x, g.z - P.z) < 16);
+          if (s) say(s.person, pick(['Эй, красавчик!', 'Скучаешь, милый?', 'Иди сюда, не стесняйся!', 'Сто долларов — и ты как новенький!', 'Подвезёшь, красавчик?']));
+        }
         for (const s of surfers) surfUpdate(s, dt);
         // vendors call out to the hero walking by
         const P = G.player;
