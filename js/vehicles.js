@@ -129,7 +129,9 @@
       if (strength < 2.5) return;
       if (car.hitT > 0 && strength < 8) return;
       car.hitT = .25;
-      car.damage += strength * 2.2;
+      // police cars and ambulances nudging each other (or a kerb) through a jam don't wreck themselves; the hero's car and guns do
+      const service = (car.pursuit || car.goto) && car.driver !== 'player' && !(other && other.driver === 'player');
+      car.damage += strength * 2.2 * (service ? .15 : 1);
       dent(car, px, pz, nx, nz, Math.min(.16, strength * .012));
       paint(car);
       if (car.driver === 'player') { audio.impact(strength); if (opts.onImpact) opts.onImpact(strength); }
@@ -299,13 +301,13 @@
     const GN = ROADS.length, gridNode = [];
     for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) gridNode[i * GN + j] = addNode(ROADS[i], ROADS[j]);
     for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) { if (i + 1 < GN) addEdge(gridNode[i * GN + j], gridNode[(i + 1) * GN + j]); if (j + 1 < GN) addEdge(gridNode[i * GN + j], gridNode[i * GN + j + 1]); }
-    const IR = world.island && world.island.roads;
-    if (IR) {
+    for (const IR of [world.island && world.island.roads, world.north && world.north.roads]) {
+      if (!IR) continue;
       const base = NET.nodes.length;
       for (const [x, z] of IR.nodes) addNode(x, z);
-      for (const [a, b] of IR.links) { addEdge(base + a, base + b, IR.lane); NET.edges[NET.edges.length - 1].island = true; }
+      for (const [a, b] of IR.links) { addEdge(base + a, base + b, IR.lane); if (!IR.north) NET.edges[NET.edges.length - 1].island = true; }
       const [cx, cz] = IR.bridge.city, from = NET.nodes.find(n => n.x === cx && n.z === cz);
-      if (from) addEdge(from.id, base + IR.bridge.island, LANE, true);
+      if (from) { addEdge(from.id, base + IR.bridge.island, LANE, !IR.north); if (IR.north) NET.edges[NET.edges.length - 1].narrow = true; }   // the North Side bridge is short and low: traffic can start on it
     }
     // shortest distances between all junctions, for the police and the ambulances finding their way
     const NN = NET.nodes.length, DIST = [], HOP = [];
@@ -479,6 +481,7 @@
     if (world.station) for (const [x, z, h] of world.station.parking) makeCar(byId.police, x, z, h);
     if (world.hospital) for (const [x, z, h] of world.hospital.parking) makeCar(byId.ambulance, x, z, h);
     if (world.island) for (const p of world.island.parking) makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h);   // cars parked on Palm Island
+    if (world.north) for (const p of world.north.parking) { const c = makeCar(byId[p.id] || pickModel(), p.x, p.z, p.h); c.damage = Math.random() * 80; paint(c); }   // old bangers on the North Side
     for (const c of cars) c.parked = true;
 
     /* ---------- police pursuit ---------- */
@@ -496,9 +499,12 @@
       const K = NET.nodes[k];
       if (Math.hypot(K.x - x, K.z - z) > 7) return [K.x, K.z];
       if (k === g.e.a || k === g.e.b) return [tx, tz];
-      let bn = null, bc = Infinity;
-      for (const o of K.nb) { const cost = o.e.len + toGoal(o.n); if (cost < bc) { bc = cost; bn = NET.nodes[o.n]; } }
-      return bn ? [bn.x, bn.z] : [tx, tz];
+      let bn = null, bc = Infinity, be = null;
+      for (const o of K.nb) { const cost = o.e.len + toGoal(o.n); if (cost < bc) { bc = cost; bn = NET.nodes[o.n]; be = o.e; } }
+      if (!bn) return [tx, tz];
+      // onto a narrow bridge: first line up on its centre line at the entrance (and slow down for it)
+      if (be.narrow) { const d = unit(K, bn), g = [K.x + d[0] * 16, K.z + d[1] * 16]; g.gate = true; return g; }
+      return [bn.x, bn.z];
     }
     // the police station: units leave from the street in front of it and come back there
     // cars on the case per star; seconds between two cars leaving the station; a lost car is replaced after LOST s
@@ -624,6 +630,7 @@
         throttle = vF > 1 ? -1 : 0;
         if (Math.abs(vF) < 1.5) { P.exitT += dt; if (P.exitT > .5 && opts.onCopsExit) { opts.onCopsExit(car); car.pursuit = null; car.driver = null; car.driverMesh.visible = false; car.parked = true; car.exited = true; return; } }
       } else if (Math.abs(diff) > 1.3 && vF > 9) throttle = -.7;
+      else if (P.wp && P.wp.gate && Math.hypot(P.wp[0] - car.x, P.wp[1] - car.z) < 35 && vF > 10) throttle = -.6;   // lining up for the narrow bridge
       else if (Math.abs(diff) > 1) throttle = .45;
       if (P.revT > 0) { P.revT -= dt; throttle = -1; steer = -steer; }
       else if (Math.abs(vF) < 1.2 && throttle > 0) { P.stuckT += dt; if (P.stuckT > 1.3) { P.revT = 1.1; P.stuckT = 0; } }
@@ -904,6 +911,8 @@
         }
         collideCars();
         fireStep(dt, player);
+        // a police car or an ambulance that ended up in the sea is out of the job (the station sends another)
+        for (const c of cars) if (c.flooded && (c.pursuit || c.goto) && c !== driving) { c.pursuit = null; c.goto = null; c.sirenOn = false; c.driver = null; c.driverMesh.visible = false; c.returning = false; c.exited = false; c.parked = false; }
         heat = (ctx.police || { wanted: 0 }).wanted;
         spotUpdate(ctx.target || player);
         for (const m of wakes) if (m.visible) { m.life -= dt; const f = 1 - m.life / 1.8; m.scale.set(m.w * (1 + f * 2.2), 1, 1.2 + f); m.material.opacity = Math.max(0, (1 - f) * .45); if (m.life <= 0) m.visible = false; }

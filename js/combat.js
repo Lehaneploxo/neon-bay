@@ -168,6 +168,19 @@
     }
 
     /* ---------- police gunfire ---------- */
+    function npcShoot(p, t) {
+      const hs = p.look.hs, fx = Math.sin(p.heading), fz = Math.cos(p.heading);
+      const ox = p.x + fx * .45, oy = p.y + 1.38 * hs, oz = p.z + fz * .45;
+      let dx = t.x - ox, dy = t.y + 1.2 * t.look.hs - oy, dz = t.z - oz; const L = Math.hypot(dx, dy, dz) || 1;
+      dx = dx / L + rand(-1, 1) * .07; dy = dy / L + rand(-1, 1) * .04; dz = dz / L + rand(-1, 1) * .07;
+      const n = Math.hypot(dx, dy, dz); dx /= n; dy /= n; dz /= n;
+      const r = trace(ox, oy, oz, dx, dy, dz, 50, p, true);
+      if (r.kind === 'person') { crowd.damage(r.hit, 34, { byPlayer: false, kind: 'gun', x: p.x, z: p.z }); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
+      else if (r.kind === 'player') { o.onPlayerHit(rand(5, 9), p.x, p.z); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
+      else if (r.kind === 'car') { vehicles.bulletHit(r.hit, 12, r.x, r.z, -dx, -dz); burst(r.x, r.y, r.z, 4, SPARK, 3); }
+      else if (r.kind === 'world') burst(r.x, r.y, r.z, 3, DUST, 2);
+      tracer(ox, oy, oz, r.x, r.y, r.z); muzzleFlash(ox, oy, oz, .4); audio.shot('cop', [ox, oy, oz]); crowd.panic(p.x, p.z, 25);
+    }
     function copShoot(p, wanted) {
       const hs = p.look.hs, fx = Math.sin(p.heading), fz = Math.cos(p.heading);
       const ox = p.x + fx * .45 + Math.cos(p.heading) * .15, oy = p.y + 1.38 * hs, oz = p.z + fz * .45 - Math.sin(p.heading) * .15;
@@ -200,7 +213,7 @@
       get weapon() { return WEAPONS[cur]; },
       get ammo() { return WEAPONS[cur].melee ? null : range ? '∞' : inv[cur]; },
       isMelee: () => !!WEAPONS[cur].melee,
-      cycle, copShoot, bloodPool, dropCash,
+      cycle, copShoot, npcShoot, bloodPool, dropCash,
       select(i) { const id = ORDER[i]; if (id && inv[id] > 0) { cur = id; player.setWeapon(cur); } },
       pickups, cashDrops,
       inv,

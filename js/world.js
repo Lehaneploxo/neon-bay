@@ -10,8 +10,8 @@
   const SHORE = 140;                       // where sand meets water
   const EMB = 112;                         // the embankment's sea edge on the west, north and south
   // the whole playable world: past these walls there's only open ocean
-  const WORLD = { x0: -240, x1: 650, z0: -260, z1: 260 };
-  const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK', 'SUNSET', 'CORAL', 'BREEZE', 'LAGUNA', 'MARLIN', 'TROPIC', 'RIVIERA', 'PARADISE'];
+  const WORLD = { x0: -240, x1: 650, z0: -470, z1: 260 };
+  const SIGN_WORDS = ['HOTEL', 'MOTEL', 'PALMS', 'OCEAN', 'BAR', 'CLUB', 'PIZZA', 'DINER', 'CASINO', 'TATTOO', 'RADIO', 'SURF', 'DISCO', 'CAFE', 'ARCADE', 'VIDEO', 'POLICE', 'AMMO', 'HOSPITAL', 'BANK', 'SUNSET', 'CORAL', 'BREEZE', 'LAGUNA', 'MARLIN', 'TROPIC', 'RIVIERA', 'PARADISE', 'LIQUOR', 'PAWN', 'LAUNDRY', 'GARAGE'];
   const NEON = ['#ff4fa3', '#3fe6e0', '#ffd84f', '#8cff6b', '#c28bff', '#ff8a3d'];
   const PASTEL = ['#f7b5c9', '#aee8d3', '#f7e7a1', '#cdb8f0', '#ffc9a8', '#a9d8f5', '#f3efe6', '#ffd6e4', '#c6f0e8'];
   const COOL = ['#d9d4cc', '#b9c7d8', '#c7b8a8', '#8fb0cf', '#e4dccf', '#a7b7c4'];
@@ -72,7 +72,7 @@
       g.fillStyle = '#ecd29a'; g.fillRect(0, 0, s, s);
       U.speckle(g, s, s, 7000, ['#d6b87c', '#f7e4b8', '#c9a86c'], .2, .6, 1, 2);
     }, true, aniso);
-    const signTex = U.canvasTex(512, 448, (g) => {
+    const signTex = U.canvasTex(512, 512, (g) => {
       SIGN_WORDS.forEach((w, k) => {
         const x = (k % 4) * 128, y = ((k / 4) | 0) * 64, c = NEON[k % NEON.length];
         g.fillStyle = '#1b1030'; roundRect(g, x + 4, y + 4, 120, 56, 9); g.fill();
@@ -89,7 +89,7 @@
       g.beginPath(); g.moveTo(x + r, y); g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r); g.lineTo(x + w, y + h - r);
       g.quadraticCurveTo(x + w, y + h, x + w - r, y + h); g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r); g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y); g.closePath();
     }
-    const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 7 + .005, (c + 1) / 4 - .004, 1 - r / 7 - .005]; };
+    const signUV = k => { const c = k % 4, r = (k / 4) | 0; return [c / 4 + .004, 1 - (r + 1) / 8 + .005, (c + 1) / 4 - .004, 1 - r / 8 - .005]; };
 
     /* ---------- builders ---------- */
     let bFacade = new GeoBuilder(), bPlain = new GeoBuilder(), bNeon = new GeoBuilder(), bGlow = new GeoBuilder(), bSign = new GeoBuilder();
@@ -456,7 +456,7 @@
     unmuteRocks();
     // the sea goes all the way round the city and Palm Island; invisible walls far out close the world
     // (for swimmers, boats and the helicopter alike)
-    const LAND = { x0: -EMB, x1: SHORE, z0: -EMB, z1: EMB }, ISL = { x0: 345, x1: 515, z0: -105, z1: 105 };
+    const LAND = { x0: -EMB, x1: SHORE, z0: -EMB, z1: EMB }, ISL = { x0: 345, x1: 515, z0: -105, z1: 105 }, NORTH = { x0: -110, x1: 260, z0: -400, z1: -180 };
     const W = WORLD;
     col.add(W.x0 - 6, -10, W.z0 - 6, W.x0, 320, W.z1 + 6); col.add(W.x1, -10, W.z0 - 6, W.x1 + 6, 320, W.z1 + 6);
     col.add(W.x0, -10, W.z0 - 6, W.x1, 320, W.z0); col.add(W.x0, -10, W.z1, W.x1, 320, W.z1 + 6);
@@ -467,7 +467,7 @@
       // off a sandy beach the bed slopes gently; off the embankment it's deep straight away
       floor: (x, z) => {
         const dc = rectDist(x, z, LAND), sandy = U.clamp(x, LAND.x0, LAND.x1) > CITY;
-        return .02 - U.clamp(Math.min(sandy ? dc * .3 : 2 + dc * .5, rectDist(x, z, ISL) * .3), 0, 3.4);
+        return .02 - U.clamp(Math.min(sandy ? dc * .3 : 2 + dc * .5, rectDist(x, z, ISL) * .3, 2 + rectDist(x, z, NORTH) * .5), 0, 3.4);
       } });
 
     /* ---------- the embankment: a paved promenade on the sea wall round the rest of the city ---------- */
@@ -482,11 +482,14 @@
       for (const s of [-1, 1]) { bPlain.box(-EMB, .15, s > 0 ? EMB - .45 : -EMB, CITY, .38, s > 0 ? EMB : -EMB + .45, EDGE); bPlain.box(-EMB, -3.6, s > 0 ? EMB : -EMB - .3, CITY, .15, s > 0 ? EMB + .3 : -EMB, WALL); }
       // lamps looking inland and palms in between
       for (let z = -100; z <= 100; z += 16) { lamps.push([-EMB + 1.1, z, Math.PI / 2, .15]); palms.push([-EMB + 2.6, .15, z + 8]); }
-      for (let x = -96; x <= 96; x += 16) { lamps.push([x, EMB - 1.1, Math.PI, .15], [x + 8, -EMB + 1.1, 0, .15]); palms.push([x + 8, .15, EMB - 2.6], [x, .15, -EMB + 2.6]); }
+      for (let x = -96; x <= 96; x += 16) { lamps.push([x, EMB - 1.1, Math.PI, .15], [x + 8, -EMB + 1.1, 0, .15]); palms.push([x + 8, .15, EMB - 2.6]); if (Math.abs(x) > 10) palms.push([x, .15, -EMB + 2.6]); }
     }
 
     /* ---------- the Neon Bay Bridge and Palm Island ---------- */
     const island = NB.buildIsland({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bSand, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, PASTEL, NEON, FT });
+
+    /* ---------- North Side: the working-class island across the strait to the north ---------- */
+    const north = NB.buildNorthside({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, FT });
 
     /* ---------- (formerly the city's boundary wall and a distant skyline: now open sea) ---------- */
     const unmuteEdge = mute();
@@ -607,7 +610,8 @@
           float dC = length(vec2(max(max(${(-EMB).toFixed(1)} - vW.x, vW.x - ${SHORE.toFixed(1)}), 0.0), max(abs(vW.z) - ${EMB.toFixed(1)}, 0.0)));
           vec2 qi = vec2(max(max(345.0 - vW.x, vW.x - 515.0), 0.0), max(abs(vW.z) - 105.0, 0.0));
           float dI = length(qi);
-          float far = clamp(min(dC, dI) / 60.0, 0.0, 1.0);
+          float dN = length(vec2(max(max(-110.0 - vW.x, vW.x - 260.0), 0.0), max(max(-400.0 - vW.z, vW.z + 180.0), 0.0)));
+          float far = clamp(min(min(dC, dI), dN) / 60.0, 0.0, 1.0);
           vec3 c = mix(uShallow, uDeep, far);
           float w1 = sin(vW.x*0.35 + uTime*1.2) * 0.5 + sin(vW.z*0.23 - uTime*0.8 + vW.x*0.1) * 0.5;
           float w2 = sin((vW.x+vW.z)*0.9 + uTime*2.0) * sin(vW.z*1.3 - uTime*1.4);
@@ -655,6 +659,7 @@
       if (club && club.inside(x, z)) return club.name;
       const pl = places.at(x, z); if (pl) return pl.name;
       const isl = island.districtAt(x, z); if (isl) return isl;
+      const ns = north.districtAt(x, z); if (ns) return ns;
       if (x > SHORE + 8 || x < -EMB || Math.abs(z) > EMB) return x > SHORE && x < 560 && Math.abs(z) < 128 ? 'Залив Неон-Бэй' : 'Открытое море';
       if (x > CITY) return 'Пляж Санрайз';
       if (x > 52) return 'Коралловая полоса';
@@ -664,7 +669,7 @@
     }
 
     return {
-      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, club, places, island, north, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -673,7 +678,7 @@
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
         if (club) club.update(t, env, env.px, env.pz);
-        places.render(t, env); island.update(t, env); spray.render(t);
+        places.render(t, env); island.update(t, env); north.update(t, env); spray.render(t);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);

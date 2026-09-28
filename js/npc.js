@@ -156,6 +156,18 @@
         show('bag'); set('bag', pick(['#141418', '#f5f5f0', '#ffd23d', '#ff4fa3'])); L.purse = true;
         L.speed = 1.05; L.hs = rand(.95, 1.02); extras(0, .25); break;
       }
+      case 'worker': { // overalls, a cap, boots
+        const o = pick(['#2b4a7a', '#c86a1e', '#4a5a3a', '#6a6a70']); set('torso', o); sleeves(chance(.5) ? 'short' : 'long', o); legs('pants', o); set('shoeL shoeR', '#3a2a1e');
+        if (chance(.6)) { show('brim crown'); set('brim crown', pick(['#e8c547', '#c81e1e', '#2a2a2a', '#f5f5f0'])); }
+        L.speed = rand(1.1, 1.3); break;
+      }
+      case 'gang_red': case 'gang_green': { // tank top or a jersey in the gang's colour, baggy trousers, a bandana
+        const c = type === 'gang_red' ? '#c81e1e' : '#1f9a55';
+        const top = chance(.5) ? '#f5f5f0' : c; set('torso', top); sleeves(chance(.6) ? 'none' : 'short', top); legs('pants', pick(['#1a1a22', '#2b3d6b', '#3a3a3a'])); set('shoeL shoeR', pick(['#f5f5f0', '#141414']));
+        show('crown'); set('crown', c); if (chance(.35)) { show('shades'); set('shades', '#141018'); }
+        L.gun = chance(.75); if (L.gun) { show('bag'); set('bag', '#151515'); }
+        L.ws = rand(1.05, 1.25); L.speed = rand(1.1, 1.3); break;
+      }
       case 'vendor': { // street food: white shirt, apron, striped cap
         set('torso', '#f4f4f0'); sleeves('short', '#f4f4f0'); legs('pants', pick(['#2a2a30', '#3b5a8a'])); set('shoeL shoeR', '#1a1a1a');
         show('skirt brim crown'); set('skirt', pick(['#e8202a', '#ff7eb6'])); set('crown', pick(['#e8202a', '#ff7eb6'])); set('brim', '#f4f4f0');
@@ -188,6 +200,7 @@
     const hat = !L.hide.has('crown');
     let style;
     if (type === 'bouncer') style = 'bald';
+    else if (type === 'gang_red' || type === 'gang_green') style = pick(['buzz', 'bald', 'short']);
     else if (type === 'cop' || type === 'security' || type === 'medic' || type === 'firefighter' || type === 'bellboy') style = female ? pick(['bun', 'pony', 'bob']) : pick(['short', 'buzz', 'short']);
     else if (type === 'business_m' || type === 'croupier') style = pick(['short', 'short', 'quiff', 'buzz', 'bald']);
     else if (type === 'elderly') style = female ? pick(['bob', 'bun', 'pixie', 'curly']) : pick(['short', 'bald', 'bald', 'buzz']);
@@ -228,6 +241,7 @@
         if (k === 'tie') { cx = -.1; cy = .4; cz = .12 * L.ws; sx = .08; sy = .08; sz = .02; }
         if (k === 'bag') { cy = -.36; cz = .02; sx = .14; sy = .2; sz = .3; }
       }
+      if (type === 'gang_red' || type === 'gang_green') { if (k === 'crown') { cy = .35; sy = .07; } if (k === 'bag') { cy = -.33; cz = .1; sx = .05; sy = .11; sz = .2; } }   // a bandana, a pistol in hand
       if (type === 'cop') { // peaked cap, badge, pistol in hand
         if (k === 'brim') { cy = .345; cz = .1; sx = .25; sy = .03; sz = .16; }
         if (k === 'crown') { cy = .39; sx = .245; sy = .09; sz = .25; }
@@ -251,6 +265,7 @@
     guard: [['business_m', 1]],
     bouncer: [['bouncer', 1]],
     yacht: [['beach_f', .55], ['beach_m', .25], ['tourist_f', .2]],
+    north: [['worker', .32], ['tourist_m', .16], ['tourist_f', .16], ['elderly', .16], ['business_f', .06], ['jogger', .06], ['beach_m', .08]],
     town: [['tourist_m', .22], ['tourist_f', .24], ['business_m', .12], ['business_f', .1], ['elderly', .16], ['jogger', .08], ['beach_f', .04], ['beach_m', .04]]
   };
   // health: a grown man takes about five punches to knock out, a woman three or four, an old man three;
@@ -259,6 +274,7 @@
     const t = look.type;
     if (t === 'bouncer') return 260;
     if (t === 'cop' || t === 'security') return 100;
+    if (t === 'gang_red' || t === 'gang_green') return 130;
     if (t === 'elderly') return look.female ? 50 : 55;
     return look.female ? 70 : 100;
   }
@@ -298,8 +314,9 @@
     const node = (x, z, area) => { nodes.push({ x, z, nb: [], area }); return nodes.length - 1; };
     const link = (a, b) => { nodes[a].nb.push(b); nodes[b].nb.push(a); };
     const IN = 1.6, corner = {};
-    const areaOf = b => b.type === 'hotel' ? 'strip' : b.type === 'downtown' ? 'downtown' : 'town';
-    for (const b of blocks) {
+    const areaOf = b => b.north ? 'north' : b.type === 'hotel' ? 'strip' : b.type === 'downtown' ? 'downtown' : 'town';
+    const walkBlocks = blocks.concat(world.north ? world.north.blocks : []);
+    for (const b of walkBlocks) {
       const a = areaOf(b), SW = node(b.bx0 + IN, b.bz0 + IN, a), SE = node(b.bx1 - IN, b.bz0 + IN, a), NE = node(b.bx1 - IN, b.bz1 - IN, a), NW = node(b.bx0 + IN, b.bz1 - IN, a);
       corner[b.i + ',' + b.j] = { SW, SE, NE, NW };
       if (b.type === 'park') {
@@ -310,7 +327,7 @@
         link(S, fS); link(E, fE); link(N, fN); link(W, fW); link(fS, fE); link(fE, fN); link(fN, fW); link(fW, fS);
       } else { link(SW, SE); link(SE, NE); link(NE, NW); link(NW, SW); }
     }
-    for (const b of blocks) {
+    for (const b of walkBlocks) {
       const c = corner[b.i + ',' + b.j], r = corner[(b.i + 1) + ',' + b.j], u = corner[b.i + ',' + (b.j + 1)];
       if (r) { link(c.SE, r.SW); link(c.NE, r.NW); }
       if (u) { link(c.NW, u.SW); link(c.NE, u.SE); }
@@ -366,6 +383,7 @@
     if (world.island) for (const s of world.island.spots) spots.push(Object.assign({}, s));
     // street vendors, buskers and their customers: street.js looks at these very spots to show the props
     if (world.street) for (const s of world.street.spots) spots.push(s);
+    if (world.north) for (const s of world.north.spots) spots.push(Object.assign({}, s));
     for (const s of spots) { s.person = null; s.y = s.fixedY || s.kind === 'sit' || s.kind === 'lie' ? s.y : floorAt(s.x, s.z, 1); }
     const STAND = { talk: 1, dance: 1, dj: 1, guard: 1, bouncer: 1, idle: 1, play: 1, guitar: 1, sax: 1, drum: 1, flirt: 1 };
     const SEATED = { sit: 1, drum: 1 };
@@ -414,7 +432,7 @@
       const p = { slot, look, x, z, y: floorAt(x, z, 1), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
         phase: rand(0, 6), headY: 0, pauseT: 0, target: null, node: -1, prev: -1, off: rand(-.45, .45), blocked: 0,
         stuckT: 0, lastX: x, lastZ: z, bumpT: -9, stumbleT: 0, frame: (Math.random() * 3) | 0, seed: Math.random() * 10,
-        cop: look.type === 'cop' || look.type === 'security', bouncer: look.type === 'bouncer', hp: maxHp(look), maxHp: maxHp(look), dead: false, fallT: 0, deadT: 0,
+        cop: look.type === 'cop' || look.type === 'security', bouncer: look.type === 'bouncer', hp: maxHp(look), maxHp: maxHp(look), gang: look.type === 'gang_red' ? 'red' : look.type === 'gang_green' ? 'green' : null, dead: false, fallT: 0, deadT: 0,
         fleeT: 0, fleeX: 0, fleeZ: 0, fightT: 0, punchCD: 0, punchT: 0, running: false,
         los: false, losT: Math.random() * .2, shootT: rand(.5, 1.2), sideT: 0, sideX: 0, sideZ: 0, chasing: false,
         pose: { bob: 0, lean: 0, twist: 0, headP: 0, headY: 0, aL: 0, aR: 0, eL: 0, eR: 0, tL: 0, tR: 0, kL: 0, kR: 0, spread: 0 } };
@@ -450,7 +468,7 @@
         const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t, d = Math.hypot(x - px, z - pz);
         if (d > (maxD || 88) || d < (minD || (near ? 6 : 30))) continue;
         if (!near && d < 60 && ((x - px) * fx + (z - pz) * fz) / d > .2) continue; // don't pop up in plain view
-        const area = x > CITY ? 'promenade' : a.area;
+        const area = a.area === 'north' ? 'north' : x > CITY ? 'promenade' : a.area;
         const p = spawn(makeLook(forceType || typeFor(TYPE_MIX[area])), x, z, 'graph');
         if (!p) return null;
         p.prev = ni; p.node = nb;
@@ -473,7 +491,7 @@
         p.mode = 'graph'; p.node = ni; p.prev = ni; p.clubExit = true;
         const w = club.exitStep(p.x, p.z); p.target = { x: w[0], z: w[1] }; return;
       }
-      if (p.x > CITY + 4 && !p.cop) { p.mode = 'beach'; p.target = beachPoint(U.clamp(p.x + rand(-10, 10), 112, 137), U.clamp(p.z + rand(-10, 10), -100, 100)); return; }
+      if (p.x > CITY + 4 && p.z > -150 && !p.cop) { p.mode = 'beach'; p.target = beachPoint(U.clamp(p.x + rand(-10, 10), 112, 137), U.clamp(p.z + rand(-10, 10), -100, 100)); return; }
       const ni = nearestNode(p.x, p.z); p.mode = 'graph'; p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
     }
     // a spot someone was scared or knocked off stays empty until the hero has gone far away,
@@ -614,6 +632,37 @@
       goalStep(p, m, dt, 'idle');
       if (m.arrived) { c.crew = Math.max(0, (c.crew || 0) - 1); boarding.push(p); }
     }
+    const GANG_TALK = { warn: ['Эй, ты чего тут забыл?', 'Это наш район. Вали отсюда!', 'Убери ствол, пока цел!', 'Ты не туда зашёл, приятель'], go: ['Вали его!', 'Он на нашей земле!', 'Мочи его, парни!', 'Ты труп!'], war: ['Кобры!', 'Черепа!', 'Это наша улица!', 'Огонь!'] };
+    const gangHeat = { red: 0, green: 0 }, warT = { t: 0, next: 60 + Math.random() * 60 };
+    function provoke(gang, x, z) {
+      if (!gang) return;
+      if (gangHeat[gang] <= 0) { const p = people.find(q => q.gang === gang && !q.dead && !q.down && Math.hypot(q.x - x, q.z - z) < 40); if (p) bumpCallback(p, pick(GANG_TALK.go)); }
+      gangHeat[gang] = 75;
+    }
+    // a gangster after the hero: armed ones keep their distance and shoot, the rest come in swinging
+    function gangChase(p, dt, player) {
+      if (!p.look.gun) { if (p.fightT <= 0) { p.fightT = 15; p.punchCD = .6; } fight(p, dt, player); p.fightT = Math.max(p.fightT, 1); return; }
+      const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
+      p.losT -= dt;
+      if (p.losT <= 0) { p.losT = .25; const sy = p.y + 1.5, ty = player.y + 1.2, L3 = Math.hypot(dx, ty - sy, dz); p.los = d < 45 && col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - .5; }
+      let move = !p.los || d > 14 ? 1 : d < 5 ? -.5 : 0;
+      if (p.los && d < 30) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.7, 1.4); call('onGangShoot', p); } }
+      if (move) { const vx = dx / d * move, vz = dz / d * move; stepMove(p, vx, vz, move > 0 ? 4.2 : 1.6, dt); p.running = move > 0; p.anim = p.los ? 'aimwalk' : 'walk'; unstick(p, dt, dx / d, dz / d); }
+      else { p.speed = 0; p.running = false; p.anim = 'aim'; }
+      p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
+    }
+    // a gang war on the border: members of both gangs shoot at the nearest rival
+    function warStep(p, dt) {
+      let best = null, bd = 35;
+      for (const q of people) if (q.gang && q.gang !== p.gang && !q.dead && !q.down) { const d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = q; } }
+      if (!best) return false;
+      const dx = best.x - p.x, dz = best.z - p.z, d = Math.hypot(dx, dz) || .001;
+      p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
+      if (d > 18) { stepMove(p, dx / d, dz / d, 3.6, dt); p.running = true; p.anim = 'aimwalk'; }
+      else { p.speed = 0; p.anim = 'aim'; }
+      if (p.look.gun && d < 26) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.8, 1.6); call('onGangShootAt', p, best); if (Math.random() < .15) bumpCallback(p, pick(GANG_TALK.war)); } }
+      return true;
+    }
     function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : p.medic.anim || 'idle'); }
     // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
     // to the window, a guest to the sofa); a waitress or a bellboy keeps doing rounds
@@ -647,6 +696,8 @@
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
+      if (p.gang && gangHeat[p.gang] > 0 && !player.dead && !player.inCar && Math.hypot(player.x - p.x, player.z - p.z) < 60) { gangChase(p, dt, player); return; }
+      if (p.gang && warT.t > 0 && warStep(p, dt)) return;
       if (p.cop && p.unit && pol.wanted <= 0) { unitStep(p, dt); return; }
       if (p.cop && p.chasing) resumeRoute(p);
       if ((p.home || p.patrol) && p.fleeT <= 0 && p.fightT <= 0) { homeStep(p, dt); return; }
@@ -852,6 +903,9 @@
     const api = {
       update(dt, t, player, camYaw, dangers, police) {
         if (police) pol = police;
+        for (const g in gangHeat) if (gangHeat[g] > 0) gangHeat[g] -= dt;
+        if (warT.t > 0) warT.t -= dt;
+        else if ((warT.next -= dt) <= 0) { warT.next = 90 + Math.random() * 90; if (player.x > 20 && player.x < 130 && player.z < -180 && player.z > -400) warT.t = 25; }
         popT -= dt;
         if (popT <= 0) { popT = .5; populate(player, camYaw); }
         frameNo++;
@@ -866,6 +920,9 @@
             continue;
           }
           if (p.spot && p.cop && pol.wanted > 0 && d < 90) detachSpot(p);
+          if (p.spot && p.gang && ((gangHeat[p.gang] > 0 && d < 60) || warT.t > 0)) detachSpot(p);
+          // hanging about armed near a gang's corner: a warning, then trouble
+          if (p.gang && p.spot && !player.inCar && d < 7 && opts.playerArmed && opts.playerArmed()) { p.warnT = (p.warnT || 0) + dt; if (p.warnT > .2 && !p.warned) { p.warned = true; bumpCallback(p, pick(GANG_TALK.warn)); } if (p.warnT > 6) provoke(p.gang, p.x, p.z); } else if (p.gang && d > 12) { p.warnT = 0; p.warned = false; }
           // a puppet (surfer, volleyball player) is moved by its game until it's scared off or picks a fight
           if (p.puppet && (p.fleeT > 0 || p.fightT > 0)) api.releasePuppet(p);
           if (p.puppet) { if (p.hitT > 0) p.hitT -= dt; if (p.stumbleT > 0) p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : p.puppet.anim; }
@@ -987,6 +1044,7 @@
           else { o.fleeT = rand(6, 10); o.fleeX = src.x; o.fleeZ = src.z; if (chance(.5)) bumpCallback(o, pick(FLEE_PHRASES)); }
         }
         if (src && src.byPlayer && (p.bouncer || nearClub(p.x, p.z))) alertBouncers();
+        if (src && src.byPlayer && p.gang) provoke(p.gang, p.x, p.z);
         // fists and the bat knock people out (the ambulance or a few minutes brings them round); guns and cars kill
         if (p.hp <= 0 && src && src.kind === 'melee' && !p.medic) {
           p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
@@ -1009,7 +1067,7 @@
           return;
         }
         p.stumbleT = Math.max(p.stumbleT, .35);
-        if (!p.cop && !p.bouncer && src && src.byPlayer) {
+        if (!p.cop && !p.bouncer && !p.gang && src && src.byPlayer) {
           const hurt = p.hp < p.maxHp * .3;
           // someone already in a fight keeps at it until he's badly hurt; a man hit for the first time may hit back
           if (src.kind === 'melee' && p.fightT > 0 && !hurt) p.fightT = 12;
@@ -1027,9 +1085,10 @@
       panic(x, z, r, byPlayer) {
         let shouted = 0;
         call('onPanic', x, z, r);   // the animals hear it too
+        if (byPlayer) for (const q of people) if (q.gang && !q.dead && Math.hypot(q.x - x, q.z - z) < 30) { provoke(q.gang, q.x, q.z); break; }
         if (byPlayer && nearClub(x, z, 18)) alertBouncers();   // gunshots carry further than a scuffle
         for (const p of people) {
-          if (p.dead || p.down || p.cop || p.medic || p.bouncer || p.fightT > 0) continue;
+          if (p.dead || p.down || p.cop || p.medic || p.bouncer || p.gang || p.fightT > 0) continue;
           const d = Math.hypot(p.x - x, p.z - z); if (d > r) continue;
           detachSpot(p);
           p.fleeT = rand(6, 10); p.fleeX = x; p.fleeZ = z; p.dodge = null;
@@ -1057,7 +1116,9 @@
         p.stumbleT = 1.1; p.fleeT = 0; p.fightT = 0;
         resumeRoute(p);
       },
-      clearChase() { for (const p of people) if (p.cop && p.chasing) resumeRoute(p); }
+      clearChase() { for (const p of people) if (p.cop && p.chasing) resumeRoute(p); },
+      get gangHeat() { return gangHeat; },
+      get gangWar() { return warT.t > 0; }
     };
     return api;
   };

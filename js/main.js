@@ -159,6 +159,9 @@
     onDown: (p, src) => { if (src.byPlayer && !p.medic && Math.random() < .5) combat.dropCash(p.x, p.z, 3 + (Math.random() * 25 | 0)); },
     onHurt: (p, src) => { if (src.byPlayer && p.cop && src.kind !== 'car') police.reportCrime('copAttack', p.x, p.z); },
     onCopShoot: p => combat.copShoot(p, police.wanted),
+    onGangShoot: p => combat.copShoot(p, 2),
+    onGangShootAt: (p, t) => combat.npcShoot(p, t),
+    playerArmed: () => !vehicles.driving && !combat.isMelee(),
     onHitPlayer: dmg => { heroDamage(dmg); audio.punch(null); },
     onBustTick: dt => { if (!player.inCar || vehicles.speedKmh() < 5) police.bustTick(dt); },
     onScream: p => audio.scream([p.x, 1.6, p.z]),
@@ -516,6 +519,8 @@
     g.fillStyle = '#2a2140'; g.fillRect(0, 0, W, W);
     g.translate(Rr, Rr); g.rotate(rig.yaw); g.scale(pxPerM / M.s, pxPerM / M.s);
     g.drawImage(M.canvas, -(player.x - M.x0) * M.s, -(player.z - M.z0) * M.s);
+    // gang turf, tinted
+    if (world.north) for (const t of world.north.territories) { g.fillStyle = t.color; g.globalAlpha = .18; g.fillRect((t.x0 - player.x) * M.s, (t.z0 - player.z) * M.s, (t.x1 - t.x0) * M.s, (t.z1 - t.z0) * M.s); g.globalAlpha = 1; }
     // taxi route along the streets
     const route = taxi.route;
     if (route.length > 1) {
@@ -591,7 +596,7 @@
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
   const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
-    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 200, -200]];
+    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 330, -300], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210]];
   // everything worth finding, with the same look as on the minimap
   function mapIcons() {
     const out = [], P = id => places.byId(id);
@@ -603,6 +608,7 @@
     for (const [id, bg, ch, label] of [['bank', '#1a8a5a', '$', 'Банк'], ['casino', '#c9a04a', '♦', 'Казино'], ['arcade', '#8a5ad8', '★', 'Игровые автоматы'], ['diner', '#e0286a', 'D', 'Закусочная'], ['hotel', '#2fa8a0', 'H', 'Отель OCEAN']]) { const p = P(id); if (p && p.door) add(p.door.cx, p.door.cz, bg, '#fff', ch, label); }
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
+    if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
     if (world.street.motel) add(world.street.motel.center.x, world.street.motel.center.z, '#ff2d7a', '#fff', '♥', 'Мотель Pink Flamingo: девушки с 19:00 до 5:00');
@@ -633,6 +639,8 @@
     // district names
     g.font = `800 ${Math.round(Math.max(11, Math.min(26, sc * 4.2)) * r / Math.max(1, r * .75))}px Rubik, sans-serif`;
     for (const [name, x, z] of BM_LABELS) { g.lineWidth = 4 * r; g.strokeStyle = 'rgba(20,12,34,.75)'; g.strokeText(name, sx(x), sz(z)); g.fillStyle = '#fff1e4'; g.fillText(name, sx(x), sz(z)); }
+    // gang turf on the North Side
+    if (world.north) for (const t of world.north.territories) { g.fillStyle = t.color; g.globalAlpha = .16; g.fillRect(sx(t.x0), sz(t.z0), (t.x1 - t.x0) * sc, (t.z1 - t.z0) * sc); g.globalAlpha = 1; }
     // the taxi route
     const route = taxi.route;
     if (route.length > 1) { g.lineJoin = g.lineCap = 'round'; g.beginPath(); route.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo'](sx(x), sz(z))); g.strokeStyle = 'rgba(30,18,40,.8)'; g.lineWidth = 7 * r; g.stroke(); g.strokeStyle = '#ffd84f'; g.lineWidth = 3.5 * r; g.stroke(); }
