@@ -943,13 +943,15 @@
     }
 
     /* ---------------------------------------------------------------
-       11. THE YACHT "LEHA NEPLOXO": at anchor off the beach. Swim to the stern, climb onto the bathing
+       11. THE YACHT "LEHA NEPLOXO": at anchor out in the open sea south-east of the city. Swim to the stern, climb onto the bathing
            platform and up the steps: a party on the aft deck, a bar, a DJ, a jacuzzi and sunbeds up top
        --------------------------------------------------------------- */
-    const yacht = { x: 173, z: -25, x0: 168.4, x1: 177.6, z0: -43.3, z1: -8, deck: 2 };
+    // drawn round (173, -25) and moved as a whole to where it lies at anchor, (200, 200)
+    const YDX = 27, YDZ = 225;
+    const yacht = { x: 173 + YDX, z: -25 + YDZ, x0: 168.4 + YDX, x1: 177.6 + YDX, z0: -43.3 + YDZ, z1: -8 + YDZ, deck: 2 };
     let jacuzziMat = null, underGlow = null;
     {
-      K.at(0, 0);
+      K.at(YDX, YDZ);
       const WH = '#f7f6f2', TEAK = '#b07a48', NAVY = '#1c2a4a', GLASS = '#16263a', CHROME = '#d9d9e2', D = 2, UP = 4.4;
       NB.water.hole({ x0: yacht.x0, x1: yacht.x1, z0: yacht.z0, z1: yacht.z1 });
       // hull: the main body, two stern wings either side of the steps, and a bow narrowing to a point
@@ -1003,8 +1005,8 @@
             float bub = step(0.8, h(id)) * smoothstep(0.28, 0.12, length(f - 0.5));
             float w = sin(vU.x * 18.0 + uTime * 3.0) * sin(vU.y * 15.0 - uTime * 2.4);
             gl_FragColor = vec4(mix(vec3(0.25,0.8,0.9), vec3(0.9,1.0,1.0), clamp(bub + smoothstep(0.6, 1.0, w) * 0.5, 0.0, 1.0)), 0.7); }` });
-      const jw = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.9).rotateX(-Math.PI / 2), jacuzziMat); jw.position.set(173, UP + .45, -26.3); scene.add(jw);
-      NB.water.add({ name: 'jacuzzi', test: (x, z) => x > 171.25 && x < 174.75 && z > -27.75 && z < -24.85, surface: () => UP + .45 });
+      const jw = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.9).rotateX(-Math.PI / 2), jacuzziMat); jw.position.set(K.wx(173), UP + .45, K.wz(-26.3)); scene.add(jw);
+      NB.water.add({ name: 'jacuzzi', test: (x, z) => x > K.wx(171.25) && x < K.wx(174.75) && z > K.wz(-27.75) && z < K.wz(-24.85), surface: () => UP + .45 });
       // sunbeds up top, the wheelhouse and the radar arch
       for (const x of [170.6, 173, 175.4]) { K.box(x - .6, UP, -22, x + .6, UP + .35, -19.9, '#ffffff', true); K.box(x - .55, UP + .36, -22, x + .55, UP + .38, -20.2, '#ff7eb6'); }
       K.box(170, UP, -18, 176, 6.3, -15, GLASS, true); K.box(169.6, 6.3, -18.4, 176.4, 6.45, -14.8, WH, true);
@@ -1034,10 +1036,10 @@
       // a pool of light in the water round the hull after dark
       const glowTex = K.tex(64, 128, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w * .9); gr.addColorStop(0, 'rgba(90,220,255,1)'); gr.addColorStop(.5, 'rgba(60,160,255,.5)'); gr.addColorStop(1, 'rgba(40,120,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }, false);
       underGlow = new THREE.Mesh(new THREE.PlaneGeometry(18, 46).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-      underGlow.position.set(173, .08, -25.5); scene.add(underGlow);
-      mapShapes.push({ x0: 168.5, z0: -41, x1: 177.5, z1: -15, c: '#ffffff', k: 'b' }, { x0: 170.5, z0: -15, x1: 175.5, z1: -8.5, c: '#ffffff', k: 'b' });
+      underGlow.position.set(K.wx(173), .08, K.wz(-25.5)); scene.add(underGlow);
+      mapShapes.push({ x0: K.wx(168.5), z0: K.wz(-41), x1: K.wx(177.5), z1: K.wz(-15), c: '#ffffff', k: 'b' }, { x0: K.wx(170.5), z0: K.wz(-15), x1: K.wx(175.5), z1: K.wz(-8.5), c: '#ffffff', k: 'b' });
       // the party
-      const party = { yacht: true }, Y = (s, y) => Object.assign(s, { y, fixedY: true, home: true });
+      const party = { yacht: true }, Y = (s, y) => Object.assign(s, { x: K.wx(s.x), z: K.wz(s.z), y, fixedY: true, home: true });
       for (const x of [172.3, 173.5, 174.7]) for (const z of [-38.7, -37.3, -35.9, -34.5]) if (Math.random() < .8) spots.push(Y({ kind: 'dance', x: x + rand(-.2, .2), z: z + rand(-.2, .2), heading: Math.PI + rand(-.8, .8), mix: 'yacht', grp: party }, D));
       spots.push(Y({ kind: 'dj', x: 173, z: -30.45, heading: Math.PI, type: 'tourist_m' }, D));
       spots.push(Y({ kind: 'idle', x: 169.75, z: -34.7, heading: Math.PI / 2, type: 'croupier' }, D));
@@ -1046,13 +1048,15 @@
       for (const [x, z, h] of [[171.55, -26.3, Math.PI / 2], [174.45, -26.3, -Math.PI / 2], [173, -27.45, 0]]) spots.push(Y({ kind: 'sit', x, z, heading: h, type: pick(['beach_f', 'beach_f', 'beach_m']) }, UP + .18));
       for (const x of [170.6, 173, 175.4]) if (Math.random() < .85) spots.push(Y({ kind: 'lie', x, z: -21.9, heading: 0, type: 'beach_f' }, UP + .47));
       for (const x of [172, 174]) spots.push(Y({ kind: 'lie', x, z: -13.85, heading: 0, type: 'beach_f' }, D + .42));
-      outdoor.push({ x: 171.95, z: -34.7, y: D, r: 1.7, short: 'БАР', label: () => 'Бар яхты', use: () => G.ui.menu({ eyebrow: 'Яхта LEHA NEPLOXO', title: 'Бар', items: () => [
+      outdoor.push({ x: K.wx(171.95), z: K.wz(-34.7), y: D, r: 1.7, short: 'БАР', label: () => 'Бар яхты', use: () => G.ui.menu({ eyebrow: 'Яхта LEHA NEPLOXO', title: 'Бар', items: () => [
         { name: 'Шампанское', desc: 'Бокал из ведёрка со льдом · +20 здоровья, кружит голову', price: 60, buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); G.drunk(40); return 'За удачу!'; } },
         { name: 'Мохито', desc: '+15 здоровья', price: 15, buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); G.drunk(12); return 'Мята и лайм'; } },
         { name: 'Виски со льдом', desc: '+10 здоровья, крепко', price: 25, buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); G.drunk(30); return 'Ух!'; } },
         { name: 'Вода с лимоном', desc: 'Протрезветь', price: 2, buy: () => { G.drunk(0); return 'Голова прояснилась'; } }
       ] }) });
     }
+
+    K.at(0, 0);
 
     /* ---------------------------------------------------------------
        12. NEON BAY MARINA: a wooden pier out into the sea with speedboats and jet skis alongside,
@@ -1093,7 +1097,7 @@
        ===================================================================== */
     for (const pl of places) if (!pl.update) pl.update = () => {};
     const api = {
-      list: places, spots, VILLA_PRICE, garage, tiki, heliPad, towerRoof,
+      list: places, spots, VILLA_PRICE, garage, tiki, heliPad, towerRoof, yacht,
       current: null,
       byId: id => places.find(p => p.id === id),
       // which interior a point is in

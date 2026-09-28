@@ -605,7 +605,7 @@
     for (const b of world.street.buskers) add(b.x, b.z, '#2a2240', '#ffd84f', '♪', 'Уличный музыкант');
     add(125, -30, '#f5f0d8', '#2a6fe8', 'V', 'Пляжный волейбол');
     add(142, 46, '#3fe6e0', '#10202a', '⚓', 'Причал: катера');
-    add(173, -25, '#f6f2ec', '#1c2a4a', 'Я', 'Яхта LEHA NEPLOXO');
+    add(places.yacht.x, places.yacht.z, '#f6f2ec', '#1c2a4a', 'Я', 'Яхта LEHA NEPLOXO');
     add(510, 0, '#e02a3a', '#fff', '▲', 'Маяк');
     if (places.heliPad) add(places.heliPad.x + 7, places.heliPad.z - 7, '#6bffd0', '#10201c', 'В', 'Вертолёт (лифт в больнице)');
     if (places.towerRoof) add(places.towerRoof.cx, places.towerRoof.cz, '#10081c', '#ff4fa3', 'N', 'NEPLOXO TOWER: бассейн и вертолёт на крыше');

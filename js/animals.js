@@ -79,7 +79,7 @@
       birds.push(b); return b;
     }
     // the gulls that never land: over the beach, the pier, the yacht, the bridge and the lighthouse
-    for (const [x, z, r, alt, n] of [[128, -45, 26, 15, 2], [140, 30, 20, 18, 2], [173, -25, 14, 12, 2], [150, 46, 12, 10, 1], [228, -98, 30, 26, 1], [505, 28, 16, 22, 2]]) {
+    for (const [x, z, r, alt, n] of [[128, -45, 26, 15, 2], [140, 30, 20, 18, 2], [200, 200, 14, 12, 2], [150, 46, 12, 10, 1], [228, -98, 30, 26, 1], [505, 28, 16, 22, 2]]) {
       for (let k = 0; k < n; k++) bird('gull', { x, z, r: 4 }, { x, z, r, alt }, true);
     }
     // gulls resting on the sand in little groups
