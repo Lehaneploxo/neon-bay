@@ -71,7 +71,7 @@
   const animals = NB.createAnimals(scene, world, { crowd, vehicles, player, audio, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), onBite: d => { heroDamage(d); flashTip('Собака кусается!', 1.4); } });
   crowdOpts.onPanic = (x, z, r) => animals.scare(x, z, r);
   const carLimits = () => lowCrowd() ? { traffic: 6, carRange: 90, patrols: 1 } : { traffic: 12, carRange: 130, patrols: 2 };
-  let shake = 0, promptCar = null;
+  let shake = 0, promptCar = null, edgeT = 0;
   const carCam = { x: 0, y: 0, z: 0, heading: 0, speed: 0, camDist: 7.2, camH: 1.7 };
   function toggleCar() {
     const car = vehicles.driving;
@@ -578,7 +578,7 @@
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
   const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
-    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102]];
+    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 200, -200]];
   // everything worth finding, with the same look as on the minimap
   function mapIcons() {
     const out = [], P = id => places.byId(id);
@@ -602,9 +602,10 @@
     if (places.towerRoof) add(places.towerRoof.cx, places.towerRoof.cz, '#10081c', '#ff4fa3', 'N', 'NEPLOXO TOWER: бассейн и вертолёт на крыше');
     return out;
   }
+  const WB = world.bounds, BMW = WB.x1 - WB.x0, BMH = WB.z1 - WB.z0, BMX = (WB.x0 + WB.x1) / 2;
   function bmFit() {
     const W = bm.cv.width, H = bm.cv.height;
-    bm.sc = Math.min(W / 740, H / 300); bm.cx = 217; bm.cz = 0;
+    bm.sc = Math.min(W / BMW, H / BMH); bm.cx = BMX; bm.cz = 0;
   }
   function bmSize() { const r = Math.min(window.devicePixelRatio || 1, 2); bm.cv.width = Math.round(innerWidth * r); bm.cv.height = Math.round(innerHeight * r); }
   function drawBigMap() {
@@ -650,13 +651,13 @@
     bmSize(); bmFit();
     // start centred on the hero, zoomed in a little if the whole map is tiny on screen
     const px = places.current && places.current.door ? places.current.door.x : player.x, pz = places.current && places.current.door ? places.current.door.z : player.z;
-    if (bm.sc < 2.2) { bm.cx = U.clamp(px, 0, 440); bm.cz = U.clamp(pz, -60, 60); bm.sc = Math.max(bm.sc, Math.min(2.2, bm.sc * 1.6)); }
-    $('bmLegend').innerHTML = mapIcons().map(ic => `<span><i style="background:${ic.bg};color:${ic.fg}">${ic.ch}</i>${ic.label}</span>`).join('');
+    if (bm.sc < 2.2) { bm.cx = U.clamp(px, WB.x0 + 100, WB.x1 - 100); bm.cz = U.clamp(pz, WB.z0 + 60, WB.z1 - 60); bm.sc = Math.max(bm.sc, Math.min(2.2, bm.sc * 1.6)); }
+    $('bmLegend').innerHTML = mapIcons().filter((ic, i, all) => all.findIndex(o => o.label === ic.label) === i).map(ic => `<span><i style="background:${ic.bg};color:${ic.fg}">${ic.ch}</i>${ic.label}</span>`).join('');
     drawBigMap();
   }
   function closeMap() { if (!bm.open) return; bm.open = false; $('bigmap').hidden = true; play(); }
   const bmZoom = (k, fx, fy) => {
-    const W = bm.cv.width, H = bm.cv.height, ns = U.clamp(bm.sc * k, Math.min(W / 740, H / 300) * .8, 18);
+    const W = bm.cv.width, H = bm.cv.height, ns = U.clamp(bm.sc * k, Math.min(W / BMW, H / BMH) * .8, 18);
     if (fx != null) { const wx = bm.cx + (fx - W / 2) / bm.sc, wz = bm.cz + (fy - H / 2) / bm.sc; bm.cx = wx - (fx - W / 2) / ns; bm.cz = wz - (fy - H / 2) / ns; }
     bm.sc = ns; drawBigMap();
   };
@@ -770,6 +771,9 @@
       places.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
+      // the edge of the world: open ocean
+      edgeT -= dt;
+      if (edgeT <= 0 && !places.current && (player.x < WB.x0 + 10 || player.x > WB.x1 - 10 || player.z < WB.z0 + 10 || player.z > WB.z1 - 10)) { edgeT = 8; flashTip('Дальше только открытый океан — поворачивайте назад', 3); }
       const drv = vehicles.driving;
       if (drv) { player.x = drv.x; player.z = drv.z; player.y = drv.y; player.heading = drv.h; player.vx = drv.vx; player.vz = drv.vz; }
       crowd.update(dt, time, player, rig.yaw, vehicles.dangers(), police);
