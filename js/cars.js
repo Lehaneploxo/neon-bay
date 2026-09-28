@@ -27,7 +27,7 @@
     B(hw + .08, hh, .05, spread, yR, -l / 2 - .01, '#ff2a3a'), B(hw + .08, hh, .05, -spread, yR, -l / 2 - .01, '#ff2a3a')];
 
   const MODELS = [
-    { id: 'zefiro', name: 'Zefiro GT', w: 1.95, l: 4.3, r: .33, seat: [.4, .5, -.25],
+    { id: 'zefiro', name: 'Zefiro GT', w: 1.95, l: 4.3, r: .33, seat: [.4, .22, -.25],
       perf: { accel: 11, top: 40, grip: 9, steer: .55, brake: 16 },
       palette: ['#e8202a', '#f5f5f0', '#141418', '#ffd23d', '#ff4fa3', '#2a6fe8'], accent: ['#141418'],
       parts: () => [
@@ -40,15 +40,15 @@
         B(.03, .2, .6, .98, .52, -.6, 'black'), B(.03, .2, .6, -.98, .52, -.6, 'black'),
         B(1.9, .12, .1, 0, .28, 2.16, 'black'), B(1.9, .14, .1, 0, .3, -2.16, 'black'),
         ...lights(1.95, 4.3, .6, .52, .6, .38, .07)] },
-    { id: 'meridian', name: 'Meridian', w: 1.85, l: 4.8, r: .33, seat: [.4, .62, -.2],
+    { id: 'meridian', name: 'Meridian', w: 1.85, l: 4.8, r: .33, seat: [.4, .5, -.2],
       perf: { accel: 7, top: 30, grip: 8, steer: .5, brake: 13 },
       palette: ['#8a1f2a', '#2a3f6b', '#d9d4cc', '#3b5a3a', '#7a6a5a', '#b8b8c0', '#e8d9b0', '#5a2a4a', '#1a1a1e', '#a0c4e8'], accent: ['chrome'],
       parts: () => sedan() },
-    { id: 'cab', name: 'Downtown Cab', w: 1.85, l: 4.8, r: .33, seat: [.4, .62, -.2],
+    { id: 'cab', name: 'Downtown Cab', w: 1.85, l: 4.8, r: .33, seat: [.4, .5, -.2],
       perf: { accel: 7, top: 30, grip: 8, steer: .5, brake: 13 },
       palette: ['#ffc81e'], accent: ['#1a1a1e'],
       parts: () => [...sedan(), B(.62, .22, .28, 0, 1.49, -.25, 'white'), B(1.87, .1, 2.4, 0, .72, -.1, 'accent')] },
-    { id: 'police', name: 'Police Cruiser', w: 1.85, l: 4.8, r: .33, seat: [.4, .62, -.2], police: true,
+    { id: 'police', name: 'Police Cruiser', w: 1.85, l: 4.8, r: .33, seat: [.4, .5, -.2], police: true,
       perf: { accel: 10.5, top: 38, grip: 9, steer: .52, brake: 15 },
       palette: ['#141820'], accent: ['#f5f5f0'], bar: [0xff2244, 0x2266ff],
       parts: () => [...sedan(), B(1.87, .42, 2.3, 0, .62, -.1, 'accent'), B(1.25, .08, .36, 0, 1.42, -.25, 'black')] },
@@ -78,7 +78,7 @@
         B(1.9, .16, .14, 0, .32, 2.32, 'chrome'), B(1.9, .16, .14, 0, .32, -2.32, 'chrome'), B(1.1, .22, .04, 0, .58, 2.31, 'grille'),
         B(1.87, .04, 4.4, 0, .64, 0, 'chrome'),
         ...lights(1.85, 4.6, .62, .64, .64)] },
-    { id: 'hayride', name: 'Hayride', w: 1.95, l: 5.0, r: .4, seat: [.42, .95, .5],
+    { id: 'hayride', name: 'Hayride', w: 1.95, l: 5.0, r: .4, seat: [.42, .78, .5],
       perf: { accel: 6.5, top: 27, grip: 7, steer: .48, brake: 12 },
       palette: ['#7a4a2a', '#2f4a2a', '#8a1f2a', '#e8e2d4', '#2a3f6b', '#c9a27a', '#1a1a1e'], accent: ['#e8e2d4', '#1a1a1e', '#c9a27a'],
       parts: () => [
@@ -97,7 +97,7 @@
         B(1.97, .45, 2.6, 0, 1.45, -.4, 'glass'), B(1.97, .14, 4.32, 0, .95, -.3, 'accent'),
         B(2.0, .16, .14, 0, .33, 2.46, 'black'), B(2.0, .16, .14, 0, .33, -2.46, 'black'), B(1.1, .2, .04, 0, .6, 2.46, 'grille'),
         ...lights(1.95, 4.9, .62, .7, .66)] },
-    { id: 'corsaro', name: 'Corsaro SS', w: 1.9, l: 4.7, r: .35, seat: [.4, .6, -.3],
+    { id: 'corsaro', name: 'Corsaro SS', w: 1.9, l: 4.7, r: .35, seat: [.4, .48, -.3],
       perf: { accel: 10, top: 37, grip: 7.2, steer: .5, brake: 14 },
       palette: ['#ff7a1a', '#1a1a1e', '#2a6fe8', '#2e8a4a', '#c81e2a', '#ffd23d', '#f5f5f0'], accent: ['#f5f5f0', '#1a1a1e'],
       parts: () => [
@@ -108,7 +108,7 @@
         B(1.7, .06, .22, 0, .9, -2.24, 'body'),
         B(1.95, .14, .12, 0, .32, 2.36, 'chrome'), B(1.95, .14, .12, 0, .32, -2.36, 'chrome'), B(1.3, .24, .04, 0, .6, 2.36, 'black'),
         ...lights(1.9, 4.7, .62, .66, .66)] },
-    { id: 'piccolo', name: 'Piccolo', w: 1.7, l: 3.7, r: .3, seat: [.36, .58, -.1],
+    { id: 'piccolo', name: 'Piccolo', w: 1.7, l: 3.7, r: .3, seat: [.36, .48, -.1],
       perf: { accel: 7.5, top: 28, grip: 9, steer: .58, brake: 13 },
       palette: ['#ffd23d', '#ff4fa3', '#3fe6e0', '#e8202a', '#8cff6b', '#f5f5f0', '#ff8a3d', '#9b5cff'], accent: ['#1a1a1e'],
       parts: () => [
@@ -129,7 +129,7 @@
         B(.3, .12, .95, .95, 1.02, 1.35, 'black'), B(.3, .12, .95, -.95, 1.02, 1.35, 'black'), B(.3, .12, .95, .95, 1.02, -1.35, 'black'), B(.3, .12, .95, -.95, 1.02, -1.35, 'black'),
         B(1.9, .2, .16, 0, .45, 2.08, 'black'),
         ...lights(1.85, 4.1, .98, .98, .62, .3, .16)] },
-    { id: 'royale', name: 'Royale Limo', w: 1.95, l: 7.0, r: .35, seat: [.42, .62, 1.4],
+    { id: 'royale', name: 'Royale Limo', w: 1.95, l: 7.0, r: .35, seat: [.42, .5, 1.4],
       perf: { accel: 6, top: 30, grip: 7.5, steer: .42, brake: 12 },
       palette: ['#f5f5f0', '#1a1a1e', '#e8c0d0'], accent: ['chrome'],
       parts: () => [
