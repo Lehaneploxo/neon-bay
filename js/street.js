@@ -176,7 +176,7 @@
         center: { x: (X0 + L.x1) / 2, z: (Z0 + Z1) / 2 },
         // after a night in a room you come down the stairs to the car park
         door: { x: FX + 2.6, z: Z1 - 7, heading: Math.PI / 2 },
-        girls: [[L.x1 - 2, Z0 + 4.5], [L.x1 - 1.8, Z0 + 6], [L.x1 - 2.2, Z0 + 7.5]],
+        girls: [[L.x1 - .6, Z0 + 4.5], [L.x1 - .5, Z0 + 6], [L.x1 - .7, Z0 + 7.5]],   // at the kerb, where a car can pull up
         vacancy: vMat
       };
     }
@@ -343,7 +343,7 @@
     }
 
     // the one in the hero's car: sitting in the passenger seat until the car stops somewhere, then a while parked
-    const R = { state: 'none', car: null, look: null, rider: null, t: 0, spot: null };
+    const R = { state: 'none', car: null, look: null, rider: null, t: 0, spot: null, waitT: 0 };
     const riderMat = new THREE.MeshLambertMaterial({ vertexColors: true });
     function seat(car, look) {
       const c = h => new THREE.Color(h || '#888888'), M = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
@@ -363,12 +363,19 @@
     function nightUpdate(dt) {
       const car = G.vehicles.driving, P = G.player;
       if (R.state === 'none') {
-        // stop next to one of them and sound the horn
-        if (!car || car.model.boat || car.model.heli || !night() || G.vehicles.speedKmh() > 4 || !G.vehicles.hornHeld) return;
-        for (const s of girls) {
-          const p = s.person; if (!p || p.spot !== s || Math.hypot(p.x - car.x, p.z - car.z) > 7) continue;
-          if (G.police.wanted > 0) { say(p, pick(['Копы на хвосте! Проезжай!', 'Не сейчас, красавчик, за тобой полиция'])); return; }
-          if (G.money.get() < 100) { say(p, 'Сто долларов, милый. Приходи с деньгами'); return; }
+        // pull up next to one of them: a toot of the horn, or just waiting there a moment, and she gets in
+        if (!car || car.model.boat || car.model.heli || !night() || G.vehicles.speedKmh() > 4) { R.waitT = 0; return; }
+        const s0 = girls.find(s => s.person && s.person.spot === s && Math.hypot(s.person.x - car.x, s.person.z - car.z) < 10);
+        if (!s0) { R.waitT = 0; return; }
+        if (!R.waitT) { say(s0.person, pick(['Подвезти, красавчик?', 'Привет, милый! Прокатимся?', 'Эй, красавчик, я свободна!'])); }
+        R.waitT += dt;
+        if (!G.vehicles.hornHeld && R.waitT < 2.2) return;
+        R.waitT = 0;
+        for (const s of [s0]) {
+          const p = s.person;
+          // turned away: she won't ask again for a few seconds
+          if (G.police.wanted > 0) { say(p, pick(['Копы на хвосте! Проезжай!', 'Не сейчас, красавчик, за тобой полиция'])); R.waitT = -6; return; }
+          if (G.money.get() < 100) { say(p, 'Сто долларов, милый. Приходи с деньгами'); R.waitT = -6; return; }
           R.look = p.look; R.spot = s; s.vacated = true; G.crowd.despawnPerson(p);
           R.car = car; R.rider = seat(car, R.look); R.state = 'ride'; R.t = 0; G.audio.door();
           G.flash('«Поехали, красавчик!» — остановитесь в тихом месте', 3);
