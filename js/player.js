@@ -286,7 +286,8 @@
       const wrap = a => ((a % TAU) + TAU) % TAU;
       // crawl: arms windmill in turn, legs flutter; treading: arms scull out to the sides, legs cycle slowly
       const kick = Math.sin(ph * 2.4);
-      const crawlAL = -wrap(ph), crawlAR = -wrap(ph + Math.PI);
+      // each arm comes forward over the back, out of the water, reaches ahead, then pulls back under the body
+      const crawlAL = wrap(ph), crawlAR = wrap(ph + Math.PI);
       const scull = Math.sin(t * 3.2);
       const aLx = crawl > .5 ? crawlAL : -.45 + scull * .25, aRx = crawl > .5 ? crawlAR : -.45 - scull * .25;
       m.aL.sh.rotation.x = crawl > .5 ? aLx : L(m.aL.sh.rotation.x, aLx); m.aR.sh.rotation.x = crawl > .5 ? aRx : L(m.aR.sh.rotation.x, aRx);
