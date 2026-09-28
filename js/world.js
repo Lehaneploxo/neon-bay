@@ -598,7 +598,6 @@
         void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `uniform float uTime, uNear, uFar, uFoam; uniform vec3 uFog, uSun, uShallow, uDeep, uSpec, uRim; varying vec3 vW; varying float vD;
         void main(){
-          if (vW.x > ${(-EMB).toFixed(1)} && vW.x < ${(SHORE - .6).toFixed(1)} && abs(vW.z) < ${EMB.toFixed(1)}) discard;
           float dC = length(vec2(max(max(${(-EMB).toFixed(1)} - vW.x, vW.x - ${SHORE.toFixed(1)}), 0.0), max(abs(vW.z) - ${EMB.toFixed(1)}, 0.0)));
           vec2 qi = vec2(max(max(345.0 - vW.x, vW.x - 515.0), 0.0), max(abs(vW.z) - 105.0, 0.0));
           float dI = length(qi);
@@ -619,8 +618,16 @@
           gl_FragColor = vec4(c, 1.0);
         }`
     });
-    const sea = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), seaMat);
-    sea.rotation.x = -Math.PI / 2; sea.position.set((WORLD.x0 + WORLD.x1) / 2, .05, 0); scene.add(sea);
+    // the sea is a ring round the city (its middle cut out as geometry, so nothing is drawn under the streets)
+    const seaGeo = (() => {
+      const pos = [], idx = [], quad = (x0, z0, x1, z1) => { const n = pos.length / 3; pos.push(x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1); idx.push(n, n + 2, n + 1, n, n + 3, n + 2); };
+      const X0 = -1300, X1 = 1700, Z0 = -1500, Z1 = 1500, a = -EMB, b = SHORE - .6;
+      quad(X0, Z0, a, Z1); quad(b, Z0, X1, Z1); quad(a, Z0, b, -EMB); quad(a, EMB, b, Z1);
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeBoundingSphere(); return g;
+    })();
+    seaMat.side = THREE.DoubleSide;
+    const sea = new THREE.Mesh(seaGeo, seaMat);
+    sea.position.y = .05; scene.add(sea);
 
     /* ---------- minimap base ---------- */
     const MAP = { x0: WORLD.x0, z0: WORLD.z0, x1: WORLD.x1, z1: WORLD.z1, s: 2 };

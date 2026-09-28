@@ -358,7 +358,8 @@
     let far;
     if (q === 'high') { setScale(Math.min(dpr, 1.5)); setShadows(true); far = 300; }
     else if (q === 'low') { setScale(Math.min(dpr, 1) * .7); setShadows(false); far = 180; }
-    else { autoMax = Math.min(dpr, 1); setScale(autoMax); setShadows(!isTouchDevice); far = 250; }
+    // auto: start at full size; a phone with a sharp screen may go a little above it while the frame rate allows
+    else { autoMax = isTouchDevice ? Math.min(dpr, 1.3) : Math.min(dpr, 1); setScale(Math.min(dpr, 1)); setShadows(!isTouchDevice); far = 250; }
     scene.fog.near = far * .28; scene.fog.far = far; fogNear0 = far * .28; fogFar0 = far; camera.far = far + 60; camera.updateProjectionMatrix();
     sky.scale.setScalar(camera.far * .9 / 480);   // keep the sky dome inside the far clipping plane
     world.setFog(scene.fog.near, scene.fog.far);
@@ -372,8 +373,8 @@
     const fps = perfN / perfT; perfT = 0; perfN = 0;
     if (fps < 45) {
       good = 0;
-      if (scale > .6) setScale(Math.max(.55, scale - .15));
-      else if (shadowsOn) setShadows(false);
+      if (shadowsOn) setShadows(false);
+      else if (scale > .8) setScale(Math.max(.75, scale - .1));
     } else if (fps > 57) {
       if (++good >= 3 && scale < autoMax) { good = 0; setScale(Math.min(autoMax, scale + .1)); }
     } else good = 0;

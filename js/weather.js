@@ -8,10 +8,10 @@
   // per kind: clouds (0..1), rain (0..1), fog (how far you see, 1 = normal), lightning, name and icon for the HUD
   const KINDS = {
     clear: { cloud: 0, rain: 0, fog: 1, bolts: false, name: 'Ясно', icon: '☀' },
-    cloudy: { cloud: .55, rain: 0, fog: .85, bolts: false, name: 'Облачно', icon: '☁' },
-    fog: { cloud: .45, rain: 0, fog: .3, bolts: false, name: 'Туман', icon: '🌫' },
-    rain: { cloud: .85, rain: .75, fog: .6, bolts: false, name: 'Дождь', icon: '🌧' },
-    storm: { cloud: 1, rain: 1, fog: .5, bolts: true, name: 'Гроза', icon: '⛈' }
+    cloudy: { cloud: .55, rain: 0, fog: .95, bolts: false, name: 'Облачно', icon: '☁' },
+    fog: { cloud: .45, rain: 0, fog: .5, bolts: false, name: 'Туман', icon: '🌫' },
+    rain: { cloud: .85, rain: .75, fog: .72, bolts: false, name: 'Дождь', icon: '🌧' },
+    storm: { cloud: 1, rain: 1, fog: .62, bolts: true, name: 'Гроза', icon: '⛈' }
   };
   const GREY_DAY = new THREE.Color('#9097a6'), GREY_NIGHT = new THREE.Color('#1b1d2a'), FOG_DAY = new THREE.Color('#b8bcc4'), SEA_GREY = new THREE.Color('#3f5a6e');
 
@@ -91,13 +91,13 @@
         const c = W.cloud, night = env.night, su = ctx.sky.material.uniforms, grey = tmpC.copy(GREY_DAY).lerp(GREY_NIGHT, night);
         su.uHor.value.lerp(grey, c * .8); su.uMid.value.lerp(grey, c * .85); su.uTop.value.lerp(grey, c * .7); su.uGround.value.lerp(grey, c * .8);
         su.uSunVis.value *= 1 - c; su.uStars.value *= 1 - c * .95; env.stars *= 1 - c * .95;
-        ctx.scene.fog.color.lerp(tmpC.copy(FOG_DAY).lerp(GREY_NIGHT, night), c * .75);
+        ctx.scene.fog.color.lerp(tmpC.copy(FOG_DAY).lerp(GREY_NIGHT, night), c * .6);
         ctx.hemi.intensity *= 1 - c * .25; ctx.sun.intensity *= 1 - c * .8;
         env.spec.multiplyScalar(1 - c * .9); env.seaA.lerp(SEA_GREY, c * .5); env.seaB.lerp(SEA_GREY, c * .4);
         // a dark afternoon switches the lamps on; the neon glows harder in the wet
         env.lamps = Math.max(env.lamps, c * .7); env.windows = Math.max(env.windows, c * .5);
         env.glow += W.wet * .14;
-        const k = W.fog, near = ctx.fogNear * k, far = ctx.fogFar * (.35 + .65 * k);
+        const k = W.fog, near = ctx.fogNear * k, far = ctx.fogFar * (.5 + .5 * k);
         ctx.scene.fog.near = near; ctx.scene.fog.far = far; ctx.world.setFog(near, far);
         ctx.world.setWet(W.wet);
         // the lightning lights the whole city for an instant

@@ -26,6 +26,7 @@
 
   NB.createSeaLife = function (world, o) {
     const V = o.vehicles, boats = [];
+    let fleet = [];   // every boat on the water, refreshed each frame
     function launch(id, x, z, h) {
       const c = V.spawnParked(id, x, z, h);
       if (!c) return null;
@@ -40,8 +41,8 @@
         const diff = U.angDiff(c.h, Math.atan2(dx, dz)), fx = Math.sin(c.h), fz = Math.cos(c.h), sp = Math.hypot(c.vx, c.vz);
         let throttle = b.push * (Math.abs(diff) > 1 ? .5 : 1), steer = U.clamp(-diff * 1.6, -1, 1);
         // give way: something ahead within a boat's length or two
-        for (const other of V.cars) {
-          if (other === c || !(other.model.boat) && !(other === V.driving && V.driving.model.boat)) continue;
+        for (const other of fleet) {
+          if (other === c) continue;
           const ox = other.x - c.x, oz = other.z - c.z, od = Math.hypot(ox, oz); if (od > 22 || od < .1) continue;
           const ahead = (ox * fx + oz * fz) / od;
           if (ahead > .6) { throttle = od < 12 ? -.4 : throttle * .3; steer = (ox * fz - oz * fx) > 0 ? .8 : -.8; if (other === V.driving && (b.honkT -= dt) <= 0 && od < 14) { b.honkT = rand(3, 5); o.audio.horn([c.x, 1, c.z]); } }
@@ -79,6 +80,7 @@
     return {
       boats, guards,
       update(dt) {
+        fleet = V.cars.filter(c => c.model.boat);
         // a boat someone took is no longer on its course; a sunk or lost one is replaced out of sight
         for (const b of boats) {
           const c = b.car;
