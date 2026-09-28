@@ -38,7 +38,7 @@
   const rig = new NB.CameraRig(camera, world.col);
   const lowCrowd = () => settings.quality === 'low' || isTouchDevice || (settings.quality === 'auto' && !shadowsOn && scale < .6);
   const crowdOpts = {
-    limits: () => lowCrowd() ? { walkers: 18, beach: 8, spotRange: 55, cops: 2, dogs: 2 } : { walkers: 32, beach: 14, spotRange: 80, cops: 3, dogs: 4 },
+    limits: () => lowCrowd() ? { walkers: 18, beach: 8, spotRange: 55, cops: 3, dogs: 2 } : { walkers: 32, beach: 14, spotRange: 80, cops: 4, dogs: 4 },
     onBump: (p, text) => say(p, text)
   };
   const crowd = NB.createCrowd(scene, world, crowdOpts);

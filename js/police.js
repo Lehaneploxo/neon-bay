@@ -68,7 +68,8 @@
         if (S.seenT <= 0) {
           S.seenT = .3;
           S.seen = o.crowd.cops().some(p => p.chasing && p.los && Math.hypot(p.x - player.x, p.z - player.z) < 50) ||
-            o.vehicles.cars.some(c => c.pursuit && c.pursuit.los && Math.hypot(c.x - player.x, c.z - player.z) < 75);
+            o.vehicles.cars.some(c => c.pursuit && c.pursuit.los && Math.hypot(c.x - player.x, c.z - player.z) < 75) ||
+            o.vehicles.cars.some(c => c.copHeli && !c.copHeli.leaving && Math.hypot(c.x - player.x, c.z - player.z) < 70);   // the helicopter sees everything
         }
         if (S.seen) S.searchT = 0;
         else if ((S.searchT += dt) > LOSE[S.wanted]) { api.clear(); o.flash('Вы оторвались от полиции', 2.5); return; }

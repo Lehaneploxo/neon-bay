@@ -180,7 +180,7 @@
     // the ground under a helicopter: roofs, the road, or the water surface
     const heliGround = car => { const f = floorAt(car.x, car.z, car.y + .3), W = NB.water.at(car.x, car.z); return W ? Math.max(f, W.surface() + .1) : f; };
     function heliPhysics(car, dt, ctl) {
-      const pf = car.model.perf, piloted = car.driver === 'player';
+      const pf = car.model.perf, piloted = car.driver === 'player' || !!car.copHeli;
       car.spool = U.damp(car.spool, piloted ? 1 : 0, piloted ? .9 : .5, dt);
       const lift = car.spool > .75, ground = heliGround(car), air = car.y > ground + .25;
       // vertical: holds its height by itself, climbs or sinks on request, drops when the rotor stops
@@ -469,8 +469,10 @@
       return bn ? [bn.x, bn.z] : [tx, tz];
     }
     // the police station: units leave from the street in front of it and come back there
-    const UNITS = [0, 1, 2, 3, 4, 5], RESPONSE = 2, NEXT_UNIT = 5;
-    const D = { wantedT: 0, cd: 0 };
+    // cars on the case per star; seconds between two cars leaving the station; a lost car is replaced after LOST s
+    const UNITS = [0, 1, 2, 4, 6, 8], NEXT_UNIT = [0, 5, 5, 3, 3, 3], RESPONSE = 2, LOST = 10;
+    const D = { wantedT: 0, cd: 0, prev: 0 };
+    let heat = 0;   // the current wanted level, for how hard the cars drive
     const HQ = world.station ? { x: ROADS.find(r => r > world.station.cx) || ROADS[0], z: world.station.cz } : { x: ROADS[1], z: 0 };
     function dispatchUnit(t) {
       const north = t.z > HQ.z, x = HQ.x + (north ? -LANE : LANE), z = HQ.z;
@@ -478,6 +480,47 @@
       const car = makeCar(byId.police, x, z, north ? 0 : Math.PI);
       startPursuit(car); car.unit = true; car.crew = 2;
       return car;
+    }
+    // 5 stars: a police helicopter takes off from the station roof, circles over the hero and keeps a spotlight on them
+    let copHeli = null;
+    const spotCone = new THREE.Mesh(new THREE.CylinderGeometry(.35, 4.2, 1, 20, 1, true).translate(0, -.5, 0),
+      new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: .15, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const spotDisc = new THREE.Mesh(new THREE.CircleGeometry(4.2, 24).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xfff6d8, transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+    spotCone.visible = spotDisc.visible = false; spotCone.frustumCulled = false; scene.add(spotCone, spotDisc);
+    const DOWN = new THREE.Vector3(0, -1, 0), BEAM = new THREE.Vector3();
+    function launchHeli() {
+      const st = world.station; if (!st) return;
+      const car = makeCar(byId.heli, st.cx, st.cz, Math.PI / 2);
+      car.color = '#1c2a4a'; car.accent = '#f5f5f0'; paint(car);
+      car.copHeli = { ang: Math.random() * 6, sx: st.cx, sz: st.cz, leaving: false };
+      car.driver = 'cop'; car.driverMesh.visible = true; car.parked = false; car.awake = true;
+      copHeli = car;
+    }
+    function heliAI(c, dt, tgt) {
+      const H = c.copHeli, st = world.station || { cx: 0, cz: 0 };
+      let tx, tz;
+      if (H.leaving) { tx = st.cx; tz = st.cz; }
+      else { H.ang += dt * .22; tx = tgt.x + Math.sin(H.ang) * 24; tz = tgt.z + Math.cos(H.ang) * 24; }
+      const dx = tx - c.x, dz = tz - c.z, dist = Math.hypot(dx, dz), diff = U.angDiff(c.h, Math.atan2(dx, dz));
+      // above the downtown roofs; held up by something taller (the tower): climb over it
+      const held = Math.hypot(c.vx, c.vz) < 2 && dist > 30 && Math.abs(diff) < .5;
+      H.climb = held ? Math.min(4, (H.climb || 0) + dt) : Math.max(0, (H.climb || 0) - dt * .25);
+      const alt = Math.max(heliGround(c) + 26, H.leaving ? 75 : 62) + (H.climb > 1 ? 100 : 0);
+      let throttle = dist > 6 ? U.clamp(dist / 25, .25, 1) : 0; if (Math.abs(diff) > 1) throttle *= .3;
+      heliPhysics(c, dt, { throttle, steer: U.clamp(-diff * 1.8, -1, 1), up: c.y < alt - 1.5, down: c.y > alt + 1.5 });
+      // the spotlight trails the hero a little
+      H.sx = U.damp(H.sx, tgt.x, 2.5, dt); H.sz = U.damp(H.sz, tgt.z, 2.5, dt);
+      if (H.leaving && (dist < 10 || (!c.visible && Math.hypot(c.x - tgt.x, c.z - tgt.z) > 200))) { removeCar(c); copHeli = null; }
+    }
+    function spotUpdate(P) {
+      const c = copHeli, on = !!c && !c.copHeli.leaving && c.spool > .8;
+      spotCone.visible = spotDisc.visible = on; if (!on) return;
+      const H = c.copHeli, gy = floorAt(H.sx, H.sz, (P.y || 0) + 1) + .05;
+      spotDisc.position.set(H.sx, gy, H.sz);
+      BEAM.set(H.sx - c.x, gy - (c.y + .6), H.sz - c.z); const L = BEAM.length();
+      spotCone.position.set(c.x, c.y + .6, c.z); spotCone.scale.set(1, L, 1); spotCone.quaternion.setFromUnitVectors(DOWN, BEAM.normalize());
+      spotCone.material.opacity = .06 + night * .16; spotDisc.material.opacity = .12 + night * .3;
     }
     function goHome(c) {
       c.sirenOn = false; c.returning = true; c.driver = 'cop'; c.driverMesh.visible = true; c.parked = false; c.awake = true;
@@ -524,9 +567,28 @@
         if (!P.wp || Math.hypot(P.wp[0] - car.x, P.wp[1] - car.z) < 6 || (P.wpT -= dt) <= 0) { P.wp = nextGridPoint(car.x, car.z, tgt.x, tgt.z); P.wpT = 4; }
         ax = P.wp[0]; az = P.wp[1];
       } else P.wp = null;
+      const inCar = !tgt.onFoot, tsp = Math.hypot(tgt.vx || 0, tgt.vz || 0), vF = speedOf(car);
+      // 4-5 stars: one car races ahead of the hero and swings across the road
+      if (P.role === 'block' && inCar) {
+        if (P.blockT > 0) {
+          P.blockT -= dt;
+          const spin = P.blockT > 4.3;
+          physics(car, dt, { throttle: spin ? .4 : vF > .5 ? -1 : 0, steer: spin ? P.blockSide : 0, handbrake: true });
+          if (P.blockT <= 0) P.role = null;
+          return;
+        }
+        const ahead = tsp > 1 ? ((car.x - tgt.x) * tgt.vx + (car.z - tgt.z) * tgt.vz) / tsp : 0;
+        const side = tsp > 1 ? Math.abs((car.x - tgt.x) * tgt.vz - (car.z - tgt.z) * tgt.vx) / tsp : 99;
+        if (tsp > 6 && ahead > 7 && ahead < 35 && side < 5) { P.blockT = 5; P.blockSide = Math.random() < .5 ? 1 : -1; return; }
+        if (P.los && dist < 60) { ax = tgt.x + tgt.vx * 2.5; az = tgt.z + tgt.vz * 2.5; }
+      } else if (inCar && P.los && dist < 30 && heat >= 3) {
+        // 3+ stars: aim for where the hero's car is about to be, and hit it
+        const k = Math.min(.8, dist / 20); ax = tgt.x + (tgt.vx || 0) * k; az = tgt.z + (tgt.vz || 0) * k;
+      }
       const want = Math.atan2(ax - car.x, az - car.z), diff = U.angDiff(car.h, want);
-      const vF = speedOf(car);
       let throttle = 1, steer = U.clamp(-diff * 2.2, -1, 1);
+      // fewer stars: sit on the hero's tail without ramming
+      if (inCar && heat < 3 && P.los && dist < 11) throttle = vF > tsp + 1 ? -.4 : .35;
       if (tgt.onFoot && P.los && dist < 15) {
         throttle = vF > 1 ? -1 : 0;
         if (Math.abs(vF) < 1.5) { P.exitT += dt; if (P.exitT > .5 && opts.onCopsExit) { opts.onCopsExit(car); car.pursuit = null; car.driver = null; car.driverMesh.visible = false; car.parked = true; car.exited = true; return; } }
@@ -556,6 +618,7 @@
       cars,
       get driving() { return driving; },
       station: HQ,
+      get heli() { return copHeli; },
       nearest(player) {
         let best = null, bd = Infinity;
         for (const c of cars) {
@@ -645,7 +708,7 @@
           for (const c of cars.slice()) {
             const d = Math.hypot(c.x - player.x, c.z - player.z);
             if (c.ai && d > 150) removeCar(c);
-            else if (!c.ai && !c.parked && c !== driving && d > 170 && cars.length > 70) removeCar(c);
+            else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
           }
           const traffic = cars.filter(c => c.ai).length;
           const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
@@ -660,11 +723,18 @@
           if (pol.wanted > 0) {
             D.wantedT += 1;
             for (const c of cars) if (c.police && (c.ai || c.returning) && Math.hypot(c.x - tgt.x, c.z - tgt.z) < 90) { c.returning = false; c.goto = null; startPursuit(c); }
-            const units = cars.filter(c => c.police && (c.pursuit || c.exited)).length, need = UNITS[Math.min(5, pol.wanted)];
+            const w = Math.min(5, pol.wanted), units = cars.filter(c => c.police && (c.pursuit || c.exited)).length, need = UNITS[w];
             D.cd -= 1;
-            if (units < need && D.wantedT >= RESPONSE && D.cd <= 0 && dispatchUnit(tgt)) D.cd = NEXT_UNIT;
+            if (units < D.prev) D.cd = Math.max(D.cd, LOST);   // a car lost (taken by the hero): the station takes a while to send another
+            if (units < need && D.wantedT >= RESPONSE && D.cd <= 0 && dispatchUnit(tgt)) D.cd = NEXT_UNIT[w];
+            D.prev = cars.filter(c => c.police && (c.pursuit || c.exited)).length;
+            if (w >= 4 && !tgt.onFoot && !cars.some(c => c.pursuit && c.pursuit.role === 'block')) {
+              const c = cars.find(c => c.pursuit && c.pursuit.los && Math.hypot(c.x - tgt.x, c.z - tgt.z) < 60);
+              if (c) c.pursuit.role = 'block';
+            }
+            if (w >= 5 && !copHeli && D.wantedT >= RESPONSE + 3) launchHeli();
           } else {
-            D.wantedT = 0; D.cd = 0;
+            D.wantedT = 0; D.cd = 0; D.prev = 0;
             // it's over: cars drive back to the station; a car whose crew is out waits for them to get back in
             for (const c of cars) {
               if (!c.police) continue;
@@ -672,6 +742,7 @@
               else if (c.exited && c.driver !== 'player') { c.waitT = (c.waitT || 0) + 1; if ((c.crew || 0) <= 0 || c.waitT > 25) { c.exited = false; goHome(c); } }
             }
           }
+          if (copHeli && pol.wanted < 5) copHeli.copHeli.leaving = true;
           for (const c of cars.slice()) if (c.returning && (!c.visible && Math.hypot(c.x - player.x, c.z - player.z) > 120 || (c.goto && c.goto.arrived && Math.hypot(c.x - HQ.x, c.z - HQ.z) < 15))) removeCar(c);
           first = false;
           for (const c of cars) { const d = Math.hypot(c.x - player.x, c.z - player.z); c.visible = d < lim.carRange; c.root.visible = c.visible; }
@@ -679,7 +750,8 @@
         for (const c of cars) {
           c.hitT -= dt; if (c.heroHitT > 0) c.heroHitT -= dt; if (c.ghostT > 0) c.ghostT -= dt;
           const d = Math.hypot(c.x - player.x, c.z - player.z);
-          if (c.ai) updateAI(c, dt, people, player);
+          if (c.copHeli) heliAI(c, dt, ctx.target || player);
+          else if (c.ai) updateAI(c, dt, people, player);
           else if (c.pursuit) pursuitStep(c, dt, ctx.target || player);
           else if (c.goto && c !== driving) gotoStep(c, dt);
           else if (c === driving) {
@@ -694,7 +766,7 @@
           // ride height over kerbs, body lean, wheels
           if (c.model.heli) {
             // blades turning, nose down in forward flight, banking into turns; ripples on the water beneath
-            if (c !== driving) heliPhysics(c, dt, { throttle: 0, steer: 0 });
+            if (c !== driving && !c.copHeli) heliPhysics(c, dt, { throttle: 0, steer: 0 });
             const vH = speedOf(c);
             c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
             c.body.rotation.x = U.damp(c.body.rotation.x, U.clamp(vH * .011 + (c.accel || 0) * .01, -.25, .32), 3, dt);
@@ -731,6 +803,8 @@
           }
         }
         collideCars();
+        heat = (ctx.police || { wanted: 0 }).wanted;
+        spotUpdate(ctx.target || player);
         for (const m of wakes) if (m.visible) { m.life -= dt; const f = 1 - m.life / 1.8; m.scale.set(m.w * (1 + f * 2.2), 1, 1.2 + f); m.material.opacity = Math.max(0, (1 - f) * .45); if (m.life <= 0) m.visible = false; }
         // the hero on foot is shoved out of the way by cars
         if (!driving) for (const c of cars) {
