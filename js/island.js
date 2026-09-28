@@ -28,10 +28,11 @@
     }
     const deckAt = x => x <= 109.5 ? .15 : x < B.x0 ? .15 + (x - 109.5) / (B.x0 - 109.5) * (deckY - .15) : x <= B.x1 ? deckY : x < IX0 ? deckY - (x - B.x1) / (IX0 - B.x1) * (deckY - SAND) : SAND;
     // one piece of road on the bridge: deck, pavements, parapets, lane markings; ramps are colliders in small steps
+    const PV = 2.2;   // pavement width: room for people to walk across
     function span(xa, xb) {
       const ya = deckAt(xa), yb = deckAt(xb);
-      slab(xa, ya, xb, yb, BZ - HW + 1.6, BZ + HW - 1.6, .7, '#3d3946');
-      for (const [z0, z1] of [[-HW, -HW + 1.6], [HW - 1.6, HW]]) slab(xa, ya + .12, xb, yb + .12, BZ + z0, BZ + z1, .82, '#cfc8c0');
+      slab(xa, ya, xb, yb, BZ - HW + PV, BZ + HW - PV, .7, '#3d3946');
+      for (const [z0, z1] of [[-HW, -HW + PV], [HW - PV, HW]]) slab(xa, ya + .12, xb, yb + .12, BZ + z0, BZ + z1, .82, '#cfc8c0');
       for (const [z0, z1] of [[-HW - .3, -HW], [HW, HW + .3]]) slab(xa, ya + 1.1, xb, yb + 1.1, BZ + z0, BZ + z1, 1.1, '#e8e2da');
       for (const z of [-HW - .31, HW + .3]) slab(xa, ya - .45, xb, yb - .45, BZ + z, BZ + z + .01, .08, '#ff4fa3');
       // markings: a double yellow line in the middle, dashes between the lanes
@@ -41,7 +42,7 @@
       for (let i = 0; i < steps; i++) {
         const x0 = xa + (xb - xa) * i / steps, x1 = xa + (xb - xa) * (i + 1) / steps, y = deckAt((x0 + x1) / 2);
         // road surface: cars ride over these steps rather than bumping into them (b.ramp)
-        for (const b of [col.add(x0, y - .7, BZ - HW + 1.6, x1, y, BZ + HW - 1.6), col.add(x0, y - .7, BZ - HW, x1, y + .12, BZ - HW + 1.6), col.add(x0, y - .7, BZ + HW - 1.6, x1, y + .12, BZ + HW)]) b.ramp = true;
+        for (const b of [col.add(x0, y - .7, BZ - HW + PV, x1, y, BZ + HW - PV), col.add(x0, y - .7, BZ - HW, x1, y + .12, BZ - HW + PV), col.add(x0, y - .7, BZ + HW - PV, x1, y + .12, BZ + HW)]) b.ramp = true;
         col.add(x0, y, BZ - HW - .3, x1, y + 1.2, BZ - HW); col.add(x0, y, BZ + HW, x1, y + 1.2, BZ + HW + .3);
       }
     }
@@ -62,7 +63,7 @@
     const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(cable, 3));
     scene.add(new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: 0xf2eee8 })));
     // lamps along both pavements, all the way across
-    for (let x = 116; x < IX0 - 2; x += 18) { lamps.push([x, BZ - HW + .5, 0, deckAt(x) + .12], [x + 9, BZ + HW - .5, Math.PI, deckAt(x + 9) + .12]); }
+    for (let x = 116; x < IX0 - 2; x += 18) { lamps.push([x, BZ - HW + .35, 0, deckAt(x) + .12], [x + 9, BZ + HW - .35, Math.PI, deckAt(x + 9) + .12]); }
     mapShapes.push({ x0: 109.5, z0: BZ - HW, x1: IX0, z1: BZ + HW, c: '#6a6474', k: 's' });
 
     /* ================= the island ================= */
@@ -214,6 +215,7 @@
       // the island's streets for traffic: the bridge lands on the west shore road, which runs up to the avenue;
       // the avenue and the two cross streets with the north and south streets make a ring round Vice Point.
       // bridge: the city junction it leaves from and the island junction it comes down at
+      walkways: [BZ - HW + PV / 2 + .2, BZ + HW - PV / 2 - .2].map(z => [[107, z], [IX0 + 3, z]]),
       roads: { lane: 1.9, nodes: [[350, BZ], [350, 0], [380, 0], [470, 0], [380, 60], [470, 60], [380, -60], [470, -60]],
         links: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 3], [2, 6], [6, 7], [7, 3]], bridge: { city: [100, -100], island: 0 } },
       districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z - BZ) < HW + 1) return 'Мост Неон-Бэй'; return null; },

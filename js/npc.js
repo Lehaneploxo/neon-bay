@@ -342,6 +342,13 @@
       link(c.SE, prom[promZ.indexOf(b.bz0 + IN)]); link(c.NE, prom[promZ.indexOf(b.bz1 - IN)]);
     }
 
+    // the pavements over both bridges: people walk across to Palm Island and to the North Side
+    for (const w of [].concat(world.north && world.north.walkways || [], world.island && world.island.walkways || [])) {
+      const [[ax, az], [bx, bz]] = w, L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 15)), first = nodes.length;
+      const ends = [nearestNode(ax, az), nearestNode(bx, bz)];
+      for (let k = 0; k <= n; k++) { node(ax + (bx - ax) * k / n, az + (bz - az) * k / n, 'town'); if (k) link(first + k - 1, first + k); }
+      for (const [e, me] of [[ends[0], first], [ends[1], first + n]]) if (Math.hypot(nodes[e].x - nodes[me].x, nodes[e].z - nodes[me].z) < 20) link(e, me);
+    }
     /* fixed spots: benches, loungers, chatting groups */
     const spots = [];
     for (const b of world.benches) {
@@ -413,6 +420,12 @@
       }
       return f;
     }
+    // where someone put down at (x, z) stands: the ground, or the deck of a bridge if there is one overhead
+    function surfaceAt(x, z) {
+      let f = floorAt(x, z, 1);
+      for (const b of col.query(x - .1, z - .1, x + .1, z + .1, tmp)) if (b.ramp && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && b.maxY > f) f = b.maxY;
+      return f;
+    }
     function collide(p) {
       const r = .3;
       if (p.y < .3 && p.x > SHORE - .4 && p.x < SHORE + 100 && Math.abs(p.z) < 120) { p.x = SHORE - .4; p.blocked += 1; }   // people stay out of the sea
@@ -429,7 +442,7 @@
     function spawn(look, x, z, mode) {
       if (!free.length) return null;
       const slot = free.pop();
-      const p = { slot, look, x, z, y: floorAt(x, z, 1), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
+      const p = { slot, look, x, z, y: surfaceAt(x, z), heading: rand(0, Math.PI * 2), mode, anim: 'walk', speed: 0,
         phase: rand(0, 6), headY: 0, pauseT: 0, target: null, node: -1, prev: -1, off: rand(-.45, .45), blocked: 0,
         stuckT: 0, lastX: x, lastZ: z, bumpT: -9, stumbleT: 0, frame: (Math.random() * 3) | 0, seed: Math.random() * 10,
         cop: look.type === 'cop' || look.type === 'security', bouncer: look.type === 'bouncer', hp: maxHp(look), maxHp: maxHp(look), gang: look.type === 'gang_red' ? 'red' : look.type === 'gang_green' ? 'green' : null, dead: false, fallT: 0, deadT: 0,
@@ -501,7 +514,7 @@
       const s = p.spot; s.person = null; s.vacated = true; p.spot = null;
       if (s.grp) for (const o of spots) if (o.grp === s.grp) o.vacated = true;   // nobody joins a group that just broke up
       if (s.kind === 'lie') p.x += .9;
-      p.y = floorAt(p.x, p.z, 1);
+      p.y = surfaceAt(p.x, p.z);
       if (p.anim === 'sit' || p.anim === 'lie' || p.anim === 'talk') p.anim = 'idle';
       resumeRoute(p);
     }

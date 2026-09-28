@@ -32,19 +32,36 @@
     for (const zz of ZS) for (let x = B.x0 + 6; x < B.x1 - 6; x += 6) if (!XS.some(L => Math.abs(x + 1.5 - L) < RH + 1)) bPlain.flat(x, zz - .1, x + 3, zz + .1, G0 + .02, C('#c9a43e'));
 
     /* ---------- the bridge from the city: short, low, concrete ---------- */
-    const BX = 0, BZ0 = -106, BZ1 = B.z1, DECK = 3.2;
-    const deckY = z => { const t0 = U.clamp((BZ0 - z) / 12, 0, 1), t1 = U.clamp((z - BZ1) / 12, 0, 1); return Math.min(.15 + (DECK - .15) * t0, G0 + (DECK - G0) * t1); };
+    const BX = 0, BZ0 = -106, BZ1 = B.z1, DECK = 3.2, RAMP = 16, RW = 5.2, PW = 7.5;   // road half-width, pavement to 7.5
+    const deckY = z => { const t0 = U.clamp((BZ0 - z) / RAMP, 0, 1), t1 = U.clamp((z - BZ1) / RAMP, 0, 1); return Math.min(.15 + (DECK - .15) * t0, G0 + (DECK - G0) * t1); };
+    // a smooth sloped slab from (za, ya) to (zb, yb), za < zb, across x0..x1: top, underside and both sides
+    const FLAT = [.03, .5];
+    function slabZ(x0, x1, za, ya, zb, yb, th, hex) {
+      const c = C(hex), s = (yb - ya) / (zb - za), n = 1 / Math.hypot(s, 1), d = c.clone().multiplyScalar(.7), e = c.clone().multiplyScalar(.85);
+      bPlain.quad([x0, yb, zb], [x1, yb, zb], [x1, ya, za], [x0, ya, za], 0, n, -s * n, c, FLAT, FLAT, FLAT, FLAT);
+      bPlain.quad([x0, ya - th, za], [x1, ya - th, za], [x1, yb - th, zb], [x0, yb - th, zb], 0, -n, s * n, d, FLAT, FLAT, FLAT, FLAT);
+      bPlain.quad([x1, yb - th, zb], [x1, ya - th, za], [x1, ya, za], [x1, yb, zb], 1, 0, 0, e, FLAT, FLAT, FLAT, FLAT);
+      bPlain.quad([x0, ya - th, za], [x0, yb - th, zb], [x0, yb, zb], [x0, ya, za], -1, 0, 0, e, FLAT, FLAT, FLAT, FLAT);
+    }
+    // what you see: a smooth road with a raised pavement for people on each side and parapets, in three pieces
+    const ZK = [BZ1, BZ1 + RAMP, BZ0 - RAMP, BZ0];
+    for (let k = 0; k < 3; k++) {
+      const za = ZK[k], zb = ZK[k + 1], ya = deckY(za), yb = deckY(zb);
+      slabZ(BX - RW, BX + RW, za, ya, zb, yb, .6, '#4a4652');
+      slabZ(BX - PW, BX - RW, za, ya + .15, zb, yb + .15, .75, '#b9b2a6'); slabZ(BX + RW, BX + PW, za, ya + .15, zb, yb + .15, .75, '#b9b2a6');
+      slabZ(BX - PW - .3, BX - PW, za, ya + 1.15, zb, yb + 1.15, 1.15, '#a8a298'); slabZ(BX + PW, BX + PW + .3, za, ya + 1.15, zb, yb + 1.15, 1.15, '#a8a298');
+      // kerb lines and a dashed yellow middle line
+      for (const x of [BX - RW - .04, BX + RW - .08]) slabZ(x, x + .12, za, ya + .16, zb, yb + .16, .02, '#e8e2d6');
+      for (let z = za; z < zb - 1; z += 6) { const z2 = Math.min(zb, z + 3); slabZ(BX - .1, BX + .1, z, deckY(z) + .015, z2, deckY(z2) + .015, .01, '#c9a43e'); }
+    }
+    // what you walk and drive on: small invisible steps (ramps for cars)
     for (let z = BZ0; z > BZ1; z -= .7) {
       const z1 = Math.max(BZ1, z - .7), y = deckY((z + z1) / 2);
-      for (const b of [col.add(BX - 6, y - .6, z1, BX + 6, y, z), col.add(BX - 7.5, y - .6, z1, BX - 6, y + .12, z), col.add(BX + 6, y - .6, z1, BX + 7.5, y + .12, z)]) b.ramp = true;
-      col.add(BX - 7.8, y, z1, BX - 7.5, y + 1.1, z); col.add(BX + 7.5, y, z1, BX + 7.8, y + 1.1, z);
-      bPlain.box(BX - 6, y - .6, z1, BX + 6, y, z, C('#4a4652'));
-      bPlain.box(BX - 7.5, y - .6, z1, BX - 6, y + .12, z, C('#b9b2a6')); bPlain.box(BX + 6, y - .6, z1, BX + 7.5, y + .12, z, C('#b9b2a6'));
-      bPlain.box(BX - 7.8, y, z1, BX - 7.5, y + 1.1, z, C('#a8a298')); bPlain.box(BX + 7.5, y, z1, BX + 7.8, y + 1.1, z, C('#a8a298'));
-      if (((z * 10) | 0) % 60 === 0) bPlain.flat(BX - .1, z1, BX + .1, z, y + .015, C('#c9a43e'));
+      for (const b of [col.add(BX - RW, y - .6, z1, BX + RW, y, z), col.add(BX - PW, y - .6, z1, BX - RW, y + .15, z), col.add(BX + RW, y - .6, z1, BX + PW, y + .15, z)]) b.ramp = true;
+      col.add(BX - PW - .3, y, z1, BX - PW, y + 1.15, z); col.add(BX + PW, y, z1, BX + PW + .3, y + 1.15, z);
     }
     for (const z of [-122, -140, -158]) for (const x of [BX - 4.5, BX + 3]) { bPlain.box(x, -4, z - .75, x + 1.5, deckY(z) - .6, z + .75, C('#9a948a')); col.add(x, -4, z - .75, x + 1.5, deckY(z) - .6, z + .75); }
-    for (let z = BZ0 - 6; z > BZ1 + 4; z -= 18) lamps.push([BX - 7, z, Math.PI / 2, deckY(z) + .12], [BX + 7, z - 9, -Math.PI / 2, deckY(z - 9) + .12]);
+    for (let z = BZ0 - 6; z > BZ1 + 4; z -= 18) lamps.push([BX - 7, z, Math.PI / 2, deckY(z) + .15], [BX + 7, z - 9, -Math.PI / 2, deckY(z - 9) + .15]);
     mapShapes.push({ x0: BX - 7.8, z0: BZ1, x1: BX + 7.8, z1: BZ0, c: '#6a6474', k: 's' });
     // guard rails along the sea wall either side of both ends, so nothing drives off into the water there
     for (const s of [-1, 1]) for (const [z0, z1, y] of [[-112, -111.6, .15], [BZ1 - .4, BZ1, G0 + .15]]) {
@@ -214,6 +231,7 @@
     for (let j = 0; j < ZS.length; j++) for (let i = 0; i < XS.length; i++) { if (i + 1 < XS.length) links.push([id(i, j), id(i + 1, j)]); if (j + 1 < ZS.length) links.push([id(i, j), id(i, j + 1)]); }
     return {
       spots, parking, blocks, territories, hangouts, bounds: B, districtAt,
+      walkways: [BX - (RW + PW) / 2, BX + (RW + PW) / 2].map(x => [[x, BZ0 + 2], [x, BZ1 - 2]]),
       roads: { lane: 2.6, nodes, links, bridge: { city: [BX, -100], island: id(XS.indexOf(BX), 0) }, north: true },
       update(t, env) {
         const n = env ? env.night : 0;
