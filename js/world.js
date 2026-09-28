@@ -102,7 +102,7 @@
     let club = null;
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
-    let station = null, hospital = null, gunShop = null, hotelRoof = null;
+    let station = null, hospital = null, gunShop = null, hotelRoof = null, towerRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
     const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -107, z1: -89 }];
     const reserved = (x, z, m = 0) => RESERVED.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
@@ -175,6 +175,39 @@
     }
     // downtown buildings that become places you can walk into
     const SPECIAL = { '1,1,0': ['bank', 'BANK', '#4fd1ff'], '2,1,0': ['casino', 'CASINO', '#ffd84f'], '1,2,1': ['arcade', 'ARCADE', '#c28bff'], '2,2,1': ['diner', 'DINER', '#ff4fa3'] };
+    // NEOLOXO TOWER: a two-storey lobby podium and a stepped glass tower of three tiers, neon on every corner,
+    // the name near the top on all four sides; the top tier's roof (pool, helipad) is built in places.js
+    function buildTower(x0, z0, x1, z1, alongZ) {
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, face = alongZ ? '-x' : '-z', GLASS = '#b8cce6', ROOF = 150;
+      const pod = building(x0 + .5, z0 + .5, x1 - .5, z1 - .5, 9, '#e6e1f0');
+      neonRing(pod.x0, pod.z0, pod.x1, pod.z1, 8.7, '#ff4fa3');
+      const box = (hw, hl) => alongZ ? [cx - hw, cz - hl, cx + hw, cz + hl] : [cx - hl, cz - hw, cx + hl, cz + hw];
+      const tiers = [[6, 12.5, 9.35, 82], [5.5, 11.5, 82, 120], [5, 10, 120, ROOF]];
+      for (const [hw, hl, y0, y1] of tiers) {
+        const [a0, b0, a1, b1] = box(hw, hl), top = y1 === ROOF;
+        bFacade.box(a0, y0, b0, a1, y1, b1, C(GLASS), { tile: FT, top: C(GLASS).multiplyScalar(.8), noTop: top });
+        col.add(a0, 0, b0, a1, top ? y1 - 1.8 : y1, b1);
+        neonRing(a0, b0, a1, b1, y1 - .45, '#3fe6e0', top);
+        for (const [px, pz] of [[a0, b0], [a1, b0], [a0, b1], [a1, b1]]) { bNeon.box(px - .09, y0 + .3, pz - .09, px + .09, y1 - .3, pz + .09, C('#ff4fa3')); bGlow.box(px - .4, y0, pz - .4, px + .4, y1, pz + .4, C('#ff4fa3').multiplyScalar(.6), { noTop: true }); }
+      }
+      mapShapes.push({ x0: pod.x0, z0: pod.z0, x1: pod.x1, z1: pod.z1, c: '#ff7ab8', k: 'b' });
+      const [r0, q0, r1, q1] = box(5, 10);
+      towerRoof = { x0: r0, z0: q0, x1: r1, z1: q1, y: ROOF, alongZ, cx, cz };
+      frontDoor('tower', face, pod, 0, '#ff4fa3');
+      // the name, lit, near the top on all four faces and over the entrance
+      const nameTex = U.canvasTex(512, 128, (g, w, h) => {
+        g.fillStyle = '#10081c'; g.fillRect(0, 0, w, h); g.strokeStyle = '#ff4fa3'; g.lineWidth = 6; g.shadowColor = '#ff4fa3'; g.shadowBlur = 14; g.strokeRect(8, 8, w - 16, h - 16);
+        g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = 'italic bold 62px "Trebuchet MS", Arial, sans-serif'; g.fillStyle = '#ffe3f0'; g.fillText('NEOLOXO', w / 2, h / 2 - 12);
+        g.shadowColor = '#3fe6e0'; g.fillStyle = '#3fe6e0'; g.font = 'bold 30px Rubik, Arial, sans-serif'; g.fillText('T O W E R', w / 2, h / 2 + 34);
+      }, false);
+      const nameMat = new THREE.MeshBasicMaterial({ map: nameTex });
+      const [t0, u0, t1, u1] = box(5, 10);
+      for (const [fx, fz, ry, w] of [[t0 - .05, cz, -Math.PI / 2, (u1 - u0) * .8], [t1 + .05, cz, Math.PI / 2, (u1 - u0) * .8], [cx, u0 - .05, Math.PI, (t1 - t0) * .8], [cx, u1 + .05, 0, (t1 - t0) * .8]]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4), nameMat); m.position.set(fx, ROOF - 5, fz); m.rotation.y = ry; scene.add(m);
+      }
+      const [px, pz] = facePoint(face, pod, .08, 0), n = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.75), nameMat);
+      n.position.set(px, 5.2, pz); n.rotation.y = face === '-x' ? -Math.PI / 2 : Math.PI; scene.add(n);
+    }
     // gun shop: orange neon frame over the door, orange trim on the roof
     function gunShopFront(face, b, h) {
       neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff8a3d');
@@ -271,6 +304,8 @@
         const halves = splitX ? [[lx0, lz0, (lx0 + lx1) / 2 - 1.5, lz1], [(lx0 + lx1) / 2 + 1.5, lz0, lx1, lz1]]
                               : [[lx0, lz0, lx1, (lz0 + lz1) / 2 - 1.5], [lx0, (lz0 + lz1) / 2 + 1.5, lx1, lz1]];
         for (const [hi, [x0, z0, x1, z1]] of halves.entries()) {
+          // NEOLOXO TOWER takes the half of this block nearest the city centre (built into the void first, as with the club)
+          const tower = i === 2 && j === 2 && hi === 0, unmuteT = tower ? mute() : null;
           const sp = SPECIAL[i + ',' + j + ',' + hi];
           const hex = pick(COOL), h1 = rr(18, 32), h2 = h1 + rr(8, 22);
           const b = building(x0 + .5, z0 + .5, x1 - .5, z1 - .5, h1, hex);
@@ -284,6 +319,7 @@
           sign(f, b, 3.3, 4.8, 1.5, sp ? sp[1] : word);
           awning(f, b, pick(PASTEL), 5);
           if (sp) { frontDoor(sp[0], f, b, 0, sp[2]); mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: sp[2], k: 'b' }); }
+          if (unmuteT) { unmuteT(); buildTower(x0, z0, x1, z1, splitX); }
         }
       } else if (t === 'shops') {
         const mx = (lx0 + lx1) / 2, mz = (lz0 + lz1) / 2;
@@ -439,7 +475,7 @@
     }
 
     /* ---------- places you can go into: interiors, the villa, the tiki bar, the hotel roof ---------- */
-    const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, hospital, reserved: RESERVED, palms, mapShapes });
+    const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, towerRoof, hospital, reserved: RESERVED, palms, mapShapes });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);

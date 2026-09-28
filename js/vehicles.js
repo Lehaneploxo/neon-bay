@@ -187,7 +187,7 @@
       const vyT = !lift ? (air ? -9 : 0) : ctl.up ? 7 : ctl.down ? -6 : 0;
       car.vy = U.damp(car.vy, vyT, 2.2, dt); car.y += car.vy * dt;
       if (car.y < ground) { if (car.vy < -6) impact(car, -car.vy * 1.5, car.x, car.z, 0, 1); car.y = ground; car.vy = 0; }
-      if (car.y > 140) { car.y = 140; car.vy = Math.min(0, car.vy); }
+      if (car.y > 260) { car.y = 260; car.vy = Math.min(0, car.vy); }
       // horizontal: flies forward and back, turns on the spot, slides a little
       const fx = Math.sin(car.h), fz = Math.cos(car.h), rx = -Math.cos(car.h), rz = Math.sin(car.h);
       let vF = car.vx * fx + car.vz * fz, vR = car.vx * rx + car.vz * rz;

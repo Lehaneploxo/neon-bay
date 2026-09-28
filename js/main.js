@@ -559,6 +559,7 @@
     add(173, -25, '#f6f2ec', '#1c2a4a', 'Я', 'Яхта LEHA NEPLOXO');
     add(510, 0, '#e02a3a', '#fff', '▲', 'Маяк');
     if (places.heliPad) add(places.heliPad.x + 7, places.heliPad.z - 7, '#6bffd0', '#10201c', 'В', 'Вертолёт (лифт в больнице)');
+    if (places.towerRoof) add(places.towerRoof.cx, places.towerRoof.cz, '#10081c', '#ff4fa3', 'N', 'NEOLOXO TOWER: бассейн и вертолёт на крыше');
     return out;
   }
   function bmFit() {

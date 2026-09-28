@@ -206,11 +206,11 @@
      places
      ===================================================================== */
   NB.buildPlaces = function (ctx) {
-    const { scene, col, C, doors, hotelRoof, hospital, palms, mapShapes } = ctx;
+    const { scene, col, C, doors, hotelRoof, towerRoof, hospital, palms, mapShapes } = ctx;
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], tower: [1900, 1500] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -492,6 +492,79 @@
       // the lift up to the helipad, on the west wall
       K.box(-8.99, 0, 5.6, -8.86, 2.6, 7.4, '#b8bcc8'); K.box(-8.87, 0, 6.48, -8.84, 2.6, 6.52, '#7a7e8a'); K.neon(-8.9, 2.6, 5.5, -8.84, 2.7, 7.5, '#6bffd0');
       K.picture('+x', -8.83, 3.05, 6.5, 1.6, .35, T.sign('ВЕРТОЛЁТ ↑', null, '#6bffd0', '#10201c'));
+    }
+    /* ---------------------------------------------------------------
+       NEOLOXO TOWER: a black-and-gold lobby with a lift to the roof; up top a pool, sunbeds,
+       a glass railing, a spire with a red light, and a helipad with a helicopter
+       --------------------------------------------------------------- */
+    let towerPad = null;
+    if (towerRoof && doors.tower) {
+      const pl = interior('tower', 'NEOLOXO TOWER', doors.tower, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-10, -6, 10, 12], light: lit('#fff0e6', '#4a3a4a', .95), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      K.room(-10, -6, 10, 12, 7, { wall: '#1c1622', ceil: '#120e18', trim: '#c9a04a', neon: '#ff4fa3', gaps: { '-z': [{ c: 0, w: 2.2, h: 3.2 }] } });
+      K.floor(-10, -6, 10, 12, T.marble, 2.5);
+      for (const x of [-6.5, 6.5]) for (const z of [-2, 6]) { K.box(x - .45, 0, z - .45, x + .45, 7, z + .45, '#101014', true); K.neon(x - .47, .3, z - .47, x + .47, .36, z + .47, '#c9a04a', false); K.neon(x - .47, 6.5, z - .47, x + .47, 6.56, z + .47, '#c9a04a', false); }
+      K.box(-4, 0, 5.2, 4, 1.15, 6.1, '#101014', true); K.box(-4.05, 1.15, 5.15, 4.05, 1.22, 6.15, '#c9a04a'); K.neon(-4, .3, 5.14, 4, .36, 5.2, '#ff4fa3', false);
+      spots.push(K.spot({ kind: 'idle', x: -1.5, z: 6.9, heading: Math.PI, type: 'business_f' }), K.spot({ kind: 'guard', x: 2.5, z: 6.9, heading: Math.PI, type: 'security' }));
+      for (const x of [-4.5, 0, 4.5]) { K.box(x - 1, 0, 11.85, x + 1, 3, 11.99, '#c9a04a'); K.box(x - .02, 0, 11.83, x + .02, 3, 11.86, '#7a6a3a'); K.neon(x - 1.1, 3, 11.8, x + 1.1, 3.1, 11.9, '#3fe6e0'); }
+      K.picture('-z', 0, 4.8, 11.83, 8, 2, T.sign('NEOLOXO TOWER', '150 метров над Neon Bay', '#ff4fa3', '#10081c'));
+      for (const [x0, x1, h] of [[-9.8, -9, Math.PI / 2], [9, 9.8, -Math.PI / 2]]) { K.box(x0, 0, -3, x1, .6, 2, '#2a2230', true); for (let z = -2.4; z < 2; z += 1.2) if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x: (x0 + x1) / 2, z, y: .66, heading: h, mix: 'downtown' })); }
+      const lobbyLift = pl.P(0, 10.6);
+      towerPad = { lobbyLift };
+      pl.attach = () => { pl.interactions = [{ ...lobbyLift, r: 2.2, short: 'ЛИФТ', label: () => 'Лифт на крышу — 150 м', use: () => G.teleport(towerPad.roofX, towerPad.roofZ, towerPad.roofH, null, 'Крыша NEOLOXO TOWER', towerRoof.y) }]; };
+
+      // the roof: local axes u along the tower's length, v across it
+      K.at(0, 0);
+      const R = towerRoof, y = R.y, base = y - 1.8, deep = y - 1.66;
+      const W = (u, v) => R.alongZ ? [R.cx + v, R.cz + u] : [R.cx + u, R.cz + v];
+      const rect = (u0, v0, u1, v1) => { const [ax, az] = W(u0, v0), [bx, bz] = W(u1, v1); return [Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz)]; };
+      const RB = (u0, v0, u1, v1, y0, y1, hex, solid) => { const [a, b, c, d] = rect(u0, v0, u1, v1); K.box(a, y0, b, c, y1, d, hex, solid); };
+      const RS = (u0, v0, u1, v1, y0, y1) => { const [a, b, c, d] = rect(u0, v0, u1, v1); K.solid(a, y0, b, c, y1, d); };
+      const RN = (u0, v0, u1, v1, y0, y1, hex, glow) => { const [a, b, c, d] = rect(u0, v0, u1, v1); K.neon(a, y0, b, c, y1, d, hex, glow); };
+      // deck round the pool (pool at u -8.5..-2.5, v -3..3)
+      for (const [u0, v0, u1, v1] of [[-10, -5, -8.5, 5], [-2.5, -5, 10, 5], [-8.5, -5, -2.5, -3], [-8.5, 3, -2.5, 5]]) { RB(u0, v0, u1, v1, y - .12, y, '#e8e2da'); RS(u0, v0, u1, v1, base, y); }
+      RB(-8.5, -3, -2.5, 3, deep - .05, deep, '#2fa8c0'); RS(-8.5, -3, -2.5, 3, base, deep);
+      for (const [u0, v0, u1, v1] of [[-8.5, -3, -8.4, 3], [-2.6, -3, -2.5, 3], [-8.5, -3, -2.5, -2.9], [-8.5, 2.9, -2.5, 3]]) RB(u0, v0, u1, v1, deep, y - .02, '#3fc0d6');
+      for (let k = 1; k <= 3; k++) { RB(-2.6 - (4 - k) * .55, -3, -2.6, 3, deep, deep + k * .415, k % 2 ? '#5fd6e2' : '#4fc9d6'); RS(-2.6 - (4 - k) * .55, -3, -2.5, 3, base, deep + k * .415); }
+      const [pa, pb, pc, pd] = rect(-8.4, -2.9, -2.6, 2.9);
+      const water = new THREE.Mesh(new THREE.PlaneGeometry(pc - pa, pd - pb).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+        transparent: true, uniforms: { uTime: { value: 0 } },
+        vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: `uniform float uTime; varying vec2 vU;
+          void main(){ vec2 p = vU * vec2(7.0, 7.0); float w = sin(p.x*2.1 + uTime*1.7) * sin(p.y*2.7 - uTime*1.3) + sin((p.x+p.y)*1.3 + uTime);
+            gl_FragColor = vec4(mix(vec3(0.12,0.62,0.85), vec3(0.85,1.0,1.0), smoothstep(0.9, 1.6, w)), 0.72); }` }));
+      water.position.set((pa + pc) / 2, y - .22, (pb + pd) / 2); scene.add(water);
+      NB.water.add({ name: 'towerpool', test: (x, z) => x > pa && x < pc && z > pb && z < pd, surface: () => y - .22 });
+      // sunbeds with sunbathers along the pool
+      // sunbeds by the pool: sunbathers always lie along +z, so each bed runs from v -4.6 to -2.35 in world z
+      for (const u of [-9.25, -1.85, -.75]) {
+        const [x, zs] = W(u, -4.6), z0 = R.alongZ ? R.cz - 4.6 : zs, z1 = z0 + 2.25;
+        K.box(x - .35, y, z0, x + .35, y + .33, z1, '#ffffff', true); K.box(x - .35, y + .33, z1 - .3, x + .35, y + .41, z1, '#e8e0d0');
+        K.box(x - .3, y + .331, z0 + .1, x + .3, y + .345, z1 - .35, u < -5 ? '#ff7eb6' : '#3fe6e0');
+        if (Math.random() < .85) spots.push({ kind: 'lie', x, z: z0 + .15, y: y + .45, fixedY: true, heading: 0, type: Math.random() < .7 ? 'beach_f' : 'beach_m', home: true });
+      }
+      // the helipad at the other end
+      RB(1.2, -4.4, 9.6, 4.4, y, y + .04, '#2a2a32');
+      RN(1.4, -4.2, 9.4, -4.05, y + .04, y + .07, '#ffd84f', false); RN(1.4, 4.05, 9.4, 4.2, y + .04, y + .07, '#ffd84f', false); RN(1.4, -4.2, 1.55, 4.2, y + .04, y + .07, '#ffd84f', false); RN(9.25, -4.2, 9.4, 4.2, y + .04, y + .07, '#ffd84f', false);
+      RB(3.8, -2, 4.3, 2, y + .04, y + .06, '#f2f2f2'); RB(6.7, -2, 7.2, 2, y + .04, y + .06, '#f2f2f2'); RB(4.3, -.25, 6.7, .25, y + .04, y + .06, '#f2f2f2');
+      // lift hut, spire with a red light, glass railing all round
+      RB(-2.3, 2.9, .3, 5, y, y + 2.8, '#1c1622', true); RN(-2.2, 2.85, .2, 2.9, y + 2.4, y + 2.5, '#ff4fa3');
+      RB(-9.9, 4.2, -9.3, 4.8, y, y + 26, '#d8d8e2', true); RN(-9.75, 4.35, -9.45, 4.65, y + 26, y + 27.2, '#ff2233');
+      // real glass: one see-through pane per side, a thin lit handrail and steel posts every two metres
+      const glassMat = new THREE.MeshBasicMaterial({ color: 0x9fdcf0, transparent: true, opacity: .22, depthWrite: false, side: THREE.DoubleSide });
+      const rail = (u0, v0, u1, v1) => {
+        const [a, b, c, d] = rect(u0, v0, u1, v1), m = new THREE.Mesh(new THREE.BoxGeometry(c - a, 1.05, d - b), glassMat);
+        m.position.set((a + c) / 2, y + .525, (b + d) / 2); scene.add(m);
+        RS(u0, v0, u1, v1, y, y + 1.2); RN(u0, v0, u1, v1, y + 1.05, y + 1.12, '#3fe6e0', false);
+        const along = c - a > d - b, n = Math.round((along ? c - a : d - b) / 2);
+        for (let k = 0; k <= n; k++) { const t = k / n, px = along ? a + (c - a) * t : (a + c) / 2, pz = along ? (b + d) / 2 : b + (d - b) * t; K.box(px - .05, y, pz - .05, px + .05, y + 1.05, pz + .05, '#d8dce4'); }
+      };
+      rail(-10, -5, 10, -4.9); rail(-10, 4.9, 10, 5); rail(-10, -5, -9.9, 5); rail(9.9, -5, 10, 5);
+      const [hx, hz] = W(-1, 2.3), [lx, lz] = W(-1, 1.6);
+      towerPad.roofX = lx; towerPad.roofZ = lz; towerPad.roofH = R.alongZ ? Math.PI : -Math.PI / 2;
+      const [cx, cz] = W(5.4, 0); towerPad.heli = { x: cx, z: cz, h: R.alongZ ? 0 : Math.PI / 2 };
+      outdoor.push({ x: hx, z: hz, y, r: 1.5, short: 'ЛИФТ', label: () => 'Лифт вниз', use: () => G.teleport(lobbyLift.x, lobbyLift.z - .8, Math.PI, pl, pl.name) });
+      pl.renderRoof = t => { water.material.uniforms.uTime.value = t; };
     }
     // the helipad on the hospital roof: a lift hut to come up and go down, and the helicopter itself
     let heliPad = null;
@@ -989,6 +1062,7 @@
       { id: 'jetski', x: 146, z: 49.2, h: Math.PI / 2 }, { id: 'jetski', x: 149.5, z: 49.2, h: Math.PI / 2 },
       { id: 'speedboat', x: 156, z: 49.85, h: Math.PI / 2 }, { id: 'speedboat', x: 153, z: 42.15, h: Math.PI / 2 }] };
     if (heliPad) marina.slots.push({ id: 'heli', x: heliPad.x, z: heliPad.z, h: Math.PI / 2 });   // the helicopter comes back to its pad the same way
+    if (towerPad && towerPad.heli) marina.slots.push({ id: 'heli', ...towerPad.heli });   // and one on top of NEOLOXO TOWER
     {
       K.at(0, 0);
       const TEAK = '#a8743c', PILE = '#5a3a1e', Z0 = 44, Z1 = 48, DY = 1.0;
@@ -1019,7 +1093,7 @@
        ===================================================================== */
     for (const pl of places) if (!pl.update) pl.update = () => {};
     const api = {
-      list: places, spots, VILLA_PRICE, garage, tiki, heliPad,
+      list: places, spots, VILLA_PRICE, garage, tiki, heliPad, towerRoof,
       current: null,
       byId: id => places.find(p => p.id === id),
       // which interior a point is in
