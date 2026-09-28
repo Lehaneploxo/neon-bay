@@ -104,7 +104,7 @@
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
     let station = null, hospital = null, gunShop = null, hotelRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
-    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -9, z1: 9 }];
+    const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -107, z1: -89 }];
     const reserved = (x, z, m = 0) => RESERVED.some(r => x > r.x0 - m && x < r.x1 + m && z > r.z0 - m && z < r.z1 + m);
 
     // hollow: four strips instead of one flat slab, for a roof you can stand on
@@ -377,7 +377,7 @@
     col.add(CITY, 0, -CITY, CITY + 3.5, .15, CITY);
     bSand.flat(CITY + 3.5, -140, SHORE + 12, 140, .02, WHITE, 6);
     mapShapes.push({ x0: CITY, z0: -CITY, x1: CITY + 3.5, z1: CITY, c: '#8e8798', k: 's' });
-    for (let z = -99; z <= 99; z += 9) if (Math.abs(z + .5) > 9) palms.push([CITY + 1.8, .15, z + .5]);   // none where the bridge starts
+    for (let z = -99; z <= 99; z += 9) if (Math.abs(z + .5 + 98) > 9) palms.push([CITY + 1.8, .15, z + .5]);   // none where the bridge starts
     // kept clear of the crossings so people walking to the beach are not blocked
     for (let z = -94; z <= 94; z += 12) if (!ROADS.some(L => Math.abs(z - L) < RH + 3.2)) palms.push([ROADS[4] - RH - .65, .15, z]);
     for (let k = 0; k < 26; k++) { const p = [rr(113, 134), .02, rr(-100, 100)]; if (!reserved(p[0], p[2], 1)) palms.push(p); }

@@ -17,7 +17,7 @@
     const B = { x0: 158.5, x1: 296.5 };   // where the bridge is high over the water
 
     /* ================= the bridge ================= */
-    const deckY = 12, HW = 7;
+    const deckY = 12, HW = 7, BZ = -98;   // the bridge runs along the south edge of the bay, out of the sunset view
     // a sloped slab between (xa, ya) and (xb, yb), xa < xb, across z0..z1: top, underside and both side faces
     function slab(xa, ya, xb, yb, z0, z1, th, hex) {
       const c = C(hex), s = (yb - ya) / (xb - xa), n = 1 / Math.hypot(s, 1);
@@ -30,40 +30,40 @@
     // one piece of road on the bridge: deck, pavements, parapets, lane markings; ramps are colliders in small steps
     function span(xa, xb) {
       const ya = deckAt(xa), yb = deckAt(xb);
-      slab(xa, ya, xb, yb, -HW + 1.6, HW - 1.6, .7, '#3d3946');
-      for (const [z0, z1] of [[-HW, -HW + 1.6], [HW - 1.6, HW]]) slab(xa, ya + .12, xb, yb + .12, z0, z1, .82, '#cfc8c0');
-      for (const [z0, z1] of [[-HW - .3, -HW], [HW, HW + .3]]) slab(xa, ya + 1.1, xb, yb + 1.1, z0, z1, 1.1, '#e8e2da');
-      for (const z of [-HW - .31, HW + .3]) slab(xa, ya - .45, xb, yb - .45, z, z + .01, .08, '#ff4fa3');
+      slab(xa, ya, xb, yb, BZ - HW + 1.6, BZ + HW - 1.6, .7, '#3d3946');
+      for (const [z0, z1] of [[-HW, -HW + 1.6], [HW - 1.6, HW]]) slab(xa, ya + .12, xb, yb + .12, BZ + z0, BZ + z1, .82, '#cfc8c0');
+      for (const [z0, z1] of [[-HW - .3, -HW], [HW, HW + .3]]) slab(xa, ya + 1.1, xb, yb + 1.1, BZ + z0, BZ + z1, 1.1, '#e8e2da');
+      for (const z of [-HW - .31, HW + .3]) slab(xa, ya - .45, xb, yb - .45, BZ + z, BZ + z + .01, .08, '#ff4fa3');
       // markings: a double yellow line in the middle, dashes between the lanes
-      for (const z of [-.2, .08]) slab(xa, ya + .015, xb, yb + .015, z, z + .12, .01, '#f2c14e');
-      for (let x = xa; x < xb - 2; x += 6) for (const z of [-2.8, 2.7]) slab(x, deckAt(x) + .015, x + 3, deckAt(x + 3) + .015, z, z + .12, .01, '#ece6dc');
+      for (const z of [-.2, .08]) slab(xa, ya + .015, xb, yb + .015, BZ + z, BZ + z + .12, .01, '#f2c14e');
+      for (let x = xa; x < xb - 2; x += 6) for (const z of [-2.8, 2.7]) slab(x, deckAt(x) + .015, x + 3, deckAt(x + 3) + .015, BZ + z, BZ + z + .12, .01, '#ece6dc');
       const steps = Math.max(1, Math.ceil((xb - xa) / (ya === yb ? 200 : .7)));
       for (let i = 0; i < steps; i++) {
         const x0 = xa + (xb - xa) * i / steps, x1 = xa + (xb - xa) * (i + 1) / steps, y = deckAt((x0 + x1) / 2);
         // road surface: cars ride over these steps rather than bumping into them (b.ramp)
-        for (const b of [col.add(x0, y - .7, -HW + 1.6, x1, y, HW - 1.6), col.add(x0, y - .7, -HW, x1, y + .12, -HW + 1.6), col.add(x0, y - .7, HW - 1.6, x1, y + .12, HW)]) b.ramp = true;
-        col.add(x0, y, -HW - .3, x1, y + 1.2, -HW); col.add(x0, y, HW, x1, y + 1.2, HW + .3);
+        for (const b of [col.add(x0, y - .7, BZ - HW + 1.6, x1, y, BZ + HW - 1.6), col.add(x0, y - .7, BZ - HW, x1, y + .12, BZ - HW + 1.6), col.add(x0, y - .7, BZ + HW - 1.6, x1, y + .12, BZ + HW)]) b.ramp = true;
+        col.add(x0, y, BZ - HW - .3, x1, y + 1.2, BZ - HW); col.add(x0, y, BZ + HW, x1, y + 1.2, BZ + HW + .3);
       }
     }
     span(109.5, B.x0); span(B.x0, B.x1); span(B.x1, IX0);
     // piers under the deck, and two tall pylons carrying fans of cables
     for (const x of [140, 150, 170, 186, 228, 272, 288, 305, 322, 336]) {
       const y = deckAt(x) - .7; if (y < 1.2) continue;
-      for (const z of [-4.5, 3]) { bPlain.box(x - .7, -4, z, x + .7, y, z + 1.5, C('#bfb8b0')); col.add(x - .7, -4, z, x + .7, y, z + 1.5); }
-      bPlain.box(x - .8, y - .8, -5, x + .8, y, 5, C('#bfb8b0'));
+      for (const z of [BZ - 4.5, BZ + 3]) { bPlain.box(x - .7, -4, z, x + .7, y, z + 1.5, C('#bfb8b0')); col.add(x - .7, -4, z, x + .7, y, z + 1.5); }
+      bPlain.box(x - .8, y - .8, BZ - 5, x + .8, y, BZ + 5, C('#bfb8b0'));
     }
     const PYL = [205, 250], TOP = 46, cable = [];
     for (const px of PYL) {
-      for (const z of [-HW - 1.4, HW + .4]) { bPlain.box(px - 1, -4, z, px + 1, TOP, z + 1, C('#e8e2da')); col.add(px - 1, -4, z, px + 1, TOP, z + 1); bNeon.box(px - 1.02, 13, z + .45, px - .98, TOP - 1, z + .55, C('#3fe6e0')); }
-      for (const y of [deckY - 3, 30, TOP - 2]) bPlain.box(px - .8, y, -HW - 1.4, px + .8, y + 1.4, HW + 1.4, C('#e8e2da'));
-      bNeon.box(px - .3, TOP, -.3, px + .3, TOP + 1.2, .3, C('#ff3344'));
-      for (let d = 6; d <= 44; d += 4.75) for (const s of [-1, 1]) for (const z of [-HW - .9, HW + .9]) cable.push(px, TOP - 1 - d * .12, z, px + s * d, deckY + 1.1, z);
+      for (const z of [BZ - HW - 1.4, BZ + HW + .4]) { bPlain.box(px - 1, -4, z, px + 1, TOP, z + 1, C('#e8e2da')); col.add(px - 1, -4, z, px + 1, TOP, z + 1); bNeon.box(px - 1.02, 13, z + .45, px - .98, TOP - 1, z + .55, C('#3fe6e0')); }
+      for (const y of [deckY - 3, 30, TOP - 2]) bPlain.box(px - .8, y, BZ - HW - 1.4, px + .8, y + 1.4, BZ + HW + 1.4, C('#e8e2da'));
+      bNeon.box(px - .3, TOP, BZ - .3, px + .3, TOP + 1.2, BZ + .3, C('#ff3344'));
+      for (let d = 6; d <= 44; d += 4.75) for (const s of [-1, 1]) for (const z of [BZ - HW - .9, BZ + HW + .9]) cable.push(px, TOP - 1 - d * .12, z, px + s * d, deckY + 1.1, z);
     }
     const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(cable, 3));
     scene.add(new THREE.LineSegments(cg, new THREE.LineBasicMaterial({ color: 0xf2eee8 })));
     // lamps along both pavements, all the way across
-    for (let x = 116; x < IX0 - 2; x += 18) { lamps.push([x, -HW + .5, 0, deckAt(x) + .12], [x + 9, HW - .5, Math.PI, deckAt(x + 9) + .12]); }
-    mapShapes.push({ x0: 109.5, z0: -HW, x1: IX0, z1: HW, c: '#6a6474', k: 's' });
+    for (let x = 116; x < IX0 - 2; x += 18) { lamps.push([x, BZ - HW + .5, 0, deckAt(x) + .12], [x + 9, BZ + HW - .5, Math.PI, deckAt(x + 9) + .12]); }
+    mapShapes.push({ x0: 109.5, z0: BZ - HW, x1: IX0, z1: BZ + HW, c: '#6a6474', k: 's' });
 
     /* ================= the island ================= */
     // sand all round, a paved and planted interior, a body of rock under the waterline
@@ -77,7 +77,7 @@
     col.add(LX0, 0, LZ0, LX1, LAND, LZ1);
     mapShapes.push({ x0: LX0, z0: LZ0, x1: LX1, z1: LZ1, c: '#8e8798', k: 's' });
     // roads: an avenue from the bridge to the lighthouse, a ring north and south, two cross streets
-    const ROADS = [[IX0, -5, 505, 5], [360, 55, 500, 65], [360, -65, 500, -55], [375, -65, 385, 65], [465, -65, 475, 65]];
+    const ROADS = [[IX0, -105, LX0, 5], [IX0, -5, 505, 5], [360, 55, 500, 65], [360, -65, 500, -55], [375, -65, 385, 65], [465, -65, 475, 65]];
     for (const [x0, z0, x1, z1] of ROADS) {
       const y = x0 < LX0 ? SAND + .005 : LAND + .004;
       if (x0 < LX0) { bAsphalt.flat(x0, z0, LX0, z1, SAND + .005, WHITE, 8); bAsphalt.flat(LX0, z0, x1, z1, LAND + .004, WHITE, 8); }
@@ -176,7 +176,7 @@
       bPlain.box(x - .6, SAND + 2.2, z - .6, x + 1.9, SAND + 2.4, z + 2.2, C(pick(['#ff6fa8', '#3fd6d0', '#ffd24f', '#b58bff'])));
     }
     for (let i = 0; i < 10; i++) palm(rr(358, 502), rr(-104, -96.5), SAND);
-    for (let i = 0; i < 8; i++) palm(rr(346, 353.5), rr(-100, 100) * (R() < .5 ? 1 : 1), SAND);
+    for (let i = 0; i < 8; i++) palm(rr(346, 353.5), rr(10, 100), SAND);   // the west shore road runs south of the avenue
     talk(380, -99, 'beach'); talk(470, -100, 'beach');
     walker([[360, -95.8], [500, -95.8]], 'beach', 'jogger');
 
@@ -202,7 +202,7 @@
     const districtAt = (x, z) => x < IX0 - 3 ? 'Мост Неон-Бэй' : x > 476 ? 'Мыс Маяка' : z > 58 ? 'Старфиш-Хайтс' : z > 5 ? 'Старфиш-Хайтс' : z < -60 ? 'Пляж Вайс-Пойнт' : 'Вайс-Пойнт';
     return {
       spots, parking, bounds: { x0: IX0, x1: IX1, z0: IZ0, z1: IZ1 }, deckAt,
-      districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z) < HW + 1) return 'Мост Неон-Бэй'; return null; },
+      districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z - BZ) < HW + 1) return 'Мост Неон-Бэй'; return null; },
       update(t, env) { const n = env ? env.night : 0; beamMat.opacity = n * .12; beam.visible = n > .03; beam.rotation.y = t * .5; }
     };
   };
