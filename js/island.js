@@ -176,9 +176,9 @@
     }
     for (let i = 0; i < 12; i++) {
       const x = rr(360, 500), z = rr(-103, -97.5);
-      bPlain.box(x - .35, SAND, z, x + .35, SAND + .33, z + 1.8, C('#f5f0e6')); bPlain.box(x - .35, SAND + .33, z + 1.4, x + .35, SAND + .78, z + 1.8, C('#f5f0e6'));
-      col.add(x - .35, 0, z, x + .35, SAND + .78, z + 1.8);
-      if (R() < .7) spots.push({ kind: 'lie', x, z: z + .02, y: SAND + .45, fixedY: true, heading: 0, mix: 'beach', home: true });
+      bPlain.box(x - .35, SAND, z - .2, x + .35, SAND + .33, z + 2.05, C('#f5f0e6')); bPlain.box(x - .35, SAND + .33, z + 1.75, x + .35, SAND + .41, z + 2.05, C('#e8e0d0'));
+      col.add(x - .35, 0, z - .2, x + .35, SAND + .45, z + 2.05);
+      if (R() < .7) spots.push({ kind: 'lie', x, z: z - .08, y: SAND + .45, fixedY: true, heading: 0, mix: 'beach', home: true });
       bPlain.box(x + .6, SAND, z + .8, x + .66, SAND + 2.3, z + .86, C('#f3efe6'));
       bPlain.box(x - .6, SAND + 2.2, z - .6, x + 1.9, SAND + 2.4, z + 2.2, C(pick(['#ff6fa8', '#3fd6d0', '#ffd24f', '#b58bff'])));
     }

@@ -240,7 +240,7 @@
       const fx = Math.sin(b.face), fz = Math.cos(b.face), ax = b.rot ? 0 : 1, az = b.rot ? 1 : 0;
       for (const s of [-.45, .45]) if (chance(.6)) spots.push({ kind: 'sit', x: b.x + ax * s - fx * .12, z: b.z + az * s - fz * .12, y: .66, heading: b.face, mix: 'town' });
     }
-    for (const l of world.loungers) if (chance(.7)) spots.push({ kind: 'lie', x: l.x, z: l.z + .92, y: .47, heading: 0, mix: 'beach' });
+    for (const l of world.loungers) if (chance(.7)) spots.push({ kind: 'lie', x: l.x, z: l.z + .7, y: .47, heading: 0, mix: 'beach' });
     const groups = [];
     const ringBlocks = blocks.filter(b => b.type !== 'park' && b.type !== 'parking');
     for (let g = 0; g < 14; g++) {

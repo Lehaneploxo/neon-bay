@@ -385,9 +385,9 @@
       const x = rr(116, 136), z = rr(-96, 96);
       if (reserved(x, z, 3)) continue;
       umbrellas.push([x, z]); loungers.push({ x, z });
-      col.add(x - .35, 0, z + .9, x + .35, .8, z + 2.7);
-      bPlain.box(x - .35, .02, z + .9, x + .35, .35, z + 2.7, C('#f5f0e6'));
-      bPlain.box(x - .35, .35, z + 2.3, x + .35, .8, z + 2.7, C('#f5f0e6'));
+      col.add(x - .35, 0, z + .55, x + .35, .5, z + 2.8);   // a long, flat lounger with a low headrest: the sunbather lies on it, head and all
+      bPlain.box(x - .35, .02, z + .55, x + .35, .35, z + 2.8, C('#f5f0e6'));
+      bPlain.box(x - .35, .35, z + 2.5, x + .35, .43, z + 2.8, C('#e8e0d0'));
     }
     for (const [tx, tz, hex] of [[124, 28, '#ff9fc3'], [126, -46, '#8fe3d6']]) {
       for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
