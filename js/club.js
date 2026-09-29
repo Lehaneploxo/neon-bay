@@ -136,6 +136,75 @@
       for (let x = a + .7; x < b - .4; x += 1.25) seats.push(x);
     }
     for (const x of [74, 80.2]) { box(bPlain, x - .35, .15, IZ0 + .1, x + .35, .62, IZ0 + .8, '#d9cdea', true); neon(x - .2, .62, IZ0 + .3, x + .2, .72, IZ0 + .6, '#ffd84f', false); }
+    // standing cocktail tables by the entrance, each with a glowing top and a few drinks
+    const cocktail = [[85.2, 16.6], [85.4, 20.8], [84.6, 29.6], [72.4, 16.2]];
+    for (const [x, z] of cocktail) {
+      box(bPlain, x - .08, .15, z - .08, x + .08, 1.05, z + .08, '#c9c9d4');
+      box(bPlain, x - .3, .15, z - .3, x + .3, .2, z + .3, '#2a2a33');
+      box(bPlain, x - .42, 1.05, z - .42, x + .42, 1.12, z + .42, '#d9cdea');
+      neon(x - .42, 1.0, z - .42, x + .42, 1.05, z + .42, '#3fe6e0', false);
+      for (const [dx, dz, c] of [[-.15, .1, '#ff6b8a'], [.18, -.12, '#ffd84f'], [.05, .22, '#5fd38a']]) bNeon.box(x + dx - .04, 1.12, z + dz - .04, x + dx + .04, 1.3, z + dz + .04, C(c).multiplyScalar(.8));
+      col.add(x - .12, 0, z - .12, x + .12, 1.12, z + .12);
+    }
+
+    /* ---------- VIP balcony: a second floor along the north wall, over the bar, up a stair by the door ---------- */
+    const MY = 3.8, MZ = 31.5, SX = 88.2;   // balcony floor height, its front edge, the stair's inner side
+    box(bPlain, IX0, MY - .4, MZ, IX1, MY, IZ1, '#2a1838', true);
+    bPlain.flat(IX0, MZ, IX1, IZ1, MY + .01, C('#3a1f4a'));
+    neon(IX0, MY - .4, MZ - .05, IX1, MY - .32, MZ, '#ff4fa3');
+    neon(IX0, MY - .12, MZ - .05, IX1, MY - .06, MZ, '#3fe6e0', false);
+    // the railing: posts, a glowing top rail, one solid collider
+    for (let x = IX0 + .6; x < SX; x += 1.3) box(bPlain, x - .04, MY, MZ + .02, x + .04, MY + 1, MZ + .1, '#c9c9d4');
+    box(bPlain, IX0, MY + .98, MZ, SX, MY + 1.06, MZ + .12, '#d9cdea');
+    neon(IX0, MY + 1.06, MZ + .02, SX, MY + 1.1, MZ + .1, '#ff4fa3');
+    box(bPlain, IX0, MY + .35, MZ + .04, SX, MY + .4, MZ + .08, '#8a7a9a');
+    col.add(IX0, MY, MZ, SX, MY + 1.1, MZ + .15);
+    // the stair along the front wall, from z 27 up to the balcony
+    const STEPS = 10, SZ0 = 27, SD = (MZ - SZ0) / STEPS;
+    for (let k = 0; k < STEPS; k++) {
+      const top = .16 + (MY - .16) * (k + 1) / STEPS, z = SZ0 + k * SD;
+      box(bPlain, SX, .15, z, IX1, top, z + SD, k % 2 ? '#3a2149' : '#34203f', true);
+      neon(SX, top - .05, z - .01, IX1, top, z + .03, '#3fe6e0', false);
+    }
+    box(bPlain, SX - .12, .15, SZ0 + .4, SX, 1.1, MZ, '#2e1a3e', true);   // the stair's side wall, a handrail above it
+    col.add(SX - .12, 0, SZ0 + .4, SX, MY + 1.1, MZ);
+    { const L = MZ - SZ0 - .4; for (let k = 0; k < 9; k++) { const z = SZ0 + .4 + k * L / 9, y = 1.1 + (MY * k / 9); neon(SX - .14, y, z, SX + .02, y + .07, z + L / 9, '#ff4fa3', false); } }
+    // a VIP sign on the wall over the balcony
+    const vipN = (x0, y0, x1, y1) => neon(x0, MY + y0, IZ1 - .06, x1, MY + y1, IZ1 - .02, '#ffd84f');
+    vipN(74, 2.6, 74.1, 3.3); vipN(74.1, 2.6, 74.5, 2.68); vipN(74.4, 2.6, 74.5, 3.3);            // V
+    vipN(74.9, 2.6, 75, 3.3);                                                                      // I
+    vipN(75.4, 2.6, 75.5, 3.3); vipN(75.5, 3.22, 75.95, 3.3); vipN(75.5, 2.9, 75.95, 2.98); vipN(75.9, 2.9, 76, 3.3);   // P
+    // white leather sofas along the wall with low tables in front, and round tables with chairs by the railing
+    const vip = [];
+    for (const [a, b] of [[65.2, 70.6], [72.2, 78], [79.6, 85.4]]) {
+      box(bPlain, a, MY, IZ1 - 1, b, MY + .45, IZ1, '#efe6f2', true);
+      box(bPlain, a, MY + .45, IZ1 - .35, b, MY + 1.2, IZ1, '#e2d6e8', true);
+      for (const x of [a, b - .3]) box(bPlain, x, MY + .45, IZ1 - 1, x + .3, MY + .75, IZ1 - .35, '#e2d6e8');
+      neon(a, MY + .02, IZ1 - 1.02, b, MY + .08, IZ1 - .98, '#9b6bff', false);
+      for (let x = a + .75; x < b - .5; x += 1.15) vip.push({ kind: 'sit', x, z: IZ1 - .62, y: MY + .51, heading: Math.PI });
+      const tx = (a + b) / 2;
+      box(bPlain, tx - 1.1, MY, IZ1 - 2.2, tx + 1.1, MY + .42, IZ1 - 1.5, '#1b1024', true);
+      neon(tx - 1.1, MY + .42, IZ1 - 2.2, tx + 1.1, MY + .45, IZ1 - 1.5, '#ff4fa3', false);
+      for (let k = 0; k < 4; k++) bNeon.box(tx - .8 + k * .5, MY + .45, IZ1 - 1.9, tx - .72 + k * .5, MY + .63, IZ1 - 1.82, C(BOTTLES[k % BOTTLES.length]).multiplyScalar(.8));
+      bNeon.box(tx - .12, MY + .45, IZ1 - 1.95, tx + .12, MY + .5, IZ1 - 1.75, C('#ffd84f').multiplyScalar(.7));   // a candle
+    }
+    for (const x of [71.4, 76.2, 79.6, 85.6]) {
+      const z = 33.3;
+      box(bPlain, x - .06, MY, z - .06, x + .06, MY + .75, z + .06, '#c9c9d4');
+      box(bPlain, x - .45, MY + .75, z - .45, x + .45, MY + .8, z + .45, '#d9cdea');
+      col.add(x - .3, MY, z - .3, x + .3, MY + .8, z + .3);
+      bNeon.box(x - .05, MY + .8, z - .05, x + .05, MY + .98, z + .05, C('#ff6b8a').multiplyScalar(.8));
+      bNeon.box(x + .15, MY + .8, z + .1, x + .23, MY + .95, z + .18, C('#3fe6e0').multiplyScalar(.8));
+      for (const s of [-1, 1]) {
+        const cx = x + s * .85;
+        box(bPlain, cx - .22, MY, z - .22, cx + .22, MY + .45, z + .22, '#a01d55', true);
+        box(bPlain, cx + s * .18, MY + .45, z - .22, cx + s * .24, MY + 1, z + .22, '#861745');
+        vip.push({ kind: 'sit', x: cx - s * .05, z, y: MY + .51, heading: -s * Math.PI / 2 });
+      }
+    }
+    // a lamp over each sofa table so the balcony isn't dark
+    for (const x of [67.9, 75.1, 82.5]) { box(bPlain, x - .02, MY + 2.3, IZ1 - 2, x + .02, H, IZ1 - 1.96, '#444450'); neon(x - .25, MY + 2.1, IZ1 - 2.23, x + .25, MY + 2.3, IZ1 - 1.73, '#ffd84f'); }
+
     // pillars wrapped in neon
     for (const [x, z] of [[68.6, 17.2], [68.6, 32.8], [82.4, 17.2], [82.4, 32.8]]) {
       box(bPlain, x - .35, .15, z - .35, x + .35, H, z + .35, '#2e1a3e', true);
@@ -220,7 +289,7 @@
     /* ---------- people spots ---------- */
     const spots = [], dance = { club: true };
     for (let x = DF.x0 + 1.1; x < DF.x1 - .6; x += 2.1) for (let z = DF.z0 + 1.1; z < DF.z1 - .6; z += 2.2) {
-      if (R() < .22) continue;
+      if (R() < .08) continue;
       const px = x + rr(-.35, .35), pz = z + rr(-.35, .35);
       spots.push({ kind: 'dance', x: px, z: pz, heading: -Math.PI / 2 + rr(-1.1, 1.1), mix: 'club', grp: dance });
     }
@@ -228,13 +297,23 @@
     for (const x of [73.5, 80]) spots.push({ kind: 'guard', x, z: 36.2, heading: Math.PI, mix: 'club' });
     // two bouncers either side of the entrance, arms crossed, watching the street
     for (const s of [-1, 1]) spots.push({ kind: 'bouncer', x: X1 + 1.5, z: DZ + s * 1.35, heading: Math.PI / 2 - s * .25, mix: 'bouncer' });
-    for (const x of seats) if (R() < .6) spots.push({ kind: 'sit', x, z: IZ0 + .62, y: .66, heading: 0, mix: 'club' });
+    for (const x of seats) if (R() < .8) spots.push({ kind: 'sit', x, z: IZ0 + .62, y: .66, heading: 0, mix: 'club' });
+    // groups chatting round the cocktail tables
+    for (const [x, z] of cocktail) {
+      const grp = {}, n = 3, seed = R() * 10, a0 = R() * 6;
+      for (let i = 0; i < n; i++) { const a = a0 + i / n * Math.PI * 2; spots.push({ kind: 'talk', x: x + Math.sin(a) * .85, z: z + Math.cos(a) * .85, heading: Math.atan2(-Math.sin(a), -Math.cos(a)), mix: 'club', seed, idx: i, n, grp }); }
+    }
+    // up on the balcony: people on the sofas and at the tables, a few leaning on the rail watching the floor
+    for (const s of vip) if (R() < .85) spots.push(Object.assign(s, { mix: 'club' }));
+    for (const x of [67.2, 74, 81.4, 87.2]) spots.push({ kind: 'idle', x, z: MZ + .5, y: MY, fixedY: true, heading: Math.PI + rr(-.3, .3), mix: 'club' });
+    { const grp = {}, seed = R() * 10; for (let i = 0; i < 2; i++) spots.push({ kind: 'talk', x: 69 + i * .9, z: 34.6, y: MY, fixedY: true, heading: i ? -Math.PI / 2 : Math.PI / 2, mix: 'club', seed, idx: i, n: 2, grp }); }
 
     /* ---------- getting in and out ---------- */
     const IN = [X1 - 1.6, DZ], OUT = [X1 + 1.2, DZ];
     const inside = (x, z) => x > IX0 && x < IX1 && z > IZ0 && z < IZ1;
     // next point towards the street for someone inside, avoiding the booth, the bar and the stage
-    function exitStep(x, z) {
+    function exitStep(x, z, y) {
+      if (y > 1) return x > SX && z < MZ + 1.6 ? [88.9, SZ0 - .7] : [88.9, MZ + 1.4];   // on the balcony or the stair: down to the floor first
       if (x > IN[0] - .9 && Math.abs(z - DZ) < .7) return OUT;
       if (x < 67.8 && z > 21.6 && z < 28.4) return [65.8, 20.6];
       if (z > 33.9 && x < 84.3) return [85.5, 36];

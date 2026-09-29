@@ -429,7 +429,7 @@
       if (!club) return null;
       const a = club.inside(p.x, p.z);
       if (a === club.inside(gx, gz)) return null;
-      return a ? club.exitStep(p.x, p.z) : club.entryStep(p.x, p.z);
+      return a ? club.exitStep(p.x, p.z, p.y) : club.entryStep(p.x, p.z);
     }
 
     /* ---------- physics helpers ---------- */
@@ -524,7 +524,7 @@
       if (club && club.inside(p.x, p.z)) {   // leave the club through the door, then join the sidewalks
         const ni = nearestNode(club.door.out[0], club.door.out[1]);
         p.mode = 'graph'; p.node = ni; p.prev = ni; p.clubExit = true;
-        const w = club.exitStep(p.x, p.z); p.target = { x: w[0], z: w[1] }; return;
+        const w = club.exitStep(p.x, p.z, p.y); p.target = { x: w[0], z: w[1] }; return;
       }
       if (p.x > CITY + 4 && p.z > -150 && !p.cop) { p.mode = 'beach'; p.target = beachPoint(U.clamp(p.x + rand(-10, 10), 112, 137), U.clamp(p.z + rand(-10, 10), -100, 100)); return; }
       const ni = nearestNode(p.x, p.z); p.mode = 'graph'; p.node = ni; p.prev = ni; p.target = { x: nodes[ni].x, z: nodes[ni].z };
@@ -613,7 +613,7 @@
     }
     function flee(p, dt) {
       p.fleeT -= dt;
-      if (club && club.inside(p.x, p.z)) { runTo(p, club.exitStep(p.x, p.z), 4.3, dt); if (p.fleeT < 1) p.fleeT = 1; return; }   // run out of the club first
+      if (club && club.inside(p.x, p.z)) { runTo(p, club.exitStep(p.x, p.z, p.y), 4.3, dt); if (p.fleeT < 1) p.fleeT = 1; return; }   // run out of the club first
       let vx = p.x - p.fleeX, vz = p.z - p.fleeZ; const l = Math.hypot(vx, vz) || 1; vx /= l; vz /= l;
       if (p.sideT > 0) { p.sideT -= dt; vx += p.sideX; vz += p.sideZ; }
       vx += Math.sin(p.seed + p.fleeT * 1.3) * .3; vz += Math.cos(p.seed * 1.7 + p.fleeT) * .3;
@@ -825,7 +825,7 @@
       if (d < .6 && p.clubExit) {
         if (!club.inside(p.x, p.z) && p.x > club.door.x) { p.clubExit = false; const n = nodes[p.node]; p.target = { x: n.x, z: n.z }; }
         else {
-          let w = club.exitStep(p.x, p.z);
+          let w = club.exitStep(p.x, p.z, p.y);
           if (Math.hypot(w[0] - p.x, w[1] - p.z) < .7) w = club.door.out;   // never re-aim at the point we're standing on
           p.target = { x: w[0], z: w[1] };
         }
@@ -868,7 +868,7 @@
       p.stuckT += dt;
       if (p.stuckT > 2) {
         if (Math.hypot(p.x - p.lastX, p.z - p.lastZ) < .6) {
-          if (p.clubExit) { const w = club.exitStep(p.x, p.z); p.target = { x: w[0] + rand(-.3, .3), z: w[1] + rand(-.3, .3) }; }
+          if (p.clubExit) { const w = club.exitStep(p.x, p.z, p.y); p.target = { x: w[0] + rand(-.3, .3), z: w[1] + rand(-.3, .3) }; }
           else if (p.mode === 'graph') { const t = p.node; p.node = p.prev; p.prev = t; const b = nodes[p.node]; p.target = { x: b.x, z: b.z }; }
           else p.target = beachPoint(U.clamp(p.x + rand(-10, 10), 112, 137), U.clamp(p.z + rand(-10, 10), -100, 100));
         }
