@@ -216,7 +216,7 @@
     collide() {
       for (let it = 0; it < 2; it++) {
         for (const b of this.col.query(this.x - 1.5, this.z - 1.5, this.x + 1.5, this.z + 1.5, this.tmp)) {
-          if (b.terrain || b.maxY <= this.y + STEP || b.minY >= this.y + HEIGHT) continue;   // hills are walked up, never walls
+          if (b.terrain || b.npcOnly || b.maxY <= this.y + STEP || b.minY >= this.y + HEIGHT) continue;   // hills are walked up, never walls
           const cx = U.clamp(this.x, b.minX, b.maxX), cz = U.clamp(this.z, b.minZ, b.maxZ);
           let dx = this.x - cx, dz = this.z - cz; const d = Math.hypot(dx, dz);
           if (d >= RADIUS) continue;

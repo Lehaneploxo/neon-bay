@@ -142,10 +142,88 @@
     const PLAN = [
       ['shops', 'lot', 'shops', 'tenements', 'lot', 'tenements', 'warehouse'],
       ['tenements', 'court', 'tenements', 'shops', 'tenements', 'court', 'tenements'],
-      ['factory', 'factory', 'tenements', 'tenements', 'warehouse', 'junkyard', 'factory'],
+      ['factory', 'factory', 'tenements', 'prison', 'warehouse', 'junkyard', 'factory'],
       ['warehouse', 'warehouse', 'containers', 'containers', 'containers', 'containers', 'warehouse']
     ];
     const turf = x => x < 50 ? 'red' : x > 100 ? 'green' : null;
+
+    /* ---------- NORTH SIDE PRISON: in no man's land between the gangs ---------- */
+    // a concrete wall with razor wire, a watchtower with a guard at each corner, a gate kept by two officers,
+    // the exercise yard (basketball, weights, tables, inmates walking laps) and Block A at the back, whose
+    // door leads into the cells (places.js). Only the inmates can't get past the gate.
+    let prison = null;
+    function buildPrison(bx0, bx1, bz0, bz1, cx, Y) {
+      const X0 = bx0 + 1, X1 = bx1 - 1, Z0 = bz0 + 1, Z1 = bz1 - 1, WH = 5.5, T = .6, GW = 1.8, CONC = '#9a958c', DARK = '#3a3a40';
+      const box = (x0, y0, z0, x1, y1, z1, hex, solid) => { bPlain.box(x0, y0, z0, x1, y1, z1, C(hex)); if (solid) return col.add(x0, y0 < 1 ? 0 : y0, z0, x1, y1, z1); };
+      const wall = (x0, z0, x1, z1) => {
+        box(x0, Y, z0, x1, Y + WH, z1, CONC, true);
+        box(x0 - .05, Y + WH, z0 - .05, x1 + .05, Y + WH + .12, z1 + .05, '#7a7672');
+        // razor wire: loops along the top
+        const along = x1 - x0 > z1 - z0, L = along ? x1 - x0 : z1 - z0;
+        for (let s = .25; s < L; s += .5) { const x = along ? x0 + s : (x0 + x1) / 2, z = along ? (z0 + z1) / 2 : z0 + s; box(x - .2, Y + WH + .12, z - .2, x + .2, Y + WH + .5, z + .2, DARK); }
+      };
+      wall(X0, Z0, X1, Z0 + T); wall(X0, Z0, X0 + T, Z1); wall(X1 - T, Z0, X1, Z1);
+      wall(X0, Z1 - T, cx - GW, Z1); wall(cx + GW, Z1 - T, X1, Z1);
+      // the gate: heavy pillars, a lintel with the name, the steel gates slid open against the wall
+      for (const s of [-1, 1]) box(cx + s * GW - .5, Y, Z1 - .9, cx + s * GW + .5, Y + 6.6, Z1 + .3, '#7a7672', true);
+      box(cx - GW, Y + 4.4, Z1 - .8, cx + GW, Y + 5.6, Z1 + .2, '#7a7672', true);
+      for (const s of [-1, 1]) { box(cx + s * GW, Y, Z1 - 1.3, cx + s * (GW + 3.4), Y + 4, Z1 - 1.2, '#4a4e54'); for (let x = GW + .2; x < GW + 3.4; x += .3) box(cx + s * x - .03, Y, Z1 - 1.34, cx + s * x + .03, Y + 4, Z1 - 1.16, '#2a2e34'); }
+      col.add(cx - GW, 0, Z1 - T, cx + GW, Y + 4.4, Z1).npcOnly = true;   // inmates stay in
+      const signT = U.canvasTex(512, 96, (g, w, h) => { g.fillStyle = '#1c2a3e'; g.fillRect(0, 0, w, h); g.strokeStyle = '#e8c547'; g.lineWidth = 5; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#f2f2ec'; g.textAlign = 'center'; g.font = 'bold 40px Rubik, Arial, sans-serif'; g.fillText('ТЮРЬМА НОРТ-САЙД', w / 2, 50); g.font = '22px Rubik, Arial, sans-serif'; g.fillStyle = '#e8c547'; g.fillText('ИСПРАВИТЕЛЬНОЕ УЧРЕЖДЕНИЕ №1', w / 2, 80); }, false);
+      const sg = new THREE.Mesh(new THREE.PlaneGeometry(3.6, .68), new THREE.MeshBasicMaterial({ map: signT })); sg.position.set(cx, Y + 5, Z1 + .22); scene.add(sg);
+      // watchtowers at the corners, a guard in each
+      for (const [x, z] of [[X0 + 1.2, Z0 + 1.2], [X1 - 1.2, Z0 + 1.2], [X0 + 1.2, Z1 - 1.2], [X1 - 1.2, Z1 - 1.2]]) {
+        box(x - 1, Y, z - 1, x + 1, Y + 7, z + 1, CONC, true);
+        box(x - 1.7, Y + 7, z - 1.7, x + 1.7, Y + 7.2, z + 1.7, '#7a7672', true);
+        for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(x + a * 1.55 - .08, Y + 7.2, z + b * 1.55 - .08, x + a * 1.55 + .08, Y + 9.4, z + b * 1.55 + .08, '#5a5a60');
+        for (const [a, b, c, d] of [[-1.7, -1.7, 1.7, -1.6], [-1.7, 1.6, 1.7, 1.7], [-1.7, -1.7, -1.6, 1.7], [1.6, -1.7, 1.7, 1.7]]) box(x + a, Y + 7.2, z + b, x + c, Y + 8.2, z + d, '#7a7672', true);
+        bNeon.box(x - 1.62, Y + 8.2, z - 1.62, x + 1.62, Y + 8.6, z + 1.62, C('#4a6070'));
+        box(x - 1.9, Y + 9.4, z - 1.9, x + 1.9, Y + 9.7, z + 1.9, '#4a4e54');
+        bNeon.box(x - .3, Y + 9.7, z - .3, x + .3, Y + 10, z + .3, C('#fff2c0'));   // the searchlight
+        spots.push({ kind: 'guard', x, z, y: Y + 7.2, fixedY: true, heading: Math.atan2(cx - x, (Z0 + Z1) / 2 - z), type: 'cop', mix: 'north', home: true });
+      }
+      // Block A: three storeys of concrete with barred slits, the door to the cells in front
+      const BZ = Z1 - 19, BH = 9;
+      box(X0 + 3, Y, Z0 + T, X1 - 3, Y + BH, BZ, '#a8a49c', true);
+      box(X0 + 2.8, Y + BH, Z0 + T, X1 - 2.8, Y + BH + .35, BZ + .2, '#7a7672');
+      for (const y of [Y + 1.6, Y + 4.6, Y + 7.3]) for (let x = X0 + 4.5; x < X1 - 4; x += 2.4) {
+        if (Math.abs(x - cx) < 2.4 && y < Y + 3) continue;
+        box(x, y, BZ, x + .9, y + 1.1, BZ + .05, '#1e2230');
+        for (let q = .15; q < .9; q += .2) box(x + q - .025, y, BZ + .05, x + q + .025, y + 1.1, BZ + .09, '#8a8a90');
+      }
+      box(cx - 1.3, Y, BZ, cx + 1.3, Y + 3, BZ + .15, '#5a5e64'); box(cx - .9, Y, BZ + .15, cx + .9, Y + 2.6, BZ + .2, '#2a2e34');
+      bNeon.box(cx - .6, Y + 3.2, BZ + .1, cx + .6, Y + 3.45, BZ + .3, C('#ffb030'));
+      const aT = U.canvasTex(256, 64, (g, w, h) => { g.fillStyle = '#1c2a3e'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2f2ec'; g.textAlign = 'center'; g.font = 'bold 36px Rubik, Arial, sans-serif'; g.fillText('БЛОК А', w / 2, 45); }, false);
+      const as = new THREE.Mesh(new THREE.PlaneGeometry(2.4, .6), new THREE.MeshBasicMaterial({ map: aT })); as.position.set(cx, Y + 3.9, BZ + .2); scene.add(as);
+      // the yard: asphalt with painted lines, a basketball hoop, weights, steel tables, floodlights
+      const YZ0 = BZ, YZ1 = Z1 - T;
+      box(X0 + T, Y, YZ0, X1 - T, Y + .01, YZ1, '#5e5a56');
+      for (const [a, b, c, d] of [[X0 + 2, YZ0 + 1.5, X1 - 2, YZ0 + 1.6], [X0 + 2, YZ1 - 1.6, X1 - 2, YZ1 - 1.5], [X0 + 2, YZ0 + 1.5, X0 + 2.1, YZ1 - 1.5], [X1 - 2.1, YZ0 + 1.5, X1 - 2, YZ1 - 1.5]]) bPlain.flat(a, b, c, d, Y + .02, C('#e8c547'));
+      { const hx = X0 + 6, hz = YZ0 + 2; box(hx - .1, Y, hz - .1, hx + .1, Y + 3.3, hz + .1, '#d0d0d4', true); box(hx - .9, Y + 3, hz + .1, hx + .9, Y + 4.1, hz + .2, '#f5f5f0'); box(hx - .25, Y + 3.05, hz + .2, hx + .25, Y + 3.08, hz + .6, '#e8502a'); }
+      for (const [x, z] of [[X1 - 9, YZ0 + 4], [X1 - 6, YZ0 + 4], [X1 - 7.5, YZ0 + 8]]) {
+        box(x - .3, Y, z - .9, x + .3, Y + .45, z + .9, '#3a3a40', true);
+        box(x - .8, Y + 1.2, z - .03, x + .8, Y + 1.26, z + .03, '#8a8a90'); for (const s of [-1, 1]) box(x + s * .7 - .05, Y + 1, z - .2, x + s * .7 + .05, Y + 1.46, z + .2, '#1a1a1e');
+        for (const s of [-1, 1]) box(x + s * .8 - .04, Y, z - .04, x + s * .8 + .04, Y + 1.2, z + .04, '#8a8a90');
+        spots.push({ kind: 'sit', x, z, y: Y + .51, heading: Math.PI / 2, type: 'prisoner', mix: 'north', home: true });
+      }
+      for (const [x, z] of [[cx - 5, YZ1 - 7], [cx + 5, YZ1 - 7]]) {
+        box(x - 1.2, Y, z - .5, x + 1.2, Y + .8, z + .5, '#8a8a90', true);
+        for (const s of [-1, 1]) { box(x - 1.2, Y, z + s * 1.05 - .2, x + 1.2, Y + .45, z + s * 1.05 + .2, '#8a8a90', true); for (const dx of [-.6, .6]) if (chance(.7)) spots.push({ kind: 'sit', x: x + dx, z: z + s * 1.1, y: Y + .51, heading: s > 0 ? Math.PI : 0, type: 'prisoner', mix: 'north', home: true }); }
+      }
+      for (const [x, z] of [[X0 + 1.2, YZ0 + 1], [X1 - 1.2, YZ0 + 1], [cx - 9, YZ1 - 1], [cx + 9, YZ1 - 1]]) { box(x - .12, Y, z - .12, x + .12, Y + 8, z + .12, '#6a6a70', true); bNeon.box(x - .5, Y + 8, z - .3, x + .5, Y + 8.3, z + .3, C('#fff6dc')); }
+      // inmates walking laps, standing about in twos and threes, and the officers watching them
+      const lap = [[X0 + 3, YZ1 - 2.5], [X1 - 3, YZ1 - 2.5], [X1 - 3, YZ0 + 11], [X0 + 3, YZ0 + 11]];
+      for (let k = 0; k < 4; k++) { const P = lap.slice(k).concat(lap.slice(0, k)); spots.push({ kind: 'walk', x: P[0][0], z: P[0][1], y: Y, fixedY: true, heading: 0, type: 'prisoner', mix: 'north', patrol: P }); }
+      for (const [x, z] of [[X0 + 7, YZ0 + 5], [cx, YZ1 - 11], [X1 - 12, YZ1 - 4], [X0 + 11, YZ1 - 4]]) talk(x, z, 'prisoner', Y);
+      spots.push({ kind: 'walk', x: X0 + 4, z: YZ0 + 3, y: Y, fixedY: true, heading: 0, type: 'cop', mix: 'north', patrol: [[X0 + 4, YZ0 + 3], [X1 - 4, YZ0 + 3], [X1 - 4, YZ1 - 3.5], [X0 + 4, YZ1 - 3.5]] });
+      spots.push({ kind: 'guard', x: cx + 2.2, z: BZ + 1, y: Y, fixedY: true, heading: 0, type: 'cop', mix: 'north', home: true });
+      for (const s of [-1, 1]) spots.push({ kind: 'guard', x: cx + s * 2.9, z: Z1 + 1.3, y: Y, fixedY: true, heading: 0, type: 'cop', mix: 'north', home: true });
+      // a guard booth just inside the gate
+      box(cx + 3, Y, Z1 - 4.2, cx + 5.6, Y + 2.8, Z1 - T, '#7a7672', true); bNeon.box(cx + 2.96, Y + 1.2, Z1 - 3.9, cx + 3, Y + 2.2, Z1 - 1, C('#6a8090'));
+      spots.push({ kind: 'guard', x: cx + 2.4, z: Z1 - 2.6, y: Y, fixedY: true, heading: -Math.PI / 2, type: 'cop', mix: 'north', home: true });
+      mapShapes.push({ x0: X0, z0: Z0, x1: X1, z1: Z1, c: '#5a6270', k: 'b' });
+      return { x: cx, z: (Z0 + Z1) / 2, door: { x: cx, z: BZ + 1.3, y: Y, heading: 0, nx: 0, nz: 1, hex: '#ffb030', cx, cz: (Z0 + Z1) / 2 } };
+    }
     for (let j = 0; j < ZS.length - 1; j++) for (let i = 0; i < XS.length - 1; i++) {
       const bx0 = XS[i] + RH, bx1 = XS[i + 1] - RH, bz1 = ZS[j] - RH, bz0 = ZS[j + 1] + RH;
       const lx0 = bx0 + SW, lx1 = bx1 - SW, lz0 = bz0 + SW, lz1 = bz1 - SW, cx = (bx0 + bx1) / 2, cz = (bz0 + bz1) / 2;
@@ -245,6 +323,8 @@
         for (const [x0, z0, x1, z1] of [[lx0, lz0, lx1, lz0 + .2], [lx0, lz1 - .2, lx1 - 8, lz1], [lx0, lz0, lx0 + .2, lz1], [lx1 - .2, lz0, lx1, lz1]]) { bPlain.box(x0, Y, z0, x1, Y + 2.6, z1, C('#6a6058')); col.add(x0, 0, z0, x1, Y + 2.6, z1); }
         for (let n = 0; n < 16; n++) { const x = rr(lx0 + 2, lx1 - 5), z = rr(lz0 + 2, lz1 - 4), h = rr(1, 3.5); bPlain.box(x, Y, z, x + rr(3, 4.5), Y + h, z + rr(1.8, 2.4), C(pick(['#6a3a2a', '#4a4a50', '#7a5a3a', '#3a4a5a']))); col.add(x, 0, z, x + 4.5, Y + h, z + 2.4); }
         const wall = { x0: lx0, x1: lx1, z0: lz0, z1: lz0 + .2 }; tag('-z', wall, -6, 'RUST'); tag('-z', wall, 6);
+      } else if (type === 'prison') {
+        prison = buildPrison(bx0, bx1, bz0, bz1, cx, Y);
       } else if (type === 'court') {
         // a basketball court behind a chain-link fence: the gang's corner
         const Yc = Y + .01;
@@ -305,6 +385,7 @@
       if (Math.abs(x - BX) < 9 && z < BZ0 && z > BZ1) return 'Северный мост';
       if (x < B.x0 || x > B.x1 || z < B.z0 || z > B.z1) return null;
       if (z < ZS[3]) return 'Доки Норт-Сайда';
+      if (prison && x > 50 && x < 100 && z < ZS[2] && z > ZS[3]) return 'Тюрьма Норт-Сайд';
       return x < 50 ? 'Норт-Сайд: земля Кобр' : x > 100 ? 'Норт-Сайд: земля Черепов' : 'Норт-Сайд';
     };
     // streets for traffic: the grid, joined to the city at the end of its middle street
@@ -313,7 +394,7 @@
     const id = (i, j) => j * XS.length + i;
     for (let j = 0; j < ZS.length; j++) for (let i = 0; i < XS.length; i++) { if (i + 1 < XS.length) links.push([id(i, j), id(i + 1, j)]); if (j + 1 < ZS.length) links.push([id(i, j), id(i, j + 1)]); }
     return {
-      spots, parking, blocks, territories, hangouts, bounds: B, districtAt,
+      spots, parking, blocks, territories, hangouts, bounds: B, districtAt, prison,
       walkways: [BX - (RW + PW) / 2, BX + (RW + PW) / 2].map(x => [[x, BZ0 + 2], [x, BZ1 - 2]]),
       roads: { lane: 2.6, nodes, links, bridge: { city: [BX, -100], island: id(XS.indexOf(BX), 0) }, north: true },
       update(t, env) {

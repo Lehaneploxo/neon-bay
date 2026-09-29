@@ -136,7 +136,7 @@ window.NB = {};
       const ex = ox + dx * maxT, ez = oz + dz * maxT;
       const list = this.query(Math.min(ox, ex), Math.min(oz, ez), Math.max(ox, ex), Math.max(oz, ez), []);
       let best = maxT;
-      for (const b of list) { const t = rayBox(ox, oy, oz, dx, dy, dz, b, best); if (t >= 0 && t < best) best = t; }
+      for (const b of list) { if (b.npcOnly) continue; const t = rayBox(ox, oy, oz, dx, dy, dz, b, best); if (t >= 0 && t < best) best = t; }   // invisible barriers stop nothing you can see
       return best;
     }
   }

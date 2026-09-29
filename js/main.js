@@ -638,6 +638,7 @@
     if (world.military) icon(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
+    if (world.north && world.north.prison) icon(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
     for (const m of taxi.markers) {
@@ -669,6 +670,7 @@
     if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Черепахи: необитаемый, только на лодке или вертолёте');
     if (world.military) add(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', 'Остров Омега: секретная военная база, вход запрещён');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
+    if (world.north && world.north.prison) add(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', 'Тюрьма Норт-Сайд: можно зайти и посмотреть камеры');
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
     if (world.street.motel) add(world.street.motel.center.x, world.street.motel.center.z, '#ff2d7a', '#fff', '♥', 'Мотель Pink Flamingo: девушки с 19:00 до 5:00');

@@ -500,6 +500,7 @@
     /* ---------- Bayview: the island with the airport, bridged to the North Side and to Palm Island ---------- */
     const bay = NB.buildBayview({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, FT });
     if (bay.door) doors.airport = bay.door;
+    if (north.prison) doors.prison = north.prison.door;
 
     /* ---------- Turtle Island: uninhabited, far out in the open sea, no bridge ---------- */
     tropic = NB.buildTropic({ C, U, col, scene, bPlain, mapShapes, palms });

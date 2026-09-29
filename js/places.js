@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], tower: [1900, 1500], airport: [2000, 1512] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], tower: [1900, 1500], airport: [2000, 1512] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -1371,6 +1371,72 @@
           dept(-7.2, -2.6, 'ПРИМЕРКА', 'Примерочная: ваш гардероб', () => G.ui.wardrobe())
         ];
       };
+    }
+
+    /* ---------------------------------------------------------------
+       NORTH SIDE PRISON, BLOCK A: two tiers of cells behind bars down both sides of a long hall, a gallery
+       round the top tier with a stair up to it, a guard desk at the door and steel tables where the
+       inmates play cards. Visitors walk the hall and look in; the cells stay locked.
+       --------------------------------------------------------------- */
+    if (doors.prison) {
+      const pl = interior('prison', 'Тюрьма Норт-Сайд · Блок А', doors.prison, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 27], light: lit('#e6ecf5', '#4a4e58', .85) });
+      K.at(pl.ox, pl.oz);
+      const W = '#b4b8bc', BAR = '#3a3e44', STEEL = '#8a8e94', UP = 3.6, CH = 3.4;
+      K.room(-8, -6, 8, 27, 7.6, { wall: W, ceil: '#3a3e44', trim: '#4a4e54', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-8, -6, 8, 27, T.concrete, 3);
+      for (const x of [-2, 2]) K.box(x - .06, 0, -1, x + .06, .01, 25, '#e8c547');
+      // strip lights down the hall
+      for (let z = -3; z < 26; z += 4) K.neon(-.5, 7.4, z, .5, 7.5, z + 1.2, '#eef4ff', false);
+      // the desk by the door: a counter, a glass screen, monitors; a metal-detector arch
+      K.box(3, 0, -3.2, 6.8, 1.1, -2.3, '#4a4e54', true); K.box(3, 1.1, -2.35, 6.8, 2.2, -2.3, '#9fc0d0');
+      K.box(3.5, 1.1, -3, 4.3, 1.6, -2.8, '#141418'); K.screen('-z', 3.9, 1.35, -3.01, .7, .4, 3); K.box(5.2, 1.1, -3, 6, 1.6, -2.8, '#141418'); K.screen('-z', 5.6, 1.35, -3.01, .7, .4, 3);
+      for (const s of [-1, 1]) K.box(s * .75 - .1, 0, -3.1, s * .75 + .1, 2.4, -2.9, '#c9c9d4', true);
+      K.box(-.85, 2.4, -3.1, .85, 2.6, -2.9, '#c9c9d4'); K.neon(-.3, 2.45, -3.12, .3, 2.55, -3.1, '#ff3a3a', false);
+      // steel tables for cards
+      for (const [x, z] of [[-5.2, -3], [-5.2, .4]]) {
+        K.box(x - 1, 0, z - .45, x + 1, .78, z + .45, STEEL, true);
+        for (const s of [-1, 1]) K.box(x - 1, 0, z + s * .85 - .18, x + 1, .45, z + s * .85 + .18, STEEL, true);
+        for (let k = 0; k < 5; k++) K.box(x - .6 + k * .28, .78, z - .1, x - .45 + k * .28, .79, z + .1, k % 2 ? '#f2f2ec' : '#c81e2a');
+        for (const s of [-1, 1]) for (const dx of [-.5, .5]) if (Math.random() < .75) spots.push(K.spot({ kind: 'sit', x: x + dx, z: z + s * .9, y: .51, heading: s > 0 ? Math.PI : 0, type: 'prisoner' }));
+      }
+      // the cells: seven a side on each tier, 3 m wide, bars in front
+      const cells = [];
+      for (const tier of [0, 1]) for (const s of [-1, 1]) for (let i = 0; i < 7; i++) {
+        const y0 = tier * UP, z0 = 4 + i * 3, z1 = z0 + 3, xf = s * 3.2, xb = s * 8, lo = Math.min(xf, xb), hi = Math.max(xf, xb);
+        K.box(lo, y0, z0 - .1, hi, y0 + CH, z0 + .1, W, true); if (i === 6) K.box(lo, y0, z1 - .1, hi, y0 + CH, z1 + .1, W, true);
+        for (let z = z0 + .15; z < z1 - .1; z += .22) K.box(xf - .03, y0, z - .02, xf + .03, y0 + CH, z + .02, BAR);
+        for (const y of [y0 + 1.1, y0 + CH - .1]) K.box(xf - .05, y, z0, xf + .05, y + .08, z1, BAR);
+        K.solid(xf - .05, y0 < 1 ? 0 : y0, z0, xf + .05, y0 + CH, z1);
+        // bunks along the back wall, a steel toilet, a poster
+        const bx = s * 7.4;
+        K.box(bx - .45, y0, z0 + .35, bx + .45, y0 + .5, z0 + 2.4, '#5a5e64'); K.box(bx - .42, y0 + .5, z0 + .38, bx + .42, y0 + .6, z0 + 2.37, '#e2e2d8');
+        K.box(bx - .45, y0 + 1.55, z0 + .35, bx + .45, y0 + 1.65, z0 + 2.4, '#5a5e64'); K.box(bx - .42, y0 + 1.65, z0 + .38, bx + .42, y0 + 1.75, z0 + 2.37, '#d8d0c0');
+        for (const zz of [z0 + .35, z0 + 2.3]) K.box(bx + s * .4 - .05, y0, zz, bx + s * .4 + .05, y0 + 1.8, zz + .08, '#5a5e64');
+        K.box(s * 4.4 - .25, y0, z1 - .75, s * 4.4 + .25, y0 + .45, z1 - .25, '#c9ccd2'); K.box(s * 5.2 - .25, y0 + .8, z1 - .45, s * 5.2 + .25, y0 + 1, z1 - .15, '#c9ccd2');
+        if (Math.random() < .6) K.box(s * 7.97 - .01, y0 + 1.9, z0 + 2.5, s * 7.97 + .01, y0 + 2.7, z1 - .3, ['#e0286a', '#3f8fe6', '#ffd23d', '#2bd67b'][i % 4]);
+        cells.push({ s, y0, z0, z1, bx });
+      }
+      // the top tier's floor over the cells, the gallery in front of it, the bridge across the far end, railings, the stair
+      for (const s of [-1, 1]) {
+        K.box(Math.min(s * 2, s * 8), UP - .2, 4, Math.max(s * 2, s * 8), UP, 25, '#8a8e94', true);
+        K.box(s * 2 - .04, UP, 4, s * 2 + .04, UP + 1, 25, BAR); K.box(s * 2 - .06, UP + .95, 4, s * 2 + .06, UP + 1.05, 25, '#e8c547');
+        for (let z = 4; z <= 25; z += 1.5) K.box(s * 2 - .05, UP, z - .03, s * 2 + .05, UP + 1, z + .03, BAR);
+        K.solid(s * 2 - .06, UP, 4, s * 2 + .06, UP + 1.05, 25);
+        K.box(Math.min(s * 1, s * 2), UP, 24.95, Math.max(s * 1, s * 2), UP + 1, 25.05, BAR); K.solid(Math.min(s * 1, s * 2), UP, 24.94, Math.max(s * 1, s * 2), UP + 1.05, 25.06);
+      }
+      K.box(-8, UP - .2, 25, 8, UP, 27, '#8a8e94', true);
+      { const N = 10, z0 = 16, d = (25 - z0) / N; for (let k = 0; k < N; k++) { const top = UP * (k + 1) / N; K.box(-1, 0, z0 + k * d, 1, top, z0 + (k + 1) * d, k % 2 ? '#7a7e84' : '#848890', true); K.box(-1, top - .03, z0 + k * d, 1, top, z0 + k * d + .05, '#e8c547'); }
+        for (const s of [-1, 1]) { K.box(s * 1.02 - .03, 0, z0 + .4, s * 1.02 + .03, UP + 1, 25, BAR); K.solid(s * 1.02 - .05, 0, z0 + .4, s * 1.02 + .05, UP + 1, 25); } }
+      // the people: inmates in their cells (on the bunks, at the bars), officers on the floor, the gallery and the desk
+      for (const c of cells) {
+        const r = Math.random(), mid = (c.z0 + c.z1) / 2;
+        if (r < .3) spots.push(K.spot({ kind: 'sit', x: c.bx - c.s * .35, z: c.z0 + 1.4, y: c.y0 + .66, heading: c.s > 0 ? -Math.PI / 2 : Math.PI / 2, type: 'prisoner' }));
+        else if (r < .55) spots.push(K.spot({ kind: 'lie', x: c.bx, z: c.z0 + 1.35, y: c.y0 + .62, heading: 0, type: 'prisoner' }));
+        else if (r < .8) spots.push(K.spot({ kind: 'idle', x: c.s * 3.7, z: mid, y: c.y0, fixedY: true, heading: c.s > 0 ? -Math.PI / 2 : Math.PI / 2, type: 'prisoner' }));
+      }
+      spots.push(K.spot({ kind: 'guard', x: 4.9, z: -3.8, heading: Math.PI, type: 'cop' }));
+      spots.push(K.spot({ kind: 'walk', x: -2.5, z: 2, y: 0, fixedY: true, heading: 0, type: 'cop', patrol: [[-2.5, 2], [-2.5, 24], [2.5, 24], [2.5, 2]] }));
+      spots.push(K.spot({ kind: 'walk', x: -2.6, z: 5, y: UP, fixedY: true, heading: 0, type: 'cop', patrol: [[-2.6, 5], [-2.6, 26], [2.6, 26], [2.6, 5]] }));
     }
 
     /* ---------------------------------------------------------------

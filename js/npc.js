@@ -166,6 +166,11 @@
         show('bag'); set('bag', pick(['#141418', '#f5f5f0', '#ffd23d', '#ff4fa3'])); L.purse = true;
         L.speed = 1.05; L.hs = rand(.97, 1.04); L.ws = rand(.88, .98); if (chance(.3)) { show('shades'); set('shades', pick(['#141018', '#ff2d7a'])); } break;
       }
+      case 'prisoner': { // an orange jumpsuit, or its trousers and a white vest in the yard
+        const o = pick(['#ff7a1a', '#f06a10', '#ff8a2a']);
+        if (chance(.3)) { set('torso', '#f2f2ec'); sleeves('none'); } else { set('torso', o); sleeves(chance(.5) ? 'short' : 'long', o); }
+        legs('pants', o); set('shoeL shoeR', chance(.5) ? '#f2f2f2' : '#2a2a2e'); L.speed = rand(1, 1.25); L.hs = rand(.98, 1.08); L.ws = rand(1, 1.25); break;
+      }
       case 'worker': { // overalls, a cap, boots
         const o = pick(['#2b4a7a', '#c86a1e', '#4a5a3a', '#6a6a70']); set('torso', o); sleeves(chance(.5) ? 'short' : 'long', o); legs('pants', o); set('shoeL shoeR', '#3a2a1e');
         if (chance(.6)) { show('brim crown'); set('brim crown', pick(['#e8c547', '#c81e1e', '#2a2a2a', '#f5f5f0'])); }
@@ -223,6 +228,7 @@
     let style;
     if (type === 'bouncer') style = 'bald';
     else if (type === 'bodyguard') style = pick(['bald', 'buzz', 'buzz', 'short']);
+    else if (type === 'prisoner') style = pick(['bald', 'buzz', 'buzz', 'short', 'afro']);
     else if (type === 'soldier') style = 'buzz';
     else if (type === 'gang_red' || type === 'gang_green') style = pick(['buzz', 'bald', 'short']);
     else if (type === 'cop' || type === 'security' || type === 'medic' || type === 'firefighter' || type === 'bellboy') style = female ? pick(['bun', 'pony', 'bob']) : pick(['short', 'buzz', 'short']);
@@ -463,6 +469,7 @@
       if (p.y < .3 && p.x > SHORE - .4 && p.x < SHORE + 100 && Math.abs(p.z) < 120) { p.x = SHORE - .4; p.blocked += 1; }   // people stay out of the sea
       for (const b of col.query(p.x - 1, p.z - 1, p.x + 1, p.z + 1, tmp)) {
         if (b.terrain || b.maxY <= p.y + .42 || b.minY >= p.y + 1.8) continue;
+        if (b.npcOnly && (p.cop || p.bodyguard)) continue;
         const cx = U.clamp(p.x, b.minX, b.maxX), cz = U.clamp(p.z, b.minZ, b.maxZ);
         const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
         if (d >= r) continue;
