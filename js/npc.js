@@ -475,7 +475,20 @@
         if (d >= r) continue;
         if (d > 1e-5) { p.x += dx / d * (r - d); p.z += dz / d * (r - d); p.blocked += 1; }
       }
+      // nobody walks on water: a step into water deeper than the waist is taken back (the shallows are fine)
+      if (!p.puppet && deepWater(p.x, p.z, p.y)) { if (p.safeX != null) { p.x = p.safeX; p.z = p.safeZ; p.blocked += 1; } }
+      else { p.safeX = p.x; p.safeZ = p.z; }
     }
+    function deepWater(x, z, y) {
+      const W = NB.water.at(x, z); if (!W) return false;
+      let f = NB.water.floorAt(x, z);
+      for (const b of col.query(x - .2, z - .2, x + .2, z + .2, tmp2)) {
+        if (b.maxY > y + .6 || x < b.minX || x > b.maxX || z < b.minZ || z > b.maxZ) continue;
+        const h = b.terrain ? b.terrain(x, z) : b.maxY; if (h > f) f = h;
+      }
+      return W.surface() - f > 1.1;
+    }
+    const tmp2 = [];
 
     /* ---------- spawning ---------- */
     function spawn(look, x, z, mode) {
