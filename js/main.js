@@ -209,6 +209,7 @@
     onDispatch: u => { if (Math.hypot(u.patient.x - player.x, u.patient.z - player.z) < 45) flashTip('Скорая выехала на вызов', 2); }
   });
   Object.assign(vehOpts, {
+    onWaveDown: sec => flashTip('Все копы выведены из строя. Новый наряд выедет через ' + (sec >= 60 ? Math.round(sec / 60) + ' мин' : sec + ' с'), 3),
     onHeroHit: v => heroDamage(v * 2.2),
     onFlood: () => { audio.engineOn(false); flashTip('Машина заглохла в воде — выплывайте (F)', 2.6); },
     // two officers get out; if the hero is inside the building by the car, they go in through the front door

@@ -518,9 +518,11 @@
       return [bn.x, bn.z];
     }
     // the police station: units leave from the street in front of it and come back there
-    // cars on the case per star; seconds between two cars leaving the station; a lost car is replaced after LOST s
-    const UNITS = [0, 1, 2, 4, 6, 8], NEXT_UNIT = [0, 5, 5, 3, 3, 3], RESPONSE = 2, LOST = 10;
-    const D = { wantedT: 0, cd: 0, prev: 0 };
+    // cars on the case per star; seconds between two cars leaving the station. The station sends them as a
+    // wave: losses aren't replaced one by one, but once the whole wave is gone (the officers dead, the cars
+    // lost) a fresh wave for the current stars leaves WAVE seconds later
+    const UNITS = [0, 1, 2, 4, 6, 8], NEXT_UNIT = [0, 5, 5, 3, 3, 3], RESPONSE = 2, WAVE = 60;
+    const D = { wantedT: 0, cd: 0, sent: 0, waveT: 0 };
     let heat = 0;   // the current wanted level, for how hard the cars drive
     const HQ = world.station ? { x: ROADS.find(r => r > world.station.cx) || ROADS[0], z: world.station.cz } : { x: ROADS[1], z: 0 };
     function dispatchUnit(t) {
@@ -838,18 +840,20 @@
           if (pol.wanted > 0) {
             D.wantedT += 1;
             for (const c of cars) if (c.police && (c.ai || c.returning) && Math.hypot(c.x - tgt.x, c.z - tgt.z) < 90) { c.returning = false; c.goto = null; startPursuit(c); }
-            const w = Math.min(5, pol.wanted), units = cars.filter(c => c.police && (c.pursuit || c.exited)).length, need = UNITS[w];
+            // a unit still on the case: a car chasing with its crew inside, or one whose officers got out and one of them is still standing
+            const onCase = c => c.police && c !== driving && !c.wreck && !c.flooded && (c.pursuit || (c.exited && people.some(p => p.unit === c && !p.dead && !p.down)));
+            const w = Math.min(5, pol.wanted), units = cars.filter(onCase).length, need = UNITS[w];
             D.cd -= 1;
-            if (units < D.prev) D.cd = Math.max(D.cd, LOST);   // a car lost (taken by the hero): the station takes a while to send another
-            if (units < need && D.wantedT >= RESPONSE && D.cd <= 0 && dispatchUnit(tgt)) D.cd = NEXT_UNIT[w];
-            D.prev = cars.filter(c => c.police && (c.pursuit || c.exited)).length;
+            if (D.waveT > 0) { if ((D.waveT -= 1) <= 0) D.sent = 0; }                                    // the next wave is on its way
+            else if (units === 0 && D.sent > 0) { D.waveT = WAVE; if (opts.onWaveDown) opts.onWaveDown(WAVE); }   // the whole wave is down
+            if (D.waveT <= 0 && D.sent < need && D.wantedT >= RESPONSE && D.cd <= 0 && dispatchUnit(tgt)) { D.cd = NEXT_UNIT[w]; D.sent++; }
             if (w >= 4 && !tgt.onFoot && !cars.some(c => c.pursuit && c.pursuit.role === 'block')) {
               const c = cars.find(c => c.pursuit && c.pursuit.los && Math.hypot(c.x - tgt.x, c.z - tgt.z) < 60);
               if (c) c.pursuit.role = 'block';
             }
             if (w >= 5 && !copHeli && D.wantedT >= RESPONSE + 3) launchHeli();
           } else {
-            D.wantedT = 0; D.cd = 0; D.prev = 0;
+            D.wantedT = 0; D.cd = 0; D.sent = 0; D.waveT = 0;
             // it's over: cars drive back to the station; a car whose crew is out waits for them to get back in
             for (const c of cars) {
               if (!c.police) continue;
