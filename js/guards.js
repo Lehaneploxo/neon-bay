@@ -2,6 +2,7 @@
 // in a loose formation and see off anyone who goes for him (fists against fists, pistols against guns; the
 // fighting itself is in npc.js). They get into the car with him (the ones who fit are seen in the seats) and
 // out again when he stops. Knocked down, a guard gets up again after a few seconds; shot dead, he's gone.
+// Wounds never heal: not in the car, not after a knockout, not after a reload (each one's health is saved).
 (function (NB) {
   'use strict';
   const MAX = 5, HP = 320, PRICE = 1000;
@@ -46,11 +47,12 @@
       for (const h of hired) if (h.p) o.crowd.removeGuard(h.p);
       hired.length = 0; clearSeats(); save();
     }
-    const save = () => { o.progress.guards = hired.length; };
+    const hpList = () => hired.map(h => Math.max(1, Math.round(h.p && !h.p.dead ? (h.p.down ? h.hp : h.p.hp) : h.hp)));
+    const save = () => { o.progress.guards = hpList(); };
     function clearSeats() { for (const m of seats) if (m.parent) m.parent.remove(m); seats = []; }
     // into the car: everyone gets in (the first ones are seen in the passenger seats)
     function board(car) {
-      for (const h of hired) if (h.p) { h.hp = Math.max(60, h.p.hp); o.crowd.removeGuard(h.p); h.p = null; }
+      for (const h of hired) if (h.p) { h.hp = Math.max(1, h.p.down ? h.hp : h.p.hp); o.crowd.removeGuard(h.p); h.p = null; }
       clearSeats();
       const m = car.model;
       if (m.bike || m.heli || m.id === 'jetski') return;
@@ -84,15 +86,20 @@
           place(h, x, z, k, hired.length); continue;
         }
         if (p.dead) { hired.splice(k, 1); o.crowd.releaseGuard(p); o.flash(LINES.die + (hired.length ? ' · осталось ' + hired.length : ''), 2.4); changed = true; continue; }
-        if (p.down) { h.downT += dt; if (h.downT > 7) { o.crowd.revive(p, 160); h.downT = 0; o.say(p, 'Я в порядке, босс.'); } }
-        else h.hp = p.hp;
+        // knocked out: back on his feet with the little he had left, no more
+        if (p.down) { h.downT += dt; if (h.downT > 7) { o.crowd.revive(p, Math.max(1, h.hp)); h.downT = 0; o.say(p, 'Я ещё держусь, босс.'); } }
+        else if (p.hp !== h.hp) { h.hp = p.hp; changed = true; }
       }
       if (changed) save();
       hired.forEach((h, k) => { if (h.p && h.p.bodyguard) { h.p.bodyguard.idx = k; h.p.bodyguard.of = hired.length; } });
     }
-    // after a load: the saved number of guards comes back with the hero
-    function restore(n) { for (let k = 0; k < Math.min(MAX, n | 0); k++) hire(); }
+    // after a load: the guards come back with the hero, each as wounded as he was (an old save kept only a count)
+    function restore(saved) {
+      const list = Array.isArray(saved) ? saved : Array.from({ length: saved | 0 }, () => HP);
+      for (const hp of list.slice(0, MAX)) { hire(); const h = hired[hired.length - 1]; h.hp = Math.max(1, Math.min(HP, hp | 0)); if (h.p) h.p.hp = h.hp; }
+      save();
+    }
 
-    return { hire, dismiss, update, restore, MAX, PRICE, get count() { return hired.length; }, get riding() { return !!riding; } };
+    return { hire, dismiss, update, restore, MAX, PRICE, get list() { return hpList(); }, get count() { return hired.length; }, get riding() { return !!riding; } };
   };
 })(window.NB);

@@ -152,7 +152,7 @@
   let saveT = 0;
   function saveProgress() {
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear } = progress, guardsN = guards ? guards.count : progress.guards | 0;
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear } = progress, guardsN = guards ? guards.list : progress.guards;
     try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, guards: guardsN, time: Math.round(time) })); } catch (e) {}
     saveT = 0;
   }
@@ -484,7 +484,7 @@
     if (input.touch) { if (!document.fullscreenElement) fullscreen(); } else lock();
     if (firstPlay) {
       firstPlay = false;
-      if (progress.guards > 0) guards.restore(progress.guards);   // the bodyguards hired last time are still with you
+      if (progress.guards && (progress.guards.length || progress.guards > 0)) guards.restore(progress.guards);   // the bodyguards hired last time are still with you
       flashTip(input.touch ? 'Левый палец — ходьба · правый — камера · у машины появится кнопка «СЕСТЬ»'
         : 'WASD — идти · ЛКМ — удар/огонь · ПКМ — прицел · Q — оружие · F — машина · Esc — пауза', 10);
       showDistrict(world.districtAt(player.x, player.z));
