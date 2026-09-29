@@ -552,7 +552,7 @@
       if (!p.spot) return;
       const s = p.spot; s.person = null; s.vacated = true; p.spot = null;
       if (p.gang) p.gangSpot = s;   // a gangster remembers his corner: if he's taken out, nobody takes his place for a while
-      if (s.grp) for (const o of spots) if (o.grp === s.grp) o.vacated = true;   // nobody joins a group that just broke up
+      if (s.grp && !s.grp.club) for (const o of spots) if (o.grp === s.grp) o.vacated = true;   // nobody joins a group that just broke up
       if (s.kind === 'lie') p.x += .9;
       p.y = surfaceAt(p.x, p.z);
       if (p.anim === 'sit' || p.anim === 'lie' || p.anim === 'talk') p.anim = 'idle';
@@ -1187,7 +1187,7 @@
       damage(p, dmg, src) {
         if (p.dead || (p.bodyguard && src && src.byPlayer)) return;   // the hero can't hurt his own bodyguards
         p.hp -= dmg;
-        const grp = p.spot && p.spot.grp;
+        const grp = p.spot && p.spot.grp && !p.spot.grp.club ? p.spot.grp : null;   // a dance floor is a crowd of strangers, not a group of friends
         detachSpot(p);
         // the rest of a chatting group doesn't keep talking to thin air: they run or stand up for their friend
         if (grp && src && src.byPlayer) for (const s of spots) {
