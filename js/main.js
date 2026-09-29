@@ -270,7 +270,7 @@
   // Turtle Island: the pirate chest pays out, and a speedboat waits at the old jetty to take you back
   // Base Omega: the patrol jeep, the trespass alarm, the armoury crate, a boat at the jetty
   if (world.military) { world.military.attach({ player, vehicles, crowd, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t), give: (id, n) => combat.give(id, n), setArmor: n => { progress.armor = Math.max(progress.armor, n); } }); const b = world.military.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
-  if (world.tropic) { world.tropic.attach({ addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s) }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
+  if (world.tropic) { world.tropic.attach({ progress, addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s) }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
     room: fn => blink(() => { time += 60; const d = world.street.motel.door; player.place(d.x, d.z, d.heading); rig.snap(player); fn(); }),
     crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
@@ -356,7 +356,7 @@
     const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, gun = !combat.isMelee(), touch = input.touch;
     let best = null, bestScore = Infinity;
     if (gun) for (const p of crowd.people) {
-      if (p.dead || p.down || p.anim === 'lie') continue;
+      if (p.dead || p.down || p.anim === 'lie' || p.bodyguard) continue;   // never aim at your own bodyguards
       const dp = Math.hypot(p.x - player.x, p.z - player.z);
       if (dp > (touch ? 26 : 60) || dp < .4) continue;
       const tx = p.x - cx, ty = p.y + 1.25 * p.look.hs - cy, tz = p.z - cz, L = Math.hypot(tx, ty, tz);

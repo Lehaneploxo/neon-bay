@@ -55,7 +55,7 @@
     const S = 2.5, RM = R0 * 1.3;
     for (let x = CX - RM; x < CX + RM; x += S) for (let z = CZ - RM; z < CZ + RM; z += S) {
       const h = heightAt(x + S / 2, z + S / 2);
-      if (h > .02) { const b = col.add(x, -4, z, x + S, h, z + S); b.ramp = true; }
+      if (h > .02) { const b = col.add(x, -4, z, x + S, h, z + S); b.ramp = true; b.terrain = heightAt; }
     }
     NB.water.hole({ test: (x, z) => heightAt(x, z) > .06 });
     // on the map: the outline in slices
@@ -136,7 +136,7 @@
       const lidBox = new THREE.Mesh(new THREE.BoxGeometry(1.12, .22, .72), new THREE.MeshLambertMaterial({ color: 0x7a4a22 })); lidBox.position.set(0, .11, .36); lid.add(lidBox);
       const gold = new THREE.Mesh(new THREE.BoxGeometry(.9, .12, .5), new THREE.MeshBasicMaterial({ color: 0xffd23d })); gold.position.set(hx, cy + .62, hz); scene.add(gold);
       col.add(hx - .55, -4, hz - .35, hx + .55, cy + .8, hz + .35);
-      chest = { x: hx, z: hz + 1.1, lid, gold, open: 0, want: 0, emptyT: 0 };
+      chest = { x: hx, z: hz + 1.1, y, lid, gold, open: 0, want: 0, emptyT: 0 };
     }
     /* ---------- two stone heads on the hill, looking out to sea ---------- */
     for (const [dx, dz] of [[-1.8, 0], [1.8, .4]]) {
@@ -161,7 +161,7 @@
 
     /* ---------- the game side ---------- */
     let G = null, lastT = null;
-    const CHEST_CASH = 750, REFILL = 24 * 60;
+    const CHEST_CASH = 750, TREASURE = 1000000, REFILL = 24 * 60;   // the first time it holds the pirates' hidden million
     return {
       center: { x: CX, z: CZ }, R0, radius, heightAt, inside, shoreDist, pointAt, palmSpots, sunRocks,
       boat: { id: 'speedboat', x: JX - 13, z: JZ + 3.2, h: -Math.PI / 2 },
@@ -169,9 +169,12 @@
       attach(g) { G = g; },
       interactions() {
         if (!G) return [];
-        return [{ x: chest.x, z: chest.z, r: 1.6, short: 'СУНДУК', label: () => chest.emptyT > 0 ? 'Сундук пуст — загляните завтра' : 'Пиратский сундук', use: () => {
+        return [{ x: chest.x, z: chest.z, y: chest.y, r: 1.8, short: 'СУНДУК', label: () => chest.emptyT > 0 ? 'Сундук пуст — загляните завтра' : 'Пиратский сундук', use: () => {
           if (chest.emptyT > 0) { G.flash('Пусто. Сундук наполнится через ' + Math.ceil(chest.emptyT / 60) + ' мин', 2.4); return; }
-          chest.want = 1; chest.emptyT = REFILL; G.addMoney(CHEST_CASH, 'Клад'); G.flash('Пиратский клад! +$' + CHEST_CASH, 3);
+          chest.want = 1; chest.emptyT = REFILL;
+          const rec = G.progress && G.progress.records;
+          if (rec && !rec.treasure) { rec.treasure = 1; G.addMoney(TREASURE, 'Клад'); G.flash('Спрятанный клад пиратов! +$1 000 000!', 4); }
+          else { G.addMoney(CHEST_CASH, 'Клад'); G.flash('Пиратский клад! +$' + CHEST_CASH, 3); }
         } }];
       },
       update(t) {

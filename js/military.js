@@ -51,7 +51,7 @@
       const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3)); g.setIndex(idx); g.computeVertexNormals();
       const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true })); m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m);
       const S = 2.5, RM = R0 * 1.22;
-      for (let x = CX - RM; x < CX + RM; x += S) for (let z = CZ - RM; z < CZ + RM; z += S) { const h = heightAt(x + S / 2, z + S / 2); if (h > .02) col.add(x, -4, z, x + S, h, z + S).ramp = true; }
+      for (let x = CX - RM; x < CX + RM; x += S) for (let z = CZ - RM; z < CZ + RM; z += S) { const h = heightAt(x + S / 2, z + S / 2); if (h > .02) { const b = col.add(x, -4, z, x + S, h, z + S); b.ramp = true; b.terrain = heightAt; } }
       NB.water.hole({ test: (x, z) => heightAt(x, z) > .06 });
       for (let z = CZ - RM; z < CZ + RM; z += 3) {
         let x0 = null, x1 = null; for (let x = CX - RM; x < CX + RM; x += 1.5) if (inside(x, z + 1.5)) { if (x0 == null) x0 = x; x1 = x + 1.5; }
@@ -278,7 +278,7 @@
       attach(g) { G = g; const p = g.vehicles.spawnParked('mjeep', PATROL[0][0], PATROL[0][1], Math.PI / 2); if (p) { patrolJeep.car = p; p.driverMesh.visible = true; } },
       interactions() {
         if (!G) return [];
-        return [{ x: crate.x, z: crate.z, r: 1.7, short: 'ЯЩИК', label: () => crate.emptyT > 0 ? 'Ящик пуст' : 'Армейский ящик с оружием', use: () => {
+        return [{ x: crate.x, z: crate.z, y: Y, r: 1.7, short: 'ЯЩИК', label: () => crate.emptyT > 0 ? 'Ящик пуст' : 'Армейский ящик с оружием', use: () => {
           if (crate.emptyT > 0) { G.flash('Пусто. Новую партию завезут через ' + Math.ceil(crate.emptyT / 60) + ' мин', 2.4); return; }
           crate.emptyT = 24 * 60; crate.lid.visible = false;
           G.give('rifle', 120); G.give('smg', 90); G.setArmor(100);

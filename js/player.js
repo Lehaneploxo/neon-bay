@@ -204,6 +204,10 @@
     floorAt(x, z, fromY) {
       let f = NB.water.floorAt(x, z); const r = RADIUS * .6;   // the sea bed slopes below 0
       for (const b of this.col.query(x - 1, z - 1, x + 1, z + 1, this.tmp)) {
+        if (b.terrain) {   // island ground: follow the smooth slope, not the 2.5 m steps of its colliders
+          if (x >= b.minX && x < b.maxX && z >= b.minZ && z < b.maxZ) { const h = b.terrain(x, z); if (h <= fromY + STEP && h > f) f = h; }
+          continue;
+        }
         if (b.maxY > fromY + STEP) continue;
         if (x + r > b.minX && x - r < b.maxX && z + r > b.minZ && z - r < b.maxZ && b.maxY > f) f = b.maxY;
       }
@@ -213,7 +217,7 @@
     collide() {
       for (let it = 0; it < 2; it++) {
         for (const b of this.col.query(this.x - 1.5, this.z - 1.5, this.x + 1.5, this.z + 1.5, this.tmp)) {
-          if (b.maxY <= this.y + STEP || b.minY >= this.y + HEIGHT) continue;
+          if (b.terrain || b.maxY <= this.y + STEP || b.minY >= this.y + HEIGHT) continue;   // hills are walked up, never walls
           const cx = U.clamp(this.x, b.minX, b.maxX), cz = U.clamp(this.z, b.minZ, b.maxZ);
           let dx = this.x - cx, dz = this.z - cz; const d = Math.hypot(dx, dz);
           if (d >= RADIUS) continue;

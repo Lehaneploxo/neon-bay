@@ -436,6 +436,7 @@
     function floorAt(x, z, fromY) {
       let f = 0;
       for (const b of col.query(x - .5, z - .5, x + .5, z + .5, tmp)) {
+        if (b.terrain) { if (x >= b.minX && x < b.maxX && z >= b.minZ && z < b.maxZ) { const h = b.terrain(x, z); if (h <= fromY + .42 && h > f) f = h; } continue; }
         if (b.maxY > fromY + .42) continue;
         if (x + .2 > b.minX && x - .2 < b.maxX && z + .2 > b.minZ && z - .2 < b.maxZ && b.maxY > f) f = b.maxY;
       }
@@ -444,14 +445,14 @@
     // where someone put down at (x, z) stands: the ground, or the deck of a bridge if there is one overhead
     function surfaceAt(x, z) {
       let f = floorAt(x, z, 1);
-      for (const b of col.query(x - .1, z - .1, x + .1, z + .1, tmp)) if (b.ramp && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ && b.maxY > f) f = b.maxY;
+      for (const b of col.query(x - .1, z - .1, x + .1, z + .1, tmp)) if (b.ramp && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) { const h = b.terrain ? b.terrain(x, z) : b.maxY; if (h > f) f = h; }
       return f;
     }
     function collide(p) {
       const r = .3;
       if (p.y < .3 && p.x > SHORE - .4 && p.x < SHORE + 100 && Math.abs(p.z) < 120) { p.x = SHORE - .4; p.blocked += 1; }   // people stay out of the sea
       for (const b of col.query(p.x - 1, p.z - 1, p.x + 1, p.z + 1, tmp)) {
-        if (b.maxY <= p.y + .42 || b.minY >= p.y + 1.8) continue;
+        if (b.terrain || b.maxY <= p.y + .42 || b.minY >= p.y + 1.8) continue;
         const cx = U.clamp(p.x, b.minX, b.maxX), cz = U.clamp(p.z, b.minZ, b.maxZ);
         const dx = p.x - cx, dz = p.z - cz, d = Math.hypot(dx, dz);
         if (d >= r) continue;
@@ -1139,7 +1140,7 @@
         return hit ? { t: best, p: hit, head } : null;
       },
       damage(p, dmg, src) {
-        if (p.dead) return;
+        if (p.dead || (p.bodyguard && src && src.byPlayer)) return;   // the hero can't hurt his own bodyguards
         p.hp -= dmg;
         const grp = p.spot && p.spot.grp;
         detachSpot(p);
