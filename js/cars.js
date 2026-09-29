@@ -324,6 +324,19 @@
         return out;
       } }
   );
+  // Base Omega's black stealth fighter. Flies (vehicles.js, jetPhysics): heli marks it as an aircraft for the
+  // HUD, the camera and landing before you get out; jet gives it its own flight model
+  { const BY = (w, h, d, x, y, z, key, ry) => [new THREE.BoxGeometry(w, h, d), M4().makeRotationY(ry || 0).setPosition(x, y, z), key];
+    MODELS.push({ id: 'jet', name: 'Stealth Fighter', heli: true, jet: true, w: 3, l: 12, r: .3, seat: [0, 1.95, 3.1],
+      perf: { accel: 32, top: 170, grip: 1, steer: 1.3, brake: 34 },
+      palette: ['#1a1c20'], accent: ['#2a2a2e'],
+      parts: () => [
+        B(2.6, .9, 12, 0, 1.6, 0, 'body'), B(1.2, .5, 3, 0, 2.2, 3, 'glass'), B(1.6, .6, 2, 0, 1.6, 6.4, 'body'),
+        BY(7, .18, 5, -3.2, 1.5, -1.5, 'body', .5), BY(7, .18, 5, 3.2, 1.5, -1.5, 'body', -.5),
+        BY(.18, 2.2, 2.2, -1.2, 2.8, -4.8, 'body', .3), BY(.18, 2.2, 2.2, 1.2, 2.8, -4.8, 'body', -.3),
+        B(.9, .7, .6, -.7, 1.4, -6.1, 'accent'), B(.9, .7, .6, .7, 1.4, -6.1, 'accent'),
+        B(.2, 1.1, .2, 0, .6, 3.5, '#3a3a40'), B(.2, 1.1, .2, -1.6, .6, -1.5, '#3a3a40'), B(.2, 1.1, .2, 1.6, .6, -1.5, '#3a3a40'),
+        B(.1, .1, .05, -6.4, 1.5, -3, '#ff2a3a'), B(.1, .1, .05, 6.4, 1.5, -3, '#3aff6a')] }); }
   { const H = MODELS.find(m => m.id === 'heli');
     MODELS.push(Object.assign({}, H, { id: 'milheli', name: 'Army Hawk', palette: ['#4a5436', '#3a4430', '#5a6440'], accent: ['#2a2a26'],
       parts: () => [...H.parts(), B(3.6, .14, .9, 0, 1.25, -.4, 'body'), B(.36, .36, 1.5, 1.7, 1.05, -.3, 'black'), B(.36, .36, 1.5, -1.7, 1.05, -.3, 'black'),

@@ -61,8 +61,12 @@
       });
       car.beam = new THREE.Mesh(beamGeo, beamMat); car.beam.position.set(0, .07, model.l / 2 - .1); car.beam.visible = false; car.root.add(car.beam);
       car.root.rotation.y = h;
-      car.y = model.boat ? .05 - model.draft : model.heli ? floorAt(x, z, 999) : floorAt(x, z, 1);
-      if (model.heli) {   // main rotor (two long blades) and tail rotor, spun in update()
+      car.y = model.boat ? .05 - model.draft : model.jet ? floorAt(x, z, 2) : model.heli ? floorAt(x, z, 999) : floorAt(x, z, 1);   // (the jet stands inside its hangar, not on the roof)
+      if (model.jet) {   // afterburner flames behind the two engines, longer with more throttle
+        car.rotor = new THREE.Group(); car.tailRotor = new THREE.Group(); car.spool = 0; car.vy = 0; car.spd = 0; car.pitch = 0; car.bank = 0;
+        const fm = new THREE.MeshBasicMaterial({ color: 0xff9a3a, transparent: true, opacity: .85, blending: THREE.AdditiveBlending, depthWrite: false });
+        car.flames = [-.7, .7].map(x => { const f = new THREE.Mesh(new THREE.ConeGeometry(.32, 1, 10).rotateX(-Math.PI / 2).translate(0, 0, -.5), fm); f.position.set(x, 1.4, -6.4); f.scale.set(1, 1, .01); car.body.add(f); return f; });
+      } else if (model.heli) {   // main rotor (two long blades) and tail rotor, spun in update()
         const bm = new THREE.MeshLambertMaterial({ color: 0x2a2a30 });
         car.rotor = new THREE.Group(); car.rotor.position.set(0, 2.72, 0);
         for (const a of [0, Math.PI / 2]) { const bl = new THREE.Mesh(new THREE.BoxGeometry(10.5, .05, .32), bm); bl.rotation.y = a; car.rotor.add(bl); }
@@ -205,8 +209,60 @@
       collideStatic(car);
     }
 
+    // the fighter: ГАЗ is thrust (afterburner), ТОРМОЗ the air brake, the stick banks and turns, ВВЕРХ / ВНИЗ pull the
+    // nose up or push it down. It takes off at 140 km/h, tops out over 600 km/h, stalls if it gets too slow in the air,
+    // and hitting the ground hard (or nose first) is the end of it
+    const JET_TAKEOFF = 40, JET_STALL = 30;
+    function jetPhysics(car, dt, ctl) {
+      const pf = car.model.perf, piloted = car.driver === 'player';
+      if (car.wreck) { const g = heliGround(car); car.spd = 0; car.vx = car.vz = 0; car.vy -= 20 * dt; car.y += car.vy * dt; if (car.y < g) { car.y = g; car.vy = 0; } return; }   // a wreck just falls
+      car.spool = U.damp(car.spool, piloted ? 1 : 0, piloted ? 1.2 : .6, dt);
+      const ground = heliGround(car), air = car.y > ground + .4, thr = car.spool > .6 ? ctl.throttle : 0;
+      // speed: thrust, air brake, drag; climbing costs speed and diving gains it
+      if (thr > 0) car.spd += pf.accel * thr * (1 - Math.min(1, car.spd / pf.top) ** 3) * dt;
+      else if (thr < 0) car.spd -= (air ? pf.brake * .6 : pf.brake) * -thr * dt;
+      else if (air) car.spd -= car.spd * .015 * dt;
+      else car.spd -= Math.sign(car.spd) * Math.min(Math.abs(car.spd), 5 * dt);   // rolling to a stop on the runway
+      if (air) car.spd -= Math.sin(car.pitch) * 9.8 * dt;
+      car.spd = U.clamp(car.spd, air ? 0 : -3, pf.top * 1.08);
+      // nose: up or down on request; on the runway it stays level until there's speed to fly; too slow in the air, it drops
+      let want = ctl.up ? .55 : ctl.down ? -.6 : 0;
+      if (!air) want = ctl.up && car.spd >= JET_TAKEOFF ? .3 : 0;
+      if (air && car.spd < JET_STALL) want = -.7;
+      car.pitch = U.damp(car.pitch, want, air ? 1.8 : 3, dt);
+      // turning: banks into it in the air, steers the nose wheel on the ground
+      car.bank = U.damp(car.bank, air ? ctl.steer * 1.05 : 0, 3, dt);
+      const yaw = air ? -ctl.steer * pf.steer * (.55 + Math.min(1, car.spd / 80) * .45) : -ctl.steer * .9 * Math.min(1, Math.abs(car.spd) / 6);
+      car.yawRate = U.damp(car.yawRate || 0, yaw, 3, dt); car.h += car.yawRate * dt;
+      // the edge of the map: the autopilot banks it round and back over the islands
+      const WB = world.bounds, M = 150, sx = Math.sin(car.h), sz = Math.cos(car.h);
+      if (WB && air && ((car.x < WB.x0 + M && sx < .2) || (car.x > WB.x1 - M && sx > -.2) || (car.z < WB.z0 + M && sz < .2) || (car.z > WB.z1 - M && sz > -.2))) {
+        const home = Math.atan2((WB.x0 + WB.x1) / 2 - car.x, (WB.z0 + WB.z1) / 2 - car.z), d = U.angDiff(car.h, home);
+        car.h += U.clamp(d * 2, -1, 1) * 2.2 * dt; car.bank = U.damp(car.bank, -Math.sign(d) * .9, 3, dt);
+        if (!car.edgeWarn && car.driver === 'player' && opts.onJetEdge) opts.onJetEdge(); car.edgeWarn = true;
+      } else car.edgeWarn = false;
+      const cp = Math.cos(car.pitch), fx = Math.sin(car.h), fz = Math.cos(car.h);
+      car.vx = fx * car.spd * cp; car.vz = fz * car.spd * cp; car.vy = Math.sin(car.pitch) * car.spd;
+      if (!air && car.pitch <= .05) car.vy = Math.min(0, car.vy);
+      if (!air && !(car.spd >= JET_TAKEOFF && ctl.up)) car.vy = Math.min(car.vy, 0);
+      car.x += car.vx * dt; car.z += car.vz * dt; car.y += car.vy * dt;
+      if (air && car.spd < 55) car.y -= (55 - car.spd) / 55 * 7 * dt;   // slow, it sinks: brake to come down for a landing
+      if (car.y > 600) { car.y = 600; car.pitch = Math.min(car.pitch, 0); }
+      // touching down: gently is a landing, hard or nose first is a crash
+      if (car.y < ground) {
+        const hard = car.vy < -9 || car.pitch < -.25;
+        car.y = ground; car.vy = 0; if (car.pitch < 0) car.pitch = 0;
+        if (hard && air && !car.wreck) { car.spd = 0; explode(car); }
+      }
+      car.accel = 0; car.lastVF = car.spd;
+      if (WB) { car.x = U.clamp(car.x, WB.x0 + 30, WB.x1 - 30); car.z = U.clamp(car.z, WB.z0 + 30, WB.z1 - 30); }   // never into the wall at the edge of the world
+      const before = [car.x, car.z]; collideStatic(car);
+      if (Math.hypot(car.x - before[0], car.z - before[1]) > .05 && car.spd > 25 && !car.wreck) { car.spd = 0; explode(car); }   // into a building at speed
+    }
+
     function physics(car, dt, ctl) {
       if (car.model.boat) return boatPhysics(car, dt, ctl);
+      if (car.model.jet) return jetPhysics(car, dt, ctl);
       if (car.model.heli) return heliPhysics(car, dt, ctl);
       const pf = car.model.perf;
       // deep water floods the engine: no power, heavy drag, and the car is written off
@@ -677,6 +733,21 @@
     }
     const scorch = [];
     const scorchMat = new THREE.MeshBasicMaterial({ color: 0x0c0a0a, transparent: true, opacity: .55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    function blast(x, y, z, blame) {
+      for (let k = 0; k < 14; k++) flame(x + (Math.random() - .5) * 3, y + .8 + Math.random() * 2.2, z + (Math.random() - .5) * 3, 2.5 + Math.random() * 3, .6 + Math.random() * .5, 2 + Math.random() * 3);
+      for (let k = 0; k < 8; k++) puff(x + (Math.random() - .5) * 3, y + 1.5 + Math.random() * 2, z + (Math.random() - .5) * 3, true);
+      if (scorch.length > 12) scene.remove(scorch.shift());
+      const sc = new THREE.Mesh(new THREE.CircleGeometry(3.2, 20).rotateX(-Math.PI / 2), scorchMat); sc.position.set(x, floorAt(x, z, y + .5) + .03, z); scene.add(sc); scorch.push(sc);
+      audio.explosion([x, y + 1, z]);
+      for (const c of cars) {
+        if (c === driving || c.model.heli && c.y > y + 4) continue;
+        const dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz); if (d > 9) continue;
+        const k = 1 - d / 9;
+        if (c.ai) c.ai.shock = 2.5; else if (d > .01) { c.vx += dx / d * 9 * k; c.vz += dz / d * 9 * k; c.awake = true; }
+        c.damage += 160 * k; if (blame) c.blame = true; paint(c);
+      }
+      if (opts.onExplode) opts.onExplode(x, y, z, blame, null);
+    }
     function explode(car) {
       const x = car.x, z = car.z, y = car.y, blame = !!car.blame;
       car.wreck = true; car.burnT = 0; car.wreckFireT = 30; car.damage = Math.max(car.damage, 300); car.sirenOn = false;
@@ -773,12 +844,12 @@
         const [rx, rz] = right(car);
         if (car.model.heli) {
           // only once it's down; step out onto whatever it landed on
-          if (car.y > heliGround(car) + .6) return false;
+          if (car.y > heliGround(car) + .6 && !force) return false;   // (a crash throws you out wherever it happens)
           let bx = 0, bz = 0, by = -Infinity;
           for (const side of [-1, 1]) { const x = car.x + rx * side * (car.model.w / 2 + .9), z = car.z + rz * side * (car.model.w / 2 + .9), f = player.floorAt(x, z, car.y + .6); if (f > by) { by = f; bx = x; bz = z; } }
           player.place(bx, bz, car.h); player.y = by;
           car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
-          audio.door(); if (audio.rotor) audio.rotor(0, 1);
+          audio.door(); if (audio.rotor) audio.rotor(0, 1); if (car.model.jet) audio.engineOn(false);
           return true;
         }
         if (car.model.boat) {
@@ -886,6 +957,14 @@
           // ride height over kerbs, body lean, wheels
           if (c.model.heli) {
             // blades turning, nose down in forward flight, banking into turns; ripples on the water beneath
+            if (c.model.jet) {
+              if (c !== driving) jetPhysics(c, dt, { throttle: 0, steer: 0 });
+              c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
+              c.body.rotation.x = -c.pitch; c.body.rotation.z = c.bank;
+              const burn = c === driving ? Math.max(0, input.throttle) : 0, len = c.spool > .3 ? .4 + burn * 2.2 + Math.random() * .3 * (burn + .2) : .01;
+              for (const f of c.flames) { f.scale.set(1, 1, len); f.material.opacity = .5 + burn * .45; }
+              continue;
+            }
             if (c !== driving && !c.copHeli) heliPhysics(c, dt, { throttle: 0, steer: 0 });
             const vH = speedOf(c);
             c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h;
@@ -956,7 +1035,8 @@
         sirens.sort((a, b) => a[0] - b[0]);
         audio.sirens(sirens.slice(0, 2).filter(s => s[0] < 110).map(s => [s[1].x, 1.4, s[1].z]));
         // sound for the hero's car
-        if (driving && driving.model.heli) { if (audio.rotor) audio.rotor(driving.spool, 1 + Math.abs(speedOf(driving)) / 60 + Math.max(0, driving.vy) * .02); }
+        if (driving && driving.model.jet) audio.engine(.35 + Math.min(1, Math.abs(driving.spd) / driving.model.perf.top) * .65, Math.max(.3, input.throttle), 'jet');
+        else if (driving && driving.model.heli) { if (audio.rotor) audio.rotor(driving.spool, 1 + Math.abs(speedOf(driving)) / 60 + Math.max(0, driving.vy) * .02); }
         else if (driving && !driving.flooded) {
           const v = Math.abs(speedOf(driving)), top = driving.model.perf.top;
           const gears = [0, .22, .42, .62, .82, 1.01], rel = v / top;
@@ -1026,6 +1106,7 @@
       },
       speedKmh() { return driving ? Math.abs(speedOf(driving)) * 3.6 : 0; },
       // height above whatever is beneath the helicopter being flown
+      blast,
       heliAlt() { return driving && driving.model.heli ? Math.max(0, driving.y - heliGround(driving)) : null; }
     };
     return api;

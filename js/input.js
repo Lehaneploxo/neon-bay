@@ -100,7 +100,7 @@
     btn('btnEnter', () => { I.action = true; });
     btn('btnWeapon', () => { I.cycle = 1; });
     // hold-to-use buttons for driving
-    for (const [id, k] of [['btnGas', 'gas'], ['btnBrake', 'brake'], ['btnHand', 'hand'], ['btnHorn', 'horn'], ['btnFire', 'fire']]) {
+    for (const [id, k] of [['btnGas', 'gas'], ['btnBrake', 'brake'], ['btnHand', 'hand'], ['btnHorn', 'horn'], ['btnFire', 'fire'], ['btnCannon', 'fire']]) {
       const el = $(id);
       el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); setTouch(true); hold[k] = true; el.classList.add('on'); try { el.setPointerCapture(e.pointerId); } catch (err) {} });
       const off = () => { hold[k] = false; el.classList.remove('on'); };

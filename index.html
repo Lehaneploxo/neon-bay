@@ -7,7 +7,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20260929q';
+  var BUILD = '20260929r';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -130,6 +130,9 @@ body.driving .walkOnly{display:none!important;}
 .driveOnly{display:none;}
 body.touch.driving .driveOnly{display:flex;}
 #btnGas{right:calc(26px + var(--safe-r));bottom:calc(30px + var(--safe-b));width:92px;height:92px;}
+.tankOnly{display:none;}
+body.touch.driving.tank .tankOnly{display:flex;}
+#btnCannon{right:calc(222px + var(--safe-r));bottom:calc(34px + var(--safe-b));width:84px;height:84px;background:rgba(255,63,90,.55);}
 #btnBrake{right:calc(132px + var(--safe-r));bottom:calc(24px + var(--safe-b));width:74px;height:74px;}
 #btnHand{right:calc(40px + var(--safe-r));bottom:calc(136px + var(--safe-b));width:66px;height:66px;font-size:11px;}
 #btnHorn{right:calc(128px + var(--safe-r));bottom:calc(116px + var(--safe-b));width:56px;height:56px;font-size:11px;}
@@ -284,6 +287,7 @@ body.touch .fsOnly{display:inline-block;}
   <button id="btnJump" class="tbtn tc walkOnly" type="button" aria-label="Прыжок">ПРЫЖОК</button>
   <button id="btnFire" class="tbtn tc walkOnly" type="button" aria-label="Удар или огонь">УДАР</button>
   <button id="btnWeapon" class="tbtn tc walkOnly" type="button" aria-label="Сменить оружие">ОРУЖ.</button>
+  <button id="btnCannon" class="tbtn tankOnly" type="button" aria-label="Выстрел из пушки">ОГОНЬ</button>
   <button id="btnGas" class="tbtn driveOnly" type="button" aria-label="Газ">ГАЗ</button>
   <button id="btnBrake" class="tbtn driveOnly" type="button" aria-label="Тормоз и задний ход">ТОРМОЗ</button>
   <button id="btnHand" class="tbtn driveOnly" type="button" aria-label="Ручной тормоз">РУЧНИК</button>
@@ -404,38 +408,38 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20260929q"></script>
-<script src="js/club.js?v=20260929q"></script>
-<script src="js/places.js?v=20260929q"></script>
-<script src="js/spray.js?v=20260929q"></script>
-<script src="js/street.js?v=20260929q"></script>
-<script src="js/northside.js?v=20260929q"></script>
-<script src="js/bayview.js?v=20260929q"></script>
-<script src="js/tropic.js?v=20260929q"></script>
-<script src="js/military.js?v=20260929q"></script>
-<script src="js/island.js?v=20260929q"></script>
-<script src="js/world.js?v=20260929q"></script>
-<script src="js/faces.js?v=20260929q"></script>
-<script src="js/player.js?v=20260929q"></script>
-<script src="js/wardrobe.js?v=20260929q"></script>
-<script src="js/npc.js?v=20260929q"></script>
-<script src="js/animals.js?v=20260929q"></script>
-<script src="js/wildlife.js?v=20260929q"></script>
-<script src="js/cars.js?v=20260929q"></script>
-<script src="js/vehicles.js?v=20260929q"></script>
-<script src="js/audio.js?v=20260929q"></script>
-<script src="js/radio.js?v=20260929q"></script>
-<script src="js/guards.js?v=20260929q"></script>
-<script src="js/combat.js?v=20260929q"></script>
-<script src="js/police.js?v=20260929q"></script>
-<script src="js/weather.js?v=20260929q"></script>
-<script src="js/sealife.js?v=20260929q"></script>
-<script src="js/plane.js?v=20260929q"></script>
-<script src="js/fire.js?v=20260929q"></script>
-<script src="js/ems.js?v=20260929q"></script>
-<script src="js/daynight.js?v=20260929q"></script>
-<script src="js/taxi.js?v=20260929q"></script>
-<script src="js/shop.js?v=20260929q"></script>
-<script src="js/ui.js?v=20260929q"></script>
-<script src="js/input.js?v=20260929q"></script>
-<script src="js/main.js?v=20260929q"></script>
+<script src="js/engine.js?v=20260929r"></script>
+<script src="js/club.js?v=20260929r"></script>
+<script src="js/places.js?v=20260929r"></script>
+<script src="js/spray.js?v=20260929r"></script>
+<script src="js/street.js?v=20260929r"></script>
+<script src="js/northside.js?v=20260929r"></script>
+<script src="js/bayview.js?v=20260929r"></script>
+<script src="js/tropic.js?v=20260929r"></script>
+<script src="js/military.js?v=20260929r"></script>
+<script src="js/island.js?v=20260929r"></script>
+<script src="js/world.js?v=20260929r"></script>
+<script src="js/faces.js?v=20260929r"></script>
+<script src="js/player.js?v=20260929r"></script>
+<script src="js/wardrobe.js?v=20260929r"></script>
+<script src="js/npc.js?v=20260929r"></script>
+<script src="js/animals.js?v=20260929r"></script>
+<script src="js/wildlife.js?v=20260929r"></script>
+<script src="js/cars.js?v=20260929r"></script>
+<script src="js/vehicles.js?v=20260929r"></script>
+<script src="js/audio.js?v=20260929r"></script>
+<script src="js/radio.js?v=20260929r"></script>
+<script src="js/guards.js?v=20260929r"></script>
+<script src="js/combat.js?v=20260929r"></script>
+<script src="js/police.js?v=20260929r"></script>
+<script src="js/weather.js?v=20260929r"></script>
+<script src="js/sealife.js?v=20260929r"></script>
+<script src="js/plane.js?v=20260929r"></script>
+<script src="js/fire.js?v=20260929r"></script>
+<script src="js/ems.js?v=20260929r"></script>
+<script src="js/daynight.js?v=20260929r"></script>
+<script src="js/taxi.js?v=20260929r"></script>
+<script src="js/shop.js?v=20260929r"></script>
+<script src="js/ui.js?v=20260929r"></script>
+<script src="js/input.js?v=20260929r"></script>
+<script src="js/main.js?v=20260929r"></script>

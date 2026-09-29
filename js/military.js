@@ -97,7 +97,8 @@
       const [a, b] = L(x0 - .15, z0 - .15), [c2, d] = L(x1 + .15, z1 + .15); col.add(a, -4, b, c2, Y + 3.3, d);
     };
     fenceRun(F.x0, F.z0, GATE.x - GATE.w / 2, F.z0); fenceRun(GATE.x + GATE.w / 2, F.z0, F.x1, F.z0);
-    fenceRun(F.x0, F.z1, F.x1, F.z1); fenceRun(F.x0, F.z0, F.x0, F.z1); fenceRun(F.x1, F.z0, F.x1, F.z1);
+    fenceRun(F.x0, F.z1, F.x1, F.z1); fenceRun(F.x0, F.z0, F.x0, F.z1);
+    fenceRun(F.x1, F.z0, F.x1, 1); fenceRun(F.x1, 21, F.x1, F.z1);   // a gap behind the hangar: the jet taxis out onto the airstrip
     // the gate: a guard booth, a striped barrier (up), signs
     box(GATE.x + 4.4, Y, F.z0 - 3.2, GATE.x + 7, Y + 2.8, F.z0 - .4, '#d8d4c8', true); box(GATE.x + 4.3, Y + 2.8, F.z0 - 3.3, GATE.x + 7.1, Y + 3.1, F.z0 - .3, OLIVE2);
     box(GATE.x + 4.35, Y + 1.2, F.z0 - 3.25, GATE.x + 7.05, Y + 2.2, F.z0 - 3.2, '#2a3440');
@@ -189,7 +190,9 @@
 
     /* ---------- the hangar with the secret jet ---------- */
     const H = { x0: 13, x1: 27, z0: -2, z1: 24 };
-    box(H.x1 - .4, Y, H.z0, H.x1, Y + 9, H.z1, '#7a7e76', true);
+    // (open at both ends: the jet rolls out of the back onto the airstrip)
+    for (const [a, b] of [[H.z0, 1.5], [20.5, H.z1]]) box(H.x1 - .4, Y, a, H.x1, Y + 9, b, '#7a7e76', true);
+    box(H.x1 - .4, Y + 7, 1.5, H.x1, Y + 9, 20.5, '#7a7e76');
     for (const [w, y0, y1] of [[0, 0, 7], [.6, 7, 8.4], [1.8, 8.4, 9.4], [3.6, 9.4, 10]]) { box(H.x0, Y + y0, H.z0 + w, H.x1, Y + y1, H.z0 + w + .4, '#7a7e76', w === 0); box(H.x0, Y + y0, H.z1 - w - .4, H.x1, Y + y1, H.z1 - w, '#7a7e76', w === 0); }
     for (const [w, y] of [[0, 7], [.6, 8.4], [1.8, 9.4], [3.6, 10]]) box(H.x0, Y + y - .01, H.z0 + w, H.x1, Y + y + .3, H.z1 - w, '#6a6e66');
     { const [a, b] = L(H.x0, H.z0), [c2, d] = L(H.x1, H.z1); col.add(a, Y + 7, b, c2, Y + 10.3, d); }
@@ -204,9 +207,13 @@
       B(.18, 2.2, 2.2, -1.2, 2.8, -4.8, '#1a1c20', .3); B(.18, 2.2, 2.2, 1.2, 2.8, -4.8, '#1a1c20', -.3);
       B(.9, .7, .6, -.7, 1.4, -6.1, '#2a2a2e'); B(.9, .7, .6, .7, 1.4, -6.1, '#2a2a2e');
       B(.2, 1.1, .2, 0, .6, 3.5, '#3a3a40'); B(.2, 1.1, .2, -1.6, .6, -1.5, '#3a3a40'); B(.2, 1.1, .2, 1.6, .6, -1.5, '#3a3a40');
-      const jet = new THREE.Mesh(NB.mergeParts(parts), new THREE.MeshLambertMaterial({ vertexColors: true })); jet.castShadow = true;
-      const [wx, wz] = L((H.x0 + H.x1) / 2, (H.z0 + H.z1) / 2); jet.position.set(wx, Y, wz); jet.rotation.y = -Math.PI / 2; scene.add(jet);
-      col.add(wx - 6, Y + .8, wz - 5, wx + 6, Y + 3.2, wz + 5);
+      // (the jet itself is a vehicle now: cars.js 'jet', parked here nose to the hangar door)
+      const [wx, wz] = L(18, 11); parking.push({ id: 'jet', x: wx, z: wz, h: Math.PI / 2 });
+      // the airstrip: out of the hangar's back, through the fence, east to the beach
+      flat(H.x1, 4, 76, 18, Y + .006, '#3a3a40'); shape(H.x1, 4, 76, 18, '#3a3a40', 's');
+      for (let x = H.x1 + 2; x < 74; x += 6) flat(x, 10.85, x + 3, 11.15, Y + .02, '#f5f5f0');
+      for (let x = H.x1 + 1; x < 76; x += 5) for (const z of [4.3, 17.7]) neon(x - .12, Y, z - .12, x + .12, Y + .2, z + .12, '#ffb030');
+      for (const z of [5, 6.2, 15.8, 17]) flat(70, z, 74, z + .6, Y + .02, '#f5f5f0');
     }
     soldier(H.x0 - 1.5, H.z0 + 3, -Math.PI / 2); soldier(H.x0 - 1.5, H.z1 - 3, -Math.PI / 2);
 
@@ -261,7 +268,7 @@
     const inBase = (x, z, m = 0) => { const lx = x - CX, lz = z - CZ; return lx > F.x0 - m && lx < F.x1 + m && lz > F.z0 - m && lz < F.z1 + m; };
     for (let k = 0; k < 90; k++) {
       const a = rr(0, Math.PI * 2), n = rr(.3, .84), [x, z] = pointAt(a, n);
-      if (inBase(x, z, 6) || Math.hypot(x - HILL[0], z - HILL[1]) < 10 || Math.abs(x - (CX + GATE.x)) < 5 && z < CZ + F.z0) continue;
+      if (inBase(x, z, 6) || (x - CX > 20 && z - CZ > -2 && z - CZ < 24) || Math.hypot(x - HILL[0], z - HILL[1]) < 10 || Math.abs(x - (CX + GATE.x)) < 5 && z < CZ + F.z0) continue;
       palms.push([x, heightAt(x, z), z]);
       if (R() < .4) { const s = rr(.8, 1.5), y = heightAt(x + 2, z); bPlain.box(x + 2 - s, y - .1, z - s, x + 2 + s, y + s, z + s, C(pick(['#3f7a3c', '#4f8a44', '#2f6a34']))); }
     }

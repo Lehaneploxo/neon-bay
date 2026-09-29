@@ -104,7 +104,10 @@
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
       document.body.classList.add('driving');
       showDistrict(promptCar.model.name);
-      if (promptCar.model.heli) flashTip(input.touch ? 'ВПЕРЁД / НАЗАД, джойстик — поворот, ВВЕРХ / ВНИЗ — высота. Лопасти раскручиваются…'
+      if (promptCar.model.jet) flashTip(input.touch ? 'ГАЗ — форсаж, джойстик — крен и поворот, ВВЕРХ / ВНИЗ — нос. Разгонитесь до 140 км/ч и тяните ВВЕРХ'
+        : 'W — форсаж · S — тормоз · A / D — поворот · Пробел — нос вверх · Shift — вниз. Разгонитесь до 140 км/ч и тяните вверх', 6);
+      else if (promptCar.model.id === 'tank') flashTip(input.touch ? 'Танк: ОГОНЬ — выстрел из пушки' : 'Танк: левая кнопка мыши — выстрел из пушки', 4);
+      else if (promptCar.model.heli) flashTip(input.touch ? 'ВПЕРЁД / НАЗАД, джойстик — поворот, ВВЕРХ / ВНИЗ — высота. Лопасти раскручиваются…'
         : 'W / S — вперёд и назад · A / D — поворот · Пробел — вверх · Shift — вниз. Лопасти раскручиваются…', 5);
       $('carName').textContent = promptCar.model.name;
     }
@@ -210,6 +213,7 @@
     onDispatch: u => { if (Math.hypot(u.patient.x - player.x, u.patient.z - player.z) < 45) flashTip('Скорая выехала на вызов', 2); }
   });
   Object.assign(vehOpts, {
+    onJetEdge: () => flashTip('Граница зоны полётов — автопилот разворачивает назад', 2.5),
     onWaveDown: sec => flashTip('Все копы выведены из строя. Новый наряд выедет через ' + (sec >= 60 ? Math.round(sec / 60) + ' мин' : sec + ' с'), 3),
     onHeroHit: v => heroDamage(v * 2.2),
     onFlood: () => { audio.engineOn(false); flashTip('Машина заглохла в воде — выплывайте (F)', 2.6); },
@@ -221,7 +225,7 @@
         const dp = Math.hypot(p.x - x, p.z - z);
         if (dp < 7 && !p.dead && Math.abs(p.y - y) < 3) crowd.damage(p, 150 * (1 - dp / 7) + 25, { byPlayer: blame, kind: 'explosion', x, z });
       }
-      if (car === vehicles.driving) { leaveCar(); heroDamage(250); }
+      if (car && car === vehicles.driving) { leaveCar(); heroDamage(250); }
       else if (d < 7 && Math.abs(player.y - y) < 3) heroDamage(90 * (1 - d / 7) + 10);
       crowd.panic(x, z, 40, blame);
       if (blame) police.reportCrime('shoot', x, z);
@@ -317,6 +321,33 @@
       if (d > it.r || d >= bd) continue;
       const label = it.label(); if (!label) continue;
       bd = d; interact = { it, label };
+    }
+  }
+  // the tank's main gun: a shell flies from the muzzle to the first thing in its way and blows up there
+  let tankReload = 0;
+  const shells = [];
+  function fireTankGun(car) {
+    const fx = Math.sin(car.h), fz = Math.cos(car.h), ox = car.x + fx * 5.7, oy = car.y + 2.1, oz = car.z + fz * 5.7;
+    let t = world.col.raycast(ox, oy, oz, fx, -.02, fz, 160); if (oy - .02 * t < 0) t = Math.min(t, oy / .02);
+    const hitCar = vehicles.cars.find(c => c !== car && !c.wreck && (() => { const dx = c.x - ox, dz = c.z - oz, a = dx * fx + dz * fz; return a > 0 && a < t && Math.abs(dx * fz - dz * fx) < c.model.w / 2 + .6 && Math.abs(c.y - car.y) < 4; })());
+    if (hitCar) t = Math.min(t, (hitCar.x - ox) * fx + (hitCar.z - oz) * fz);
+    for (const p of crowd.people) { if (p.dead || p.bodyguard) continue; const dx = p.x - ox, dz = p.z - oz, a = dx * fx + dz * fz; if (a > 0 && a < t && Math.abs(dx * fz - dz * fx) < .5) t = a; }
+    const m = new THREE.Mesh(new THREE.SphereGeometry(.18, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe08a }));
+    m.position.set(ox, oy, oz); scene.add(m);
+    shells.push({ m, x: ox, y: oy, z: oz, fx, fz, left: t, speed: 140, hitCar });
+    audio.explosion([ox, oy, oz]); shake = Math.min(.9, shake + .35);
+    car.vx -= fx * 1.5; car.vz -= fz * 1.5;   // the recoil
+    police.reportCrime('shoot', car.x, car.z); crowd.panic(car.x, car.z, 50, true);
+  }
+  function shellsStep(dt) {
+    for (let k = shells.length - 1; k >= 0; k--) {
+      const s = shells[k], step = Math.min(s.left, s.speed * dt);
+      s.x += s.fx * step; s.z += s.fz * step; s.y -= .02 * step; s.left -= step; s.m.position.set(s.x, s.y, s.z);
+      if (s.left <= .01) {
+        scene.remove(s.m); shells.splice(k, 1);
+        if (s.hitCar) { s.hitCar.damage += 400; s.hitCar.blame = true; }
+        vehicles.blast(s.x, Math.max(0, s.y - 1), s.z, true);
+      }
     }
   }
   function heroDamage(d) {
@@ -784,10 +815,11 @@
       if ($('carName').textContent !== nm) $('carName').textContent = nm;
     }
     // touch buttons read as flight controls in the helicopter
-    const heli = !!(drv && drv.model.heli);
+    const heli = !!(drv && drv.model.heli) && (drv.model.jet ? 'jet' : 'heli');
+    document.body.classList.toggle('tank', !!(drv && drv.model.id === 'tank'));
     if (heli !== hudHeli) {
       hudHeli = heli;
-      const L = heli ? ['ВПЕРЁД', 'НАЗАД', 'ВВЕРХ', 'ВНИЗ'] : ['ГАЗ', 'ТОРМОЗ', 'РУЧНИК', 'БИП'];
+      const L = heli === 'jet' ? ['ГАЗ', 'ТОРМОЗ', 'ВВЕРХ', 'ВНИЗ'] : heli ? ['ВПЕРЁД', 'НАЗАД', 'ВВЕРХ', 'ВНИЗ'] : ['ГАЗ', 'ТОРМОЗ', 'РУЧНИК', 'БИП'];
       ['btnGas', 'btnBrake', 'btnHand', 'btnHorn'].forEach((id, i) => { $(id).textContent = L[i]; });
     }
     const promptText = input.touch || drv ? '' : interact ? 'F — ' + interact.label : promptCar ? 'F — сесть в ' + promptCar.model.name : '';
@@ -851,6 +883,8 @@
         input.sprint = false; input.fire = false; input.jump = false; input.action = false;
       }
       if (places.current && places.current.busy && places.current.busy()) { input.move.x = input.move.y = 0; input.fire = false; input.jump = false; input.action = false; }
+      // in the tank: the fire button fires the main gun straight down the barrel
+      if (vehicles.driving && vehicles.driving.model.id === 'tank') { tankReload -= dt; if (input.fire && tankReload <= 0) { tankReload = 1.4; fireTankGun(vehicles.driving); } }
       if (world.spray.busy) { input.throttle = 0; input.move.x = 0; input.handbrake = true; input.horn = false; input.action = false; }
       if (input.cycle) { combat.cycle(1); input.cycle = 0; }
       if (input.select >= 0) { combat.select(input.select); input.select = -1; }
@@ -861,7 +895,8 @@
       rig.aimBlend = U.damp(rig.aimBlend, input.aim && !combat.isMelee() && !vehicles.driving && !player.dead ? 1 : 0, 10, dt);
       if (!vehicles.driving) player.update(dt, input, rig.yaw); else input.jump = false;
       vehicles.update(dt, { player, input, people: crowd.people, camYaw: rig.yaw, limits: carLimits, police, target: places.current && places.current.door ? { x: places.current.door.x, z: places.current.door.z, vx: 0, vz: 0, onFoot: true } : { x: player.x, z: player.z, vx: player.vx, vz: player.vz, onFoot: !vehicles.driving } });
-      combat.update(dt, input, aim, !!vehicles.driving || player.swim);   // no fighting while swimming
+      combat.update(dt, input, aim, !!vehicles.driving || player.swim);
+      shellsStep(dt);   // no fighting while swimming
       police.update(dt, player, rig.yaw);
       ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       fire.update(dt, player);
