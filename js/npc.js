@@ -592,24 +592,38 @@
       unstick(p, dt, wx / wd, wz / wd);
     }
     // police officer while the hero is wanted: 1 star — run up and arrest; 2+ stars — keep distance and shoot
+    // a hired bodyguard fighting the police: the officer he went for, and the colleagues around, fight him back
+    function copFoe(p, player) {
+      const ok = q => q && q.bodyguard && !q.dead && !q.down && people.includes(q);
+      if (ok(p.foe) && Math.hypot(p.foe.x - p.x, p.foe.z - p.z) < 40) return p.foe;
+      const dh = Math.hypot(player.x - p.x, player.z - p.z);
+      let best = null, bd = 28;
+      for (const q of people) {
+        if (!ok(q) || !q.bodyguard.target || !q.bodyguard.target.cop) continue;   // only one who's fighting us
+        const d = Math.hypot(q.x - p.x, q.z - p.z);
+        if (d < bd && d < dh + 4) { bd = d; best = q; }
+      }
+      return best;
+    }
     function copChase(p, dt, player) {
-      const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
+      const guard = copFoe(p, player), T = guard || player;
+      const dx = T.x - p.x, dz = T.z - p.z, d = Math.hypot(dx, dz) || .001;
       p.chasing = true;
-      const door = viaDoor(p, player.x, player.z);
+      const door = viaDoor(p, T.x, T.z);
       if (door) { p.los = false; runTo(p, door, 4.6, dt); return; }
       p.losT -= dt;
       if (p.losT <= 0) {
         p.losT = .22 + Math.random() * .08;
-        const sy = p.y + 1.55, ty = player.y + 1.2, L3 = Math.hypot(dx, ty - sy, dz);
+        const sy = p.y + 1.55, ty = T.y + 1.2, L3 = Math.hypot(dx, ty - sy, dz);
         p.los = d < 55 && col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - .5;
       }
       const w = pol.wanted;
       let move = 0, aiming = false, face = Math.atan2(dx, dz);
-      if (w <= 1) { if (d > .9) move = 1; if (d < 1.5 && p.los) call('onBustTick', dt, p); }
+      if (w <= 1 && !guard) { if (d > .9) move = 1; if (d < 1.5 && p.los) call('onBustTick', dt, p); }
       else {
         if (!p.los || d > 15) move = 1; else if (d < 5) move = -.5;
         aiming = p.los && d < 32;
-        if (aiming) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.6, 1.2) / (.8 + w * .1); call('onCopShoot', p); } }
+        if (aiming) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.6, 1.2) / (.8 + w * .1); if (guard) call('onCopShootAt', p, guard); else call('onCopShoot', p); } }
       }
       if (move) {
         let vx = dx / d * move, vz = dz / d * move;
@@ -759,7 +773,7 @@
           const move = !p.los || d > 16 ? 1 : d < 5 ? -.5 : 0;
           if (move) { stepMove(p, dx / d * move, dz / d * move, move > 0 ? 5 : 1.8, dt); p.running = move > 0; p.anim = p.los ? 'aimwalk' : 'walk'; unstick(p, dt, dx / d, dz / d); }
           else { p.speed = 0; p.running = false; p.anim = 'aim'; }
-          if (p.los && d < 32) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.45, .85); T.foe = p; call('onGuardShoot', p, T); } }
+          if (p.los && d < 32) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.45, .85); T.foe = p; if (T.cop) call('onCopAttacked', T); call('onGuardShoot', p, T); } }
         } else {
           // fists: close in and hit hard
           p.punchT -= dt;
@@ -768,7 +782,8 @@
             p.speed = 0; p.running = false; p.anim = 'punch'; p.punchCD -= dt;
             if (p.punchCD <= 0) {
               p.punchCD = rand(.55, .85); p.punchT = .35;
-              if (T.fightT > 0 || T.gang) T.foe = p;
+              if (T.fightT > 0 || T.gang || T.cop) T.foe = p;
+              if (T.cop) call('onCopAttacked', T);
               api.damage(T, rand(24, 32), { byPlayer: false, kind: 'melee', x: p.x, z: p.z }); call('onPunchSound', T);
               if (T.cop && !T.down && !T.dead) T.stumbleT = .6;
             }

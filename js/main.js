@@ -191,6 +191,8 @@
     onGangShootAt: (p, t) => combat.npcShoot(p, t),
     // bodyguards: their pistols hit hard and never hit the hero; their punches land with a thud
     onGuardShoot: (p, t) => combat.npcShoot(p, t, { dmg: 48, noPlayer: true }),
+    onCopShootAt: (p, t) => combat.npcShoot(p, t, { dmg: 30 }),   // an officer returning a bodyguard's fire
+    onCopAttacked: c => police.reportCrime('copAttack', c.x, c.z),   // your men attacking the police is on you
     onPunchSound: t => audio.punch([t.x, 1.5, t.z]),
     playerArmed: () => !vehicles.driving && !combat.isMelee(),
     onHitPlayer: dmg => { heroDamage(dmg); audio.punch(null); },
