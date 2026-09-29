@@ -341,7 +341,7 @@
        2. BANK: marble hall, teller windows, a guard and the vault
        --------------------------------------------------------------- */
     {
-      const pl = interior('bank', 'Банк Neon Bay', doors.bank, { inside: [0, -6.4, 0], exit: [0, -7.3], bounds: [-12, -8, 12, 16], light: lit('#fff4e0', '#7a6a5a', .95), music: null });
+      const pl = interior('bank', 'Банк Неплохо Сити', doors.bank, { inside: [0, -6.4, 0], exit: [0, -7.3], bounds: [-12, -8, 12, 16], light: lit('#fff4e0', '#7a6a5a', .95), music: null });
       K.at(pl.ox, pl.oz);
       K.room(-12, -8, 12, 10, 6, { wall: '#e8dcc6', ceil: '#d8ccb6', trim: '#6a4a2a', gaps: { '-z': [{ c: 0, w: 2.2, h: 3.2 }], '+z': [{ c: 0, w: 3.4, h: 3.5 }] } });
       K.floor(-12, -8, 12, 10, T.marble, 2);
@@ -358,7 +358,7 @@
       for (const z of [-5.2, -3.6, -2]) if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x: -11.25, z, y: .66, heading: Math.PI / 2, mix: 'downtown' }));
       for (const x of windows) if (Math.random() < .75) spots.push(K.spot({ kind: 'idle', x, z: 3.35, heading: 0, mix: 'downtown', home: true }));
       spots.push(K.spot({ kind: 'guard', x: 9.8, z: -6.3, heading: -Math.PI / 2 - .5, type: 'security', home: true }));
-      K.picture('-z', 0, 4.6, 9.83, 8, 1.3, T.sign('BANK OF NEON BAY', 'надёжно с 1961 года', '#e8c56a', '#1d1a24'));
+      K.picture('-z', 0, 4.6, 9.83, 8, 1.3, T.sign('BANK OF NEPLOXO', 'надёжно с 1961 года', '#e8c56a', '#1d1a24'));
       for (const x of [-8, 0, 8]) { K.neon(x - 1.2, 5.9, -3, x + 1.2, 5.96, -2.6, '#fff0cc', false); K.glow(x - 1.6, 5.4, -3.4, x + 1.6, 6, -2.2, '#fff0cc', .4); }
       // the vault: round steel door in the back wall, and the strong room behind it
       K.wallZ(16.15, -4.3, 4.3, 3.6, '#5a5a62'); K.wallX(-4.15, 10, 16, 3.6, '#5a5a62'); K.wallX(4.15, 10, 16, 3.6, '#5a5a62');
@@ -425,7 +425,7 @@
       spots.push(K.spot({ kind: 'guard', x: 7.4, z: -4.6, heading: -Math.PI * .75, type: 'cop', home: true }));
       K.box(-8.8, 0, -5, -8, .6, -.5, '#5a6478', true);
       for (const z of [-4.2, -2.6]) if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x: -8.4, z, y: .66, heading: Math.PI / 2, mix: 'town', home: true }));
-      K.picture('-z', 0, 3, 5.83, 5, 1.1, T.sign('NEON BAY PD', 'служить и защищать', '#3f8cff', '#0e1628'));
+      K.picture('-z', 0, 3, 5.83, 5, 1.1, T.sign('NEPLOXO CITY PD', 'служить и защищать', '#3f8cff', '#0e1628'));
       const wanted = n => T.poster((g, w, h) => { g.fillStyle = '#f0e6c8'; g.fillRect(0, 0, w, h); g.fillStyle = '#222'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.fillText('WANTED', w / 2, 26); g.fillStyle = ['#c98f65', '#8d5a36', '#e8b890'][n]; g.fillRect(w / 2 - 26, 40, 52, 60); g.fillStyle = '#2a1c14'; g.fillRect(w / 2 - 28, 36, 56, 16); g.fillStyle = '#222'; g.font = 'bold 18px Arial'; g.fillText('$' + (n + 1) * 500, w / 2, 130); });
       for (let k = 0; k < 3; k++) K.picture('+x', -8.83, 2.1, -3.5 + k * 1.4, 1, 1.4, wanted(k), true);
       // holding cells in the east wing
@@ -478,7 +478,7 @@
         if (Math.random() < .8) spots.push(K.spot({ kind: 'lie', x: 7, z: cz - .9, y: .74, heading: 0, type: pick(['elderly', 'tourist_m', 'business_m', 'tourist_f']), home: true }));
       }
       K.picture('-z', 2, 2.6, 7.83, 1.6, 1.6, K.tex(128, 128, (g, s) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, s, s); g.fillStyle = '#e02a3a'; g.fillRect(s * .38, s * .12, s * .24, s * .76); g.fillRect(s * .12, s * .38, s * .76, s * .24); }, false));
-      K.picture('-z', -4, 2.7, 7.83, 5, 1.1, T.sign('NEON BAY GENERAL', 'приёмный покой', '#3aa88a', '#f4fbfa'));
+      K.picture('-z', -4, 2.7, 7.83, 5, 1.1, T.sign('NEPLOXO GENERAL', 'приёмный покой', '#3aa88a', '#f4fbfa'));
       let bloodT = 0;
       pl.attach = () => {
         pl.interactions = [{ ...pl.P(-3.6, -.7), r: 1.6, short: 'МЕДСЕСТРА', label: () => 'Поговорить с медсестрой',
@@ -507,7 +507,7 @@
       K.box(-4, 0, 5.2, 4, 1.15, 6.1, '#101014', true); K.box(-4.05, 1.15, 5.15, 4.05, 1.22, 6.15, '#c9a04a'); K.neon(-4, .3, 5.14, 4, .36, 5.2, '#ff4fa3', false);
       spots.push(K.spot({ kind: 'idle', x: -1.5, z: 6.9, heading: Math.PI, type: 'business_f' }), K.spot({ kind: 'guard', x: 2.5, z: 6.9, heading: Math.PI, type: 'security' }));
       for (const x of [-4.5, 0, 4.5]) { K.box(x - 1, 0, 11.85, x + 1, 3, 11.99, '#c9a04a'); K.box(x - .02, 0, 11.83, x + .02, 3, 11.86, '#7a6a3a'); K.neon(x - 1.1, 3, 11.8, x + 1.1, 3.1, 11.9, '#3fe6e0'); }
-      K.picture('-z', 0, 4.8, 11.83, 8, 2, T.sign('NEPLOXO TOWER', '150 метров над Neon Bay', '#ff4fa3', '#10081c'));
+      K.picture('-z', 0, 4.8, 11.83, 8, 2, T.sign('NEPLOXO TOWER', '150 метров над Неплохо Сити', '#ff4fa3', '#10081c'));
       for (const [x0, x1, h] of [[-9.8, -9, Math.PI / 2], [9, 9.8, -Math.PI / 2]]) { K.box(x0, 0, -3, x1, .6, 2, '#2a2230', true); for (let z = -2.4; z < 2; z += 1.2) if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x: (x0 + x1) / 2, z, y: .66, heading: h, mix: 'downtown' })); }
       const lobbyLift = pl.P(0, 10.6);
       towerPad = { lobbyLift };
@@ -675,7 +675,7 @@
       K.box(-4, 0, 6, 4, 1.15, 7, '#ffffff', true); K.box(-4.05, 1.15, 5.95, 4.05, 1.22, 7.05, '#3fb8b0'); K.neon(-4, .2, 5.94, 4, .28, 6, '#3fe6e0', false);
       spots.push(K.spot({ kind: 'idle', x: 0, z: 8, heading: Math.PI, type: 'business_f', home: true }));
       for (let x = -3; x <= 3; x += .5) for (let y = 1.6; y < 3.2; y += .4) K.box(x - .12, y, 9.88, x + .12, y + .25, 9.99, '#c9a04a');
-      K.picture('-z', 0, 4.2, 9.83, 6, 1.3, T.sign('HOTEL OCEAN', 'Neon Bay · since 1938', '#3fe6e0', '#fff6f8'));
+      K.picture('-z', 0, 4.2, 9.83, 6, 1.3, T.sign('HOTEL OCEAN', 'Neploxo City · since 1938', '#3fe6e0', '#fff6f8'));
       // the fountain in the middle
       K.box(-1.8, 0, -.3, 1.8, .6, 3.3, '#ffffff', true); K.neon(-1.6, .5, -.1, 1.6, .54, 3.1, '#6fe0ff', false); K.box(-.3, .6, 1.2, .3, 1.8, 1.8, '#ffffff', true); K.box(-.7, 1.8, .8, .7, 1.95, 2.2, '#ffffff');
       K.glow(-1.6, .5, -.1, 1.6, 1.2, 3.1, '#6fe0ff', .4);
@@ -792,7 +792,7 @@
        a Duty Free shop, a café, and the gates with rows of seats in front of a window onto the runway
        --------------------------------------------------------------- */
     if (doors.airport) {
-      const pl = interior('airport', 'Аэропорт Neon Bay International', doors.airport, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-30, -6, 30, 34], light: lit('#f6f8fc', '#8a8a96', 1.05), music: 'lounge' });
+      const pl = interior('airport', 'Аэропорт LEHA NEPLOXO International', doors.airport, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-30, -6, 30, 34], light: lit('#f6f8fc', '#8a8a96', 1.05), music: 'lounge' });
       K.at(pl.ox, pl.oz);
       const H = 8;
       K.room(-30, -6, 30, 34, H, { wall: '#e8e6e0', ceil: '#dde2ea', trim: '#8a8a96', neon: '#3fe6e0', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
@@ -1243,7 +1243,7 @@
       for (const x of [136, 152]) { K.neon(x - .3, DY + .5, Z0 + .02, x + .3, DY + 1.1, Z0 + .08, '#ff5a3a', false); K.box(x - .12, DY + .68, Z0 + .01, x + .12, DY + .92, Z0 + .09, '#ffffff'); }
       for (const z of [Z0 - .1, Z1 + .1]) K.box(123.1, .7, z - .12, 123.35, 4.1, z + .12, '#f6f2ec', true);
       K.box(123.1, 3.8, Z0 - .2, 123.35, 4.4, Z1 + .2, '#f6f2ec');
-      K.picture('-x', 123.08, 4.1, (Z0 + Z1) / 2, 4, .55, T.sign('NEON BAY MARINA', null, '#3fe6e0', '#10202a'));
+      K.picture('-x', 123.08, 4.1, (Z0 + Z1) / 2, 4, .55, T.sign('NEPLOXO MARINA', null, '#3fe6e0', '#10202a'));
       K.neon(123.05, 3.78, Z0 - .2, 123.1, 3.84, Z1 + .2, '#3fe6e0');
       mapShapes.push({ x0: 123.2, z0: Z0, x1: 164, z1: Z1, c: '#c9a06a', k: 'b' });
     }
@@ -1255,7 +1255,7 @@
        A shop assistant stands in every department: walk up to one and pick what you like.
        --------------------------------------------------------------- */
     if (doors.fashion) {
-      const pl = interior('fashion', 'Бутик Neon Fashion', doors.fashion, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-9, -6, 9, 14], light: lit('#fff8ee', '#b8a890', 1.05), music: 'lounge' });
+      const pl = interior('fashion', 'Бутик NOT BAD Fashion', doors.fashion, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-9, -6, 9, 14], light: lit('#fff8ee', '#b8a890', 1.05), music: 'lounge' });
       K.at(pl.ox, pl.oz);
       const GOLD = '#c9a04a', CREAM = '#f3ece2';
       K.room(-9, -6, 9, 14, 4.6, { wall: CREAM, ceil: '#fbf7f0', trim: GOLD, neon: '#e8c547', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
@@ -1264,7 +1264,7 @@
       K.box(-1.1, 0, -3.2, 1.1, .03, 10.6, '#141418'); K.box(-1.16, 0, -3.2, -1.1, .035, 10.6, GOLD); K.box(1.1, 0, -3.2, 1.16, .035, 10.6, GOLD);
       // gold pilasters on the walls and the name over the counter
       for (const z of [-2, 2.5, 7, 11.5]) for (const x of [-8.9, 8.9]) K.box(x - .1, 0, z - .15, x + .1, 4.6, z + .15, GOLD);
-      K.picture('-z', 0, 3.7, 13.83, 5.2, .9, T.sign('NEON FASHION', null, '#c9a04a', '#141418'));
+      K.picture('-z', 0, 3.7, 13.83, 5.2, .9, T.sign('NOT BAD FASHION', null, '#c9a04a', '#141418'));
       // chandeliers: a gold ring hung with glowing crystals
       for (const z of [1.5, 8]) {
         K.box(-.02, 3.6, z - .02, .02, 4.6, z + .02, GOLD);
@@ -1379,7 +1379,7 @@
        inmates play cards. Visitors walk the hall and look in; the cells stay locked.
        --------------------------------------------------------------- */
     if (doors.prison) {
-      const pl = interior('prison', 'Тюрьма Норт-Сайд · Блок А', doors.prison, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 27], light: lit('#e6ecf5', '#4a4e58', .85) });
+      const pl = interior('prison', 'Тюрьма Района 21 · Блок А', doors.prison, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 27], light: lit('#e6ecf5', '#4a4e58', .85) });
       K.at(pl.ox, pl.oz);
       const W = '#b4b8bc', BAR = '#3a3e44', STEEL = '#8a8e94', UP = 3.6, CH = 3.4;
       K.room(-8, -6, 8, 27, 7.6, { wall: W, ceil: '#3a3e44', trim: '#4a4e54', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });

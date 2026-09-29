@@ -280,7 +280,7 @@
     return {
       center: { x: CX, z: CZ }, radius, heightAt, shoreDist, spots, parking, boat,
       inBase: (x, z) => inBase(x, z),
-      districtAt(x, z) { if (inBase(x, z, 2)) return 'Секретная база «Омега»'; const [d, a] = polar(x, z); return d < radius(a) + 6 ? 'Остров Омега' : null; },
+      districtAt(x, z) { if (inBase(x, z, 2)) return 'Секретная база «Омега-21»'; const [d, a] = polar(x, z); return d < radius(a) + 6 ? 'Остров Омега-21' : null; },
       // g: { player, vehicles, crowd, flash, say, give(id, n), setArmor(n), audio }
       attach(g) { G = g; const p = g.vehicles.spawnParked('mjeep', PATROL[0][0], PATROL[0][1], Math.PI / 2); if (p) { patrolJeep.car = p; p.driverMesh.visible = true; } },
       interactions() {

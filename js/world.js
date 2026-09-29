@@ -529,6 +529,8 @@
     const spray = NB.buildSpray({ scene, col, C, mapShapes });
     const fireStation = NB.buildFireStation({ scene, col, C, mapShapes });
     const street = NB.buildStreet({ scene, col, C, palms, doors, motelLot, mapShapes, lamps });
+    // LEHA NEPLOXO WORLD: the president's billboards — a giant one on the beach facing the city, one on each embankment
+    if (NB.buildBillboards) NB.buildBillboards({ scene, col, spots: [[122, -75, -Math.PI / 2, 26, 8, .1], [22, -109.3, 0, 16, 6, .15], [-22, 109.3, Math.PI, 16, 6, .15]] });
 
     /* ---------- lamps (dropping ones that land in a road or beyond the city) ---------- */
     const inRoad = v => ROADS.some(L => Math.abs(v - L) < RH + .5);
@@ -685,12 +687,12 @@
       const bv = bay.districtAt(x, z); if (bv) return bv;
       const tr = tropic.districtAt(x, z); if (tr) return tr;
       const ml = military.districtAt(x, z); if (ml) return ml;
-      if (x > SHORE + 8 || x < -EMB || Math.abs(z) > EMB) return x > SHORE && x < 560 && Math.abs(z) < 128 ? 'Залив Неон-Бэй' : 'Открытое море';
-      if (x > CITY) return 'Пляж Санрайз';
-      if (x > 52) return 'Коралловая полоса';
-      if (Math.abs(x) < 52 && Math.abs(z) < 52) return 'Даунтаун';
-      if (x < -52) return z > 0 ? 'Пальм-Хайтс' : 'Старая гавань';
-      return z < 0 ? 'Рынок Флорес' : 'Мятный квартал';
+      if (x > SHORE + 8 || x < -EMB || Math.abs(z) > EMB) return x > SHORE && x < 560 && Math.abs(z) < 128 ? 'Залив Неплохо' : 'Открытое море';
+      if (x > CITY) return 'Пляж Not Bad';
+      if (x > 52) return 'Бульвар Not Bad';
+      if (Math.abs(x) < 52 && Math.abs(z) < 52) return 'Даунтаун NEPLOXO';
+      if (x < -52) return z > 0 ? 'Лёха-Хайтс' : 'Гавань Лёхи';
+      return z < 0 ? 'Рынок «Неплохо»' : 'Квартал 21';
     }
 
     return {

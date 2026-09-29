@@ -211,7 +211,7 @@
     for (let x = 360; x < 503; x += 16) lamps.push([x, 5.8, Math.PI, LAND], [x + 8, -5.8, 0, LAND]);
     for (let x = 366; x < 500; x += 18) lamps.push([x, 54.2, 0, LAND], [x + 9, -54.2, Math.PI, LAND]);
 
-    const districtAt = (x, z) => x < IX0 - 3 ? 'Мост Неон-Бэй' : x > 476 ? 'Мыс Маяка' : z > 58 ? 'Старфиш-Хайтс' : z > 5 ? 'Старфиш-Хайтс' : z < -60 ? 'Пляж Вайс-Пойнт' : 'Вайс-Пойнт';
+    const districtAt = (x, z) => x < IX0 - 3 ? 'Мост NEPLOXO' : x > 476 ? 'Мыс Неплохо' : z > 58 ? 'Хайтс Not Bad' : z > 5 ? 'Хайтс Not Bad' : z < -60 ? 'Пляж Пойнт 21' : 'Пойнт 21';
     return {
       spots, parking, bounds: { x0: IX0, x1: IX1, z0: IZ0, z1: IZ1 }, deckAt,
       // the island's streets for traffic: the bridge lands on the west shore road, which runs up to the avenue;
@@ -220,7 +220,7 @@
       walkways: [BZ - HW + PV / 2 + .2, BZ + HW - PV / 2 - .2].map(z => [[107, z], [IX0 + 3, z]]),
       roads: { lane: 1.9, nodes: [[350, BZ], [350, 0], [380, 0], [470, 0], [380, 60], [470, 60], [380, -60], [470, -60], [447.5, -60]],
         links: [[0, 1], [1, 2], [2, 3], [2, 4], [4, 5], [5, 3], [2, 6], [6, 8], [8, 7], [7, 3]], bridge: { city: [100, -100], island: 0 } },
-      districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z - BZ) < HW + 1) return 'Мост Неон-Бэй'; return null; },
+      districtAt(x, z) { if (x > IX0 - 3 && x < IX1 + 5 && Math.abs(z) < 110) return districtAt(x, z); if (x > 140 && x <= IX0 - 3 && Math.abs(z - BZ) < HW + 1) return 'Мост NEPLOXO'; return null; },
       update(t, env) { const n = env ? env.night : 0; beamMat.opacity = n * .12; beam.visible = n > .03; beam.rotation.y = t * .5; }
     };
   };

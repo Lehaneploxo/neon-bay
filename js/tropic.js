@@ -180,7 +180,7 @@
     return {
       center: { x: CX, z: CZ }, R0, radius, heightAt, inside, shoreDist, pointAt, palmSpots, sunRocks,
       boat: { id: 'speedboat', x: JX - 13, z: JZ + 3.2, h: -Math.PI / 2 },
-      districtAt(x, z) { const [d, a] = polar(x, z); return d < radius(a) + 6 ? 'Остров Черепахи' : null; },
+      districtAt(x, z) { const [d, a] = polar(x, z); return d < radius(a) + 6 ? 'Остров Лёхи' : null; },
       attach(g) { G = g; },
       interactions() {
         if (!G) return [];

@@ -327,8 +327,8 @@
     bPlain.box(TB.x0 - 2, Y + 4.2, TB.z1, TB.x1 + 2, Y + 4.5, TB.z1 + 5, C('#f5f5f0'));
     for (let x = TB.x0; x <= TB.x1; x += 12) bPlain.box(x - .15, Y, TB.z1 + 4.4, x + .15, Y + 4.2, TB.z1 + 4.7, C('#d0d0d4'));
     for (const off of [-30, 0, 30]) door('+z', term, off, Y, '#2a2a2e', true);
-    board('NEON BAY INTERNATIONAL AIRPORT', (TB.x0 + TB.x1) / 2, term.h + 2.2, TB.z1 - 2, 60, 4, 0, '#1c2a4a', '#ff4fa3');
-    board('NEON BAY INTERNATIONAL AIRPORT', (TB.x0 + TB.x1) / 2, term.h + 2.2, TB.z1 - 2.1, 60, 4, Math.PI, '#1c2a4a', '#ff4fa3');
+    board('LEHA NEPLOXO INTERNATIONAL AIRPORT', (TB.x0 + TB.x1) / 2, term.h + 2.2, TB.z1 - 2, 60, 4, 0, '#1c2a4a', '#ff4fa3');
+    board('LEHA NEPLOXO INTERNATIONAL AIRPORT', (TB.x0 + TB.x1) / 2, term.h + 2.2, TB.z1 - 2.1, 60, 4, Math.PI, '#1c2a4a', '#ff4fa3');
     bPlain.box((TB.x0 + TB.x1) / 2 - 30, term.h, TB.z1 - 2.3, (TB.x0 + TB.x1) / 2 + 30, term.h + .3, TB.z1 - 1.8, C('#2a2a30'));
     for (const x of [TB.x0 + 8, TB.x1 - 8]) bPlain.box(x - .2, term.h, TB.z1 - 2.2, x + .2, term.h + 4.2, TB.z1 - 1.9, C('#2a2a30'));
     for (let x = TB.x0 + 6; x < TB.x1 - 4; x += 14) bench(x, TB.z1 + 2, Math.PI);
@@ -481,10 +481,10 @@
     /* ---------- for the rest of the game ---------- */
     const districtAt = (x, z) => {
       if (Math.abs(z - HZ) < 9 && x > 258 && x < B.x0 + 1) return 'Портовый мост';
-      if (Math.abs(x - PBX) < 8 && z < -104 && z > B.z1 - 1) return 'Мост Бэйвью';
+      if (Math.abs(x - PBX) < 8 && z < -104 && z > B.z1 - 1) return 'Мост Лёха-Вью';
       if (x < B.x0 || x > B.x1 || z < B.z0 || z > B.z1) return null;
-      if (z < AZ) return 'Аэропорт Неон-Бэй';
-      return x < 447.5 ? 'Бэйвью: Уэст-Энд' : x > 620 ? 'Бэйвью: Ист-Сайд' : 'Бэйвью';
+      if (z < AZ) return 'Аэропорт LEHA NEPLOXO';
+      return x < 447.5 ? 'Бэйвью: Уэст-Энд' : x > 620 ? 'Бэйвью: Ист-Сайд' : 'Лёха-Вью';
     };
     const nodes = [], links = [];
     for (const z of ZS) for (const x of XS) nodes.push([x, z]);

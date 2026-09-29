@@ -27,7 +27,9 @@
     tee_black: { name: 'Чёрная футболка', price: 50, tex: tee('#18181c', '#2a2a30') },
     tee_pink: { name: 'Розовая футболка', price: 50, tex: tee('#ff7eb6', '#e0508a') },
     tee_cyan: { name: 'Бирюзовая футболка', price: 50, tex: tee('#3fe6e0', '#20b0aa') },
-    tee_neon: { name: 'Футболка NEON BAY', price: 90, tex: tee('#18181c', '#2a2a30', text('NEON BAY', '#ff4fa3', 19)) },
+    tee_neon: { name: 'Футболка NEPLOXO CITY', price: 90, tex: tee('#18181c', '#2a2a30', text('NEPLOXO', '#ff4fa3', 19)) },
+    tee_notbad: { name: 'Футболка NOT BAD (логотип)', price: 210, tex: tee('#141418', '#2a2a30', (g, s) => { if (NB.drawLogo) NB.drawLogo(g, s / 2, s * .52, s * .3); }) },
+    tee_leha: { name: 'Футболка LEHA NEPLOXO', price: 150, tex: tee('#ff2d7a', '#d01a5a', (g, s) => { text('LEHA', '#ffffff', 22, .42)(g, s); text('NEPLOXO', '#ffffff', 17, .62)(g, s); text('21', '#ffe98a', 20, .85)(g, s); }) },
     tee_21: { name: 'Футболка NEPLOXO 21', price: 120, tex: tee('#f5f5f0', '#d8d8d0', (g, s) => { text('NEPLOXO', '#ff2d7a', 18, .42)(g, s); text('21', '#20b0aa', 34, .78)(g, s); }) },
     jersey: { name: 'Футбольная майка №21', price: 180, tex: tee('#1f4fb0', '#f5f5f0', (g, s) => { g.fillStyle = '#f5f5f0'; g.fillRect(0, s * .82, s, 6); text('21', '#f5f5f0', 52, .72)(g, s); }) },
     tank_black: { name: 'Чёрная майка', price: 60, sleeves: 'tank', tex: T(fill('#18181c')) },
@@ -67,7 +69,7 @@
   // hats and glasses are small models built on the hero's head (see build() below)
   Object.assign(hat, {
     none: P('Без шляпы', 0), cap_red: P('Кепка, красная', 60, 0xc81e2a, { kind: 'cap' }), cap_black: P('Кепка, чёрная', 60, 0x1a1a1e, { kind: 'cap' }),
-    cap_neon: P('Кепка NEON', 80, 0xff4fa3, { kind: 'cap' }), bandana: P('Бандана', 70, 0xc81e1e, { kind: 'bandana' }), beanie: P('Шапка-бини', 90, 0x2a6fe8, { kind: 'beanie' }),
+    cap_neon: P('Кепка NEPLOXO', 80, 0xff4fa3, { kind: 'cap' }), cap_notbad: P('Кепка NOT BAD', 150, 0x0a0a0c, { kind: 'cap' }), bandana: P('Бандана', 70, 0xc81e1e, { kind: 'bandana' }), beanie: P('Шапка-бини', 90, 0x2a6fe8, { kind: 'beanie' }),
     bucket: P('Панамка', 120, 0xf5e6a8, { kind: 'bucket' }), panama: P('Панама', 350, 0xf5f0e0, { kind: 'fedora', band: 0x141418 }),
     cowboy: P('Ковбойская шляпа', 450, 0x8a5a2a, { kind: 'cowboy' }), fedora: P('Федора', 600, 0x2a2a30, { kind: 'fedora', band: 0xb0203a }),
     tophat: P('Цилиндр', 1500, 0x141418, { kind: 'tophat' }), crown: P('Золотая корона', 25000, 0xe8c547, { kind: 'crown' }),

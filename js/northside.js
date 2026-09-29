@@ -70,7 +70,7 @@
     }
 
     /* ---------- graffiti: a sheet of tags sprayed onto walls ---------- */
-    const TAGS = ['COBRAS', 'SKULLS', 'N-SIDE', 'RUST', 'KINGS', 'ZERO', 'WILD', 'NO COPS'];
+    const TAGS = ['COBRAS', 'SKULLS', '21', 'RUST', 'KINGS', 'ZERO', 'WILD', 'NO COPS'];
     const tagTex = U.canvasTex(512, 256, (g) => {
       TAGS.forEach((t, i) => {
         const x = (i % 4) * 128, y = ((i / 4) | 0) * 128, c = t === 'COBRAS' ? '#e8202a' : t === 'SKULLS' ? '#2bd67b' : pick(['#ff4fa3', '#3fe6e0', '#ffd23d', '#f5f5f0', '#9b5cff']);
@@ -169,7 +169,7 @@
       box(cx - GW, Y + 4.4, Z1 - .8, cx + GW, Y + 5.6, Z1 + .2, '#7a7672', true);
       for (const s of [-1, 1]) { box(cx + s * GW, Y, Z1 - 1.3, cx + s * (GW + 3.4), Y + 4, Z1 - 1.2, '#4a4e54'); for (let x = GW + .2; x < GW + 3.4; x += .3) box(cx + s * x - .03, Y, Z1 - 1.34, cx + s * x + .03, Y + 4, Z1 - 1.16, '#2a2e34'); }
       col.add(cx - GW, 0, Z1 - T, cx + GW, Y + 4.4, Z1).npcOnly = true;   // inmates stay in
-      const signT = U.canvasTex(512, 96, (g, w, h) => { g.fillStyle = '#1c2a3e'; g.fillRect(0, 0, w, h); g.strokeStyle = '#e8c547'; g.lineWidth = 5; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#f2f2ec'; g.textAlign = 'center'; g.font = 'bold 40px Rubik, Arial, sans-serif'; g.fillText('ТЮРЬМА НОРТ-САЙД', w / 2, 50); g.font = '22px Rubik, Arial, sans-serif'; g.fillStyle = '#e8c547'; g.fillText('ИСПРАВИТЕЛЬНОЕ УЧРЕЖДЕНИЕ №1', w / 2, 80); }, false);
+      const signT = U.canvasTex(512, 96, (g, w, h) => { g.fillStyle = '#1c2a3e'; g.fillRect(0, 0, w, h); g.strokeStyle = '#e8c547'; g.lineWidth = 5; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#f2f2ec'; g.textAlign = 'center'; g.font = 'bold 40px Rubik, Arial, sans-serif'; g.fillText('ТЮРЬМА РАЙОНА 21', w / 2, 50); g.font = '22px Rubik, Arial, sans-serif'; g.fillStyle = '#e8c547'; g.fillText('ИСПРАВИТЕЛЬНОЕ УЧРЕЖДЕНИЕ №1', w / 2, 80); }, false);
       const sg = new THREE.Mesh(new THREE.PlaneGeometry(3.6, .68), new THREE.MeshBasicMaterial({ map: signT })); sg.position.set(cx, Y + 5, Z1 + .22); scene.add(sg);
       // watchtowers at the corners, a guard in each
       for (const [x, z] of [[X0 + 1.2, Z0 + 1.2], [X1 - 1.2, Z0 + 1.2], [X0 + 1.2, Z1 - 1.2], [X1 - 1.2, Z1 - 1.2]]) {
@@ -343,7 +343,7 @@
         bPlain.box(cx - 2.2, Y, cz - 1, cx + 2.2, Y + 1.3, cz + 1, C('#2a2624')); col.add(cx - 2.2, 0, cz - 1, cx + 2.2, Y + 1.3, cz + 1);
         barrel(cx - 5, cz + 4); barrel(cx + 6, cz - 5); if (chance(.5)) barrel(cx + 3, cz + 7);
         const w = { x0: lx0 + 1, x1: lx1 - 1, z0: lz1 - .6, z1: lz1 }; bPlain.box(w.x0, Y, w.z0, w.x1, Y + 3, w.z1, C('#8e8a86')); col.add(w.x0, 0, w.z0, w.x1, Y + 3, w.z1);
-        tag('-z', w, -9); tag('-z', w, 0, gang === 'red' ? 'COBRAS' : gang === 'green' ? 'SKULLS' : 'N-SIDE'); tag('-z', w, 9);
+        tag('-z', w, -9); tag('-z', w, 0, gang === 'red' ? 'COBRAS' : gang === 'green' ? 'SKULLS' : '21'); tag('-z', w, 9);
         talk(cx - 4, cz + 4, gang ? gangType(gang) : null, Y, gang);
       }
       if (type !== 'containers') {   // a fire hydrant on the corner
@@ -382,11 +382,11 @@
     const hangouts = [{ gang: 'red', name: 'Банда «Кобры»', x: -25, z: -265 }, { gang: 'green', name: 'Банда «Черепа»', x: 175, z: -265 }];
 
     const districtAt = (x, z) => {
-      if (Math.abs(x - BX) < 9 && z < BZ0 && z > BZ1) return 'Северный мост';
+      if (Math.abs(x - BX) < 9 && z < BZ0 && z > BZ1) return 'Мост 21';
       if (x < B.x0 || x > B.x1 || z < B.z0 || z > B.z1) return null;
-      if (z < ZS[3]) return 'Доки Норт-Сайда';
-      if (prison && x > 50 && x < 100 && z < ZS[2] && z > ZS[3]) return 'Тюрьма Норт-Сайд';
-      return x < 50 ? 'Норт-Сайд: земля Кобр' : x > 100 ? 'Норт-Сайд: земля Черепов' : 'Норт-Сайд';
+      if (z < ZS[3]) return 'Доки Района 21';
+      if (prison && x > 50 && x < 100 && z < ZS[2] && z > ZS[3]) return 'Тюрьма Района 21';
+      return x < 50 ? 'Район 21: земля Кобр' : x > 100 ? 'Район 21: земля Черепов' : 'Район 21';
     };
     // streets for traffic: the grid, joined to the city at the end of its middle street
     const nodes = [], links = [];

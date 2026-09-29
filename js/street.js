@@ -391,7 +391,7 @@
         if (car !== R.car || G.police.wanted > 0) { dropRider(G.police.wanted > 0 ? 'Я с копами не связываюсь!' : 'Ну и ладно!'); return; }
         R.t = G.vehicles.speedKmh() < 1 && Math.hypot(car.x - R.spot.x, car.z - R.spot.z) > 25 ? R.t + dt : 0;
         if (R.t > 1.5) {
-          if (!G.money.spend(100, 'Ночь в Неон-Бэй')) { dropRider('Без денег не катаю!'); return; }
+          if (!G.money.spend(100, 'Ночь в Неплохо Сити')) { dropRider('Без денег не катаю!'); return; }
           R.state = 'busy'; R.t = 0; car.rockT = 7; G.flash('Машина покачивается…', 3);
         }
         return;
@@ -473,7 +473,7 @@
         for (const c of carts) {
           if ((c.shoutT -= dt) > 0 || !onShow(c.vendor) || G.vehicles.driving) continue;
           c.shoutT = rand(14, 26);
-          if (Math.hypot(P.x - c.x, P.z - c.z) < 10) say(c.vendor.person, c.kind === 'hotdog' ? pick(['Горячие хот-доги!', 'С горчицей? С кетчупом?', 'Лучшие хот-доги в Неон-Бэй!']) : pick(['Мороженое! Холодное мороженое!', 'Клубничное, ванильное, фисташковое!', 'В такую жару — только мороженое!']));
+          if (Math.hypot(P.x - c.x, P.z - c.z) < 10) say(c.vendor.person, c.kind === 'hotdog' ? pick(['Горячие хот-доги!', 'С горчицей? С кетчупом?', 'Лучшие хот-доги в Неплохо Сити!']) : pick(['Мороженое! Холодное мороженое!', 'Клубничное, ванильное, фисташковое!', 'В такую жару — только мороженое!']));
         }
         for (const b of buskers) b.tipT -= dt;
       },

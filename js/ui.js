@@ -62,15 +62,15 @@
     // one department of the boutique
     function clothes(slot) {
       const s = NB.SLOTS.find(x => x.id === slot) || NB.SLOTS[0];
-      menu({ eyebrow: 'Бутик Neon Fashion', title: s.name, items: () => catalog(s.id).map(k => piece(s.id, k)) });
+      menu({ eyebrow: 'Бутик NOT BAD Fashion', title: s.name, items: () => catalog(s.id).map(k => piece(s.id, k)) });
     }
     function jewels() {
-      menu({ eyebrow: 'Бутик Neon Fashion', title: 'Цепи и часы', items: () => catalog('chain').map(k => piece('chain', k)).concat(catalog('watch').map(k => piece('watch', k))) });
+      menu({ eyebrow: 'Бутик NOT BAD Fashion', title: 'Цепи и часы', items: () => catalog('chain').map(k => piece('chain', k)).concat(catalog('watch').map(k => piece('watch', k))) });
     }
     // the women's line: on show, for the heroines to come
     function womens() {
       const F = NB.CLOTHES_F, NAME = { top: 'Топы', bottom: 'Юбки и брюки', dress: 'Платья', shoes: 'Обувь', hat: 'Шляпы', glasses: 'Очки' };
-      menu({ eyebrow: 'Бутик Neon Fashion', title: 'Женская коллекция', items: () => Object.keys(F).flatMap(g => Object.keys(F[g]).map(k => ({
+      menu({ eyebrow: 'Бутик NOT BAD Fashion', title: 'Женская коллекция', items: () => Object.keys(F).flatMap(g => Object.keys(F[g]).map(k => ({
         name: F[g][k].name, desc: NAME[g] + ' · ' + fmt(F[g][k].price), price: 0, disabled: 'Скоро — для героинь', buy: () => '' }))) });
     }
     // the fitting room (and the villa's wardrobe): everything you own, to mix and match

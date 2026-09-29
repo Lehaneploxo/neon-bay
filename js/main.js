@@ -684,8 +684,8 @@
   /* ---------- the full-screen map (tap the minimap, or Tab) ---------- */
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
-  const BM_LABELS = [['Даунтаун', 0, 0], ['Коралловая полоса', 79, -30], ['Пальм-Хайтс', -79, 60], ['Старая гавань', -79, -60], ['Рынок Флорес', 0, -79], ['Мятный квартал', 0, 79],
-    ['Пляж Санрайз', 124, 12], ['Залив Неон-Бэй', 245, 40], ['Мост Неон-Бэй', 230, -112], ['Старфиш-Хайтс', 425, 38], ['Вайс-Пойнт', 425, -22], ['Мыс Маяка', 492, 30], ['Остров Палм', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Северный мост', 20, -145], ['Норт-Сайд', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Бэйвью', 545, -300], ['Аэропорт Неон-Бэй', 545, -480], ['Портовый мост', 298, -305], ['Мост Бэйвью', 470, -142], ['Остров Черепахи', 760, 100], ['Остров Омега', -400, 290], ['Запретная зона', -420, 390]];
+  const BM_LABELS = [['Даунтаун NEPLOXO', 0, 0], ['Бульвар Not Bad', 79, -30], ['Лёха-Хайтс', -79, 60], ['Гавань Лёхи', -79, -60], ['Рынок «Неплохо»', 0, -79], ['Квартал 21', 0, 79],
+    ['Пляж Not Bad', 124, 12], ['Залив Неплохо', 245, 40], ['Мост NEPLOXO', 230, -112], ['Хайтс Not Bad', 425, 38], ['Пойнт 21', 425, -22], ['Мыс Неплохо', 492, 30], ['Остров Not Bad', 430, 102], ['Открытое море', -180, 0], ['Открытое море', 200, 200], ['Открытое море', 820, -120], ['Мост 21', 20, -145], ['Район 21', 75, -300], ['Доки', 75, -380], ['Земля Кобр', -40, -210], ['Земля Черепов', 190, -210], ['Лёха-Вью', 545, -300], ['Аэропорт LEHA NEPLOXO', 545, -480], ['Портовый мост', 298, -305], ['Мост Лёха-Вью', 470, -142], ['Остров Лёхи', 760, 100], ['Остров Омега-21', -400, 290], ['Запретная зона', -420, 390]];
   // everything worth finding, with the same look as on the minimap
   function mapIcons() {
     const out = [], P = id => places.byId(id);
@@ -697,13 +697,13 @@
     for (const [id, bg, ch, label] of [['bank', '#1a8a5a', '$', 'Банк'], ['casino', '#c9a04a', '♦', 'Казино'], ['arcade', '#8a5ad8', '★', 'Игровые автоматы'], ['diner', '#e0286a', 'D', 'Закусочная'], ['hotel', '#2fa8a0', 'H', 'Отель OCEAN']]) { const p = P(id); if (p && p.door) add(p.door.cx, p.door.cz, bg, '#fff', ch, label); }
     add(123, 95, progress.villa ? '#ffffff' : '#ff7eb6', progress.villa ? '#e0286a' : '#fff', progress.villa ? '⌂' : '$', progress.villa ? 'Ваша вилла' : 'Вилла (продаётся)');
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
-    if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Магазин одежды Neon Fashion');
+    if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Бутик NOT BAD Fashion');
     if (world.security) add(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', 'Охранное агентство Shield Security: телохранители');
-    if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт Neon Bay International');
-    if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Черепахи: необитаемый, только на лодке или вертолёте');
-    if (world.military) add(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', 'Остров Омега: секретная военная база, вход запрещён');
+    if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт LEHA NEPLOXO International');
+    if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Лёхи: необитаемый, только на лодке или вертолёте');
+    if (world.military) add(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', 'Остров Омега-21: секретная военная база, вход запрещён');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
-    if (world.north && world.north.prison) add(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', 'Тюрьма Норт-Сайд: можно зайти и посмотреть камеры');
+    if (world.north && world.north.prison) add(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', 'Тюрьма Района 21: можно зайти и посмотреть камеры');
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
     if (world.street.motel) add(world.street.motel.center.x, world.street.motel.center.z, '#ff2d7a', '#fff', '♥', 'Мотель Pink Flamingo: девушки с 19:00 до 5:00');
