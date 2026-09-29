@@ -7,7 +7,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20260929p';
+  var BUILD = '20260929q';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -72,6 +72,7 @@ body.touch #weather{right:calc(130px + var(--safe-r));top:calc(66px + var(--safe
 #armor .shield{color:#7fb2ff;font-size:14px;width:16px;text-align:center;text-shadow:0 0 6px rgba(127,178,255,.7);}
 #armor .bar{flex:1;height:6px;border-radius:3px;background:rgba(21,15,38,.7);box-shadow:0 0 0 1px var(--line);overflow:hidden;}
 #armorFill{height:100%;width:0;background:linear-gradient(90deg,#4f8cff,#9fd0ff);transition:width .2s;}
+#armor.mega #armorFill{background:linear-gradient(90deg,#c9a227,#ffe98a);box-shadow:0 0 8px #ffd84f;}
 #weapon{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6);}
 #wAmmo{font-size:17px;font-variant-numeric:tabular-nums;color:var(--cyan);}
 #money{position:relative;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 8px rgba(107,255,138,.55),0 1px 2px rgba(0,0,0,.7);letter-spacing:.01em;}
@@ -403,38 +404,38 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20260929p"></script>
-<script src="js/club.js?v=20260929p"></script>
-<script src="js/places.js?v=20260929p"></script>
-<script src="js/spray.js?v=20260929p"></script>
-<script src="js/street.js?v=20260929p"></script>
-<script src="js/northside.js?v=20260929p"></script>
-<script src="js/bayview.js?v=20260929p"></script>
-<script src="js/tropic.js?v=20260929p"></script>
-<script src="js/military.js?v=20260929p"></script>
-<script src="js/island.js?v=20260929p"></script>
-<script src="js/world.js?v=20260929p"></script>
-<script src="js/faces.js?v=20260929p"></script>
-<script src="js/player.js?v=20260929p"></script>
-<script src="js/wardrobe.js?v=20260929p"></script>
-<script src="js/npc.js?v=20260929p"></script>
-<script src="js/animals.js?v=20260929p"></script>
-<script src="js/wildlife.js?v=20260929p"></script>
-<script src="js/cars.js?v=20260929p"></script>
-<script src="js/vehicles.js?v=20260929p"></script>
-<script src="js/audio.js?v=20260929p"></script>
-<script src="js/radio.js?v=20260929p"></script>
-<script src="js/guards.js?v=20260929p"></script>
-<script src="js/combat.js?v=20260929p"></script>
-<script src="js/police.js?v=20260929p"></script>
-<script src="js/weather.js?v=20260929p"></script>
-<script src="js/sealife.js?v=20260929p"></script>
-<script src="js/plane.js?v=20260929p"></script>
-<script src="js/fire.js?v=20260929p"></script>
-<script src="js/ems.js?v=20260929p"></script>
-<script src="js/daynight.js?v=20260929p"></script>
-<script src="js/taxi.js?v=20260929p"></script>
-<script src="js/shop.js?v=20260929p"></script>
-<script src="js/ui.js?v=20260929p"></script>
-<script src="js/input.js?v=20260929p"></script>
-<script src="js/main.js?v=20260929p"></script>
+<script src="js/engine.js?v=20260929q"></script>
+<script src="js/club.js?v=20260929q"></script>
+<script src="js/places.js?v=20260929q"></script>
+<script src="js/spray.js?v=20260929q"></script>
+<script src="js/street.js?v=20260929q"></script>
+<script src="js/northside.js?v=20260929q"></script>
+<script src="js/bayview.js?v=20260929q"></script>
+<script src="js/tropic.js?v=20260929q"></script>
+<script src="js/military.js?v=20260929q"></script>
+<script src="js/island.js?v=20260929q"></script>
+<script src="js/world.js?v=20260929q"></script>
+<script src="js/faces.js?v=20260929q"></script>
+<script src="js/player.js?v=20260929q"></script>
+<script src="js/wardrobe.js?v=20260929q"></script>
+<script src="js/npc.js?v=20260929q"></script>
+<script src="js/animals.js?v=20260929q"></script>
+<script src="js/wildlife.js?v=20260929q"></script>
+<script src="js/cars.js?v=20260929q"></script>
+<script src="js/vehicles.js?v=20260929q"></script>
+<script src="js/audio.js?v=20260929q"></script>
+<script src="js/radio.js?v=20260929q"></script>
+<script src="js/guards.js?v=20260929q"></script>
+<script src="js/combat.js?v=20260929q"></script>
+<script src="js/police.js?v=20260929q"></script>
+<script src="js/weather.js?v=20260929q"></script>
+<script src="js/sealife.js?v=20260929q"></script>
+<script src="js/plane.js?v=20260929q"></script>
+<script src="js/fire.js?v=20260929q"></script>
+<script src="js/ems.js?v=20260929q"></script>
+<script src="js/daynight.js?v=20260929q"></script>
+<script src="js/taxi.js?v=20260929q"></script>
+<script src="js/shop.js?v=20260929q"></script>
+<script src="js/ui.js?v=20260929q"></script>
+<script src="js/input.js?v=20260929q"></script>
+<script src="js/main.js?v=20260929q"></script>

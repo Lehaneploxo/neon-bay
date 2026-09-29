@@ -124,9 +124,10 @@
     targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
 
   /* ---------- money, armour and the saved game ---------- */
+  const MEGA_VEST = 1000000;   // the golden vest on Turtle Island; an ordinary one is 100
   const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0, owned: null, guards: 0 };
   try { Object.assign(progress, JSON.parse(localStorage.getItem('nb_save') || '{}')); } catch (e) {}
-  progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, 100);
+  progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, MEGA_VEST);
   if (!progress.records || typeof progress.records !== 'object') progress.records = {};
   if (!Array.isArray(progress.garage)) progress.garage = [];
   // clothes are owned and worn piece by piece (progress.wear: 'slot:key', progress.look: slot -> key).
@@ -285,7 +286,7 @@
   // Turtle Island: the pirate chest pays out, and a speedboat waits at the old jetty to take you back
   // Base Omega: the patrol jeep, the trespass alarm, the armoury crate, a boat at the jetty
   if (world.military) { world.military.attach({ player, vehicles, crowd, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t), give: (id, n) => combat.give(id, n), setArmor: n => { progress.armor = Math.max(progress.armor, n); } }); const b = world.military.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
-  if (world.tropic) { world.tropic.attach({ progress, addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s) }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
+  if (world.tropic) { world.tropic.attach({ progress, addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s), armor: () => progress.armor, setArmor: n => { progress.armor = n; saveProgress(); }, pickup: () => audio.pickup() }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   { const room = places.byId('motel'), m = world.street.motel; if (room && m) { room.door = m.room; room.after = m.door; } }
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
     room: girl => { const pl = places.byId('motel'); pl.guest = girl; enterPlace(pl); },   // in through the door upstairs, she's already inside
@@ -798,7 +799,8 @@
     const hpw = Math.round(player.hp) + '%'; if ($('hpFill').style.width !== hpw) $('hpFill').style.width = hpw;
     $('hp').classList.toggle('low', player.hp <= 30);
     $('armor').hidden = progress.armor <= 0;
-    const aw = Math.round(progress.armor) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
+    const aCap = progress.armor > 100 ? MEGA_VEST : 100, aw = Math.max(progress.armor > 0 ? 1 : 0, Math.round(progress.armor / aCap * 100)) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
+    $('armor').classList.toggle('mega', progress.armor > 100);
     const wi = weather.info, wt = wi.icon + ' ' + wi.name; if ($('weather').textContent !== wt) $('weather').textContent = wt;
     const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;
     const job = places.hud || taxi.hud;

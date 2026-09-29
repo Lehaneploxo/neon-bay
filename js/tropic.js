@@ -111,7 +111,7 @@
       mapShapes.push({ x0: wx - 3, z0: wz - 3, x1: wx + 3, z1: wz + 3, c: '#6a4a32', k: 'b' });
     }
     /* ---------- the hut: four posts, a thatched roof, a hammock between two palms, a cold campfire ---------- */
-    let chest;
+    let chest, megaVest;
     {
       const [hx, hz] = HUT, y = onGround(hx, hz), W = C('#7a5a3a');
       for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) { bPlain.box(hx + dx - .15, y - .2, hz + dz - .15, hx + dx + .15, y + 2.6, hz + dz + .15, W); col.add(hx + dx - .15, -4, hz + dz - .15, hx + dx + .15, y + 2.6, hz + dz + .15); }
@@ -137,6 +137,21 @@
       const gold = new THREE.Mesh(new THREE.BoxGeometry(.9, .12, .5), new THREE.MeshBasicMaterial({ color: 0xffd23d })); gold.position.set(hx, cy + .62, hz); scene.add(gold);
       col.add(hx - .55, -4, hz - .35, hx + .55, cy + .8, hz + .35);
       chest = { x: hx, z: hz + 1.1, y, lid, gold, open: 0, want: 0, emptyT: 0 };
+      // beside it, on a wooden stand: a golden bulletproof vest, a million points of armour
+      {
+        const vx = hx + 1.35, vz = hz - .6, g = new THREE.Group(); g.position.set(vx, cy, vz); scene.add(g);
+        const wood = new THREE.MeshLambertMaterial({ color: 0x6a4a2a }), goldM = new THREE.MeshLambertMaterial({ color: 0xe8c547, emissive: 0x6a5010 }), strap = new THREE.MeshLambertMaterial({ color: 0x2a2a2e });
+        const b = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); g.add(o); return o; };
+        b(.5, .06, .5, wood, 0, .03, 0); b(.06, 1.1, .06, wood, 0, .58, 0); b(.5, .05, .05, wood, 0, 1.1, 0);
+        const vest = new THREE.Group(); vest.position.y = .85; g.add(vest);
+        const vb = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); vest.add(o); };
+        vb(.44, .5, .2, goldM, 0, 0, 0); for (const s of [-1, 1]) vb(.1, .16, .2, goldM, s * .15, .32, 0);
+        for (const y of [-.12, .08]) vb(.46, .05, .22, strap, 0, y, 0);
+        const glow = new THREE.Mesh(new THREE.SphereGeometry(.55, 16, 10), new THREE.MeshBasicMaterial({ color: 0xffd84f, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false }));
+        glow.position.y = .85; g.add(glow);
+        col.add(vx - .25, -4, vz - .25, vx + .25, cy + 1.15, vz + .25);
+        megaVest = { x: vx, z: vz + .75, y, vest, glow, takenT: 0 };
+      }
     }
     /* ---------- two stone heads on the hill, looking out to sea ---------- */
     for (const [dx, dz] of [[-1.8, 0], [1.8, .4]]) {
@@ -161,7 +176,7 @@
 
     /* ---------- the game side ---------- */
     let G = null, lastT = null;
-    const CHEST_CASH = 750, TREASURE = 1000000, REFILL = 24 * 60;   // the first time it holds the pirates' hidden million
+    const CHEST_CASH = 750, TREASURE = 1000000, REFILL = 24 * 60, MEGA = 1000000;   // the first time it holds the pirates' hidden million
     return {
       center: { x: CX, z: CZ }, R0, radius, heightAt, inside, shoreDist, pointAt, palmSpots, sunRocks,
       boat: { id: 'speedboat', x: JX - 13, z: JZ + 3.2, h: -Math.PI / 2 },
@@ -175,6 +190,11 @@
           const rec = G.progress && G.progress.records;
           if (rec && !rec.treasure) { rec.treasure = 1; G.addMoney(TREASURE, 'Клад'); G.flash('Спрятанный клад пиратов! +$1 000 000!', 4); }
           else { G.addMoney(CHEST_CASH, 'Клад'); G.flash('Пиратский клад! +$' + CHEST_CASH, 3); }
+        } }, { x: megaVest.x, z: megaVest.z, y: megaVest.y, r: 1.4, short: 'БРОНЯ', label: () => megaVest.takenT > 0 ? 'Стойка пуста — золотой жилет вернётся завтра' : 'Золотой бронежилет · 1 000 000 брони', use: () => {
+          if (megaVest.takenT > 0) { G.flash('Пусто. Новый золотой жилет появится через ' + Math.ceil(megaVest.takenT / 60) + ' мин', 2.4); return; }
+          if (!G.setArmor) return;
+          if (G.armor() >= MEGA) { G.flash('На вас уже золотой бронежилет', 2); return; }
+          megaVest.takenT = REFILL; G.setArmor(MEGA); if (G.pickup) G.pickup(); G.flash('Золотой бронежилет! Броня: 1 000 000', 3.5);
         } }];
       },
       update(t) {
@@ -182,6 +202,8 @@
         if (chest.emptyT > 0) { chest.emptyT -= dt; if (chest.emptyT <= 0) chest.want = 0; }
         chest.open = U.damp(chest.open, chest.want, 3, dt);
         chest.lid.rotation.x = -chest.open * 1.9;
+        if (megaVest.takenT > 0) megaVest.takenT -= dt;
+        megaVest.vest.visible = megaVest.takenT <= 0; megaVest.glow.visible = megaVest.takenT <= 0; megaVest.vest.rotation.y += dt * .8; megaVest.glow.material.opacity = .12 + Math.sin(t * 3) * .05;
         chest.gold.visible = chest.emptyT <= 0 || chest.open < .5;
       }
     };
