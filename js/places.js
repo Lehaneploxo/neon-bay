@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], tower: [1900, 1500], airport: [2000, 1512] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], tower: [1900, 1500], airport: [2000, 1512] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -1246,6 +1246,108 @@
       K.picture('-x', 123.08, 4.1, (Z0 + Z1) / 2, 4, .55, T.sign('NEON BAY MARINA', null, '#3fe6e0', '#10202a'));
       K.neon(123.05, 3.78, Z0 - .2, 123.1, 3.84, Z1 + .2, '#3fe6e0');
       mapShapes.push({ x0: 123.2, z0: Z0, x1: 164, z1: Z1, c: '#c9a06a', k: 'b' });
+    }
+
+    /* ---------------------------------------------------------------
+       MOTEL ROOM at the Pink Flamingo: a girl from the kerb brings you up here. A heart-shaped headboard,
+       red satin, a mirror on the ceiling, a TV nobody watches. What happens stays under the blanket.
+       --------------------------------------------------------------- */
+    {
+      // the door is set by main.js once the street (and the motel) is built; you only come in with a girl
+      const pl = interior('motel', 'Мотель Pink Flamingo', null, { inside: [0, -2.4, 0], exit: [0, -2.7], bounds: [-3.5, -3.5, 3.5, 4.5], light: lit('#ffc4dc', '#5a2440', .8), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      K.room(-3.5, -3.5, 3.5, 4.5, 3, { wall: '#6a2448', ceil: '#2a1020', trim: '#2a1020', neon: '#ff4fa3', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.4 }] } });
+      K.floor(-3.5, -3.5, 3.5, 4.5, T.carpetPink, 2);
+      // the bed against the far wall: a frame, red satin, pillows, a glowing heart for a headboard
+      K.box(-1.15, 0, 2.1, 1.15, .42, 4.45, '#3a1420', true);
+      K.box(-1.1, .42, 2.15, 1.1, .56, 4.4, '#f2dce6');
+      K.box(-1.12, .56, 2.12, 1.12, .6, 3.75, '#b0102a');
+      for (const x of [-.55, .55]) K.box(x - .38, .56, 3.85, x + .38, .72, 4.32, '#fbe8f0');
+      K.box(-1.2, .42, 4.42, 1.2, 1.6, 4.5, '#2a0e18');
+      { const hx = 0, hy = 1.55, R = .38; for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2, x = 16 * Math.pow(Math.sin(a), 3) / 16, y = (13 * Math.cos(a) - 5 * Math.cos(2 * a) - 2 * Math.cos(3 * a) - Math.cos(4 * a)) / 16; K.neon(hx + x * R * 1.6 - .04, hy + y * R * 1.3 - .04, 4.38, hx + x * R * 1.6 + .04, hy + y * R * 1.3 + .04, 4.42, '#ff2d7a', k % 3 === 0); } }
+      // a mirror on the ceiling over the bed, lamps on the bedside tables
+      K.box(-1.1, 2.93, 2.2, 1.1, 2.98, 4.3, '#a8b8c8'); K.neon(-1.12, 2.9, 2.18, 1.12, 2.93, 2.22, '#ff4fa3', false); K.neon(-1.12, 2.9, 4.28, 1.12, 2.93, 4.32, '#ff4fa3', false);
+      for (const x of [-1.65, 1.65]) { K.box(x - .3, 0, 3.8, x + .3, .55, 4.4, '#3a1420', true); K.box(x - .04, .55, 4.06, x + .04, .8, 4.14, '#c9a04a'); K.neon(x - .16, .8, 3.94, x + .16, 1.05, 4.26, '#ffb070'); }
+      // a dresser with a TV on the left, a champagne bucket, a chair with clothes thrown over it
+      K.box(-3.45, 0, -.8, -2.9, .85, 1.6, '#3a1420', true);
+      K.box(-3.4, .85, -.1, -3.3, 1.55, .9, '#141418'); K.screen('+x', -3.29, 1.2, .4, .9, .6, 3);
+      K.box(-3.2, .85, 1.1, -3.0, 1.1, 1.3, '#c9c9d4'); K.neon(-3.15, 1.1, 1.15, -3.1, 1.35, 1.2, '#5fd38a', false);
+      K.box(2.4, 0, -.6, 2.95, .45, -.05, '#b0102a', true); K.box(2.85, .45, -.6, 2.95, 1.05, -.05, '#b0102a'); K.box(2.45, .45, -.45, 2.85, .5, -.2, '#141418');
+      // a window with pink blinds, a round rug, a door to the bathroom
+      K.box(3.44, 1.0, 1.2, 3.5, 2.3, 3.0, '#ff9fc8'); for (let y = 1.05; y < 2.3; y += .12) K.box(3.4, y, 1.2, 3.44, y + .05, 3.0, '#f7c6d6');
+      K.box(-3.44, 0, 2.6, -3.38, 2.2, 3.5, '#f2e6ea'); K.box(-3.38, 1.0, 3.3, -3.34, 1.08, 3.4, '#c9a04a');
+      { const rug = new THREE.Mesh(new THREE.CircleGeometry(1.1, 28).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0xff7eb6 })); rug.position.set(pl.X(0), .01, pl.Z(1.0)); scene.add(rug); }
+      K.neon(-3.45, 2.2, -2.2, -3.41, 2.3, 1.8, '#3fe6e0', false);
+
+      // the scene: a blanket with two heads on the pillows, rocking, hearts floating up
+      const grp = new THREE.Group(); grp.position.set(pl.X(0), 0, pl.Z(0)); grp.visible = false; scene.add(grp);
+      const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.9, .34, 1.7), new THREE.MeshLambertMaterial({ color: 0xc0102a }));
+      blanket.position.set(0, .74, 2.95); grp.add(blanket);
+      const bump = new THREE.Mesh(new THREE.BoxGeometry(1.1, .22, 1.1), new THREE.MeshLambertMaterial({ color: 0xb00e26 }));
+      bump.position.set(0, .95, 2.9); grp.add(bump);
+      const heads = [-.3, .3].map(x => {
+        const h = new THREE.Group(); h.position.set(x * 1.3, 1.0, 4.02); h.scale.setScalar(1.35); grp.add(h);
+        const face = new THREE.Mesh(new THREE.BoxGeometry(.26, .26, .26), new THREE.MeshLambertMaterial({ color: 0xc58c5c })); h.add(face);
+        const hair = new THREE.Mesh(new THREE.BoxGeometry(.28, .1, .28), new THREE.MeshLambertMaterial({ color: 0x2a1a10 })); hair.position.set(0, .13, .02); h.add(hair);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(.28, .2, .08), new THREE.MeshLambertMaterial({ color: 0x2a1a10 })); back.position.set(0, .02, .14); h.add(back);
+        return { h, face, hair, back };
+      });
+      const heartTex = K.tex(64, 64, (g, w) => { g.clearRect(0, 0, w, w); g.fillStyle = '#ff2d7a'; g.shadowColor = '#ff7eb6'; g.shadowBlur = 8; g.beginPath(); g.moveTo(32, 54); g.bezierCurveTo(4, 34, 8, 8, 32, 20); g.bezierCurveTo(56, 8, 60, 34, 32, 54); g.fill(); }, false);
+      const hearts = [];
+      for (let i = 0; i < 9; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: heartTex, transparent: true, depthWrite: false, opacity: 0 })); s.scale.set(.3, .3, .3); grp.add(s); hearts.push({ s, t: i / 9 * 2.2, x: 0 }); }
+
+      const S = { state: 'off', t: 0, girl: null };
+      const fade = on => { const f = document.getElementById('fade'); if (f) f.classList.toggle('on', on); };
+      const say = (p, t) => { if (G && G.say && p) G.say(p, t); };
+      pl.busy = () => S.state === 'enter' || S.state === 'scene';
+      pl.update = dt => {
+        const P = G.player;
+        if (S.state === 'off' && pl.guest) {
+          // just in: she walks to the bed, he follows her in
+          S.girl = pl.guest; pl.guest = null; S.state = 'enter'; S.t = 0;
+          const g = S.girl; g.x = pl.X(.7); g.z = pl.Z(-1.6); g.y = 0; g.heading = 0; g.puppet.anim = 'walk';
+          say(g, ['Располагайся, красавчик', 'Закрой дверь', 'Ну, иди ко мне…'][(Math.random() * 3) | 0]);
+        }
+        const g = S.girl; if (!g) return;
+        S.t += dt;
+        if (S.state === 'enter') {
+          const tx = pl.X(1.45), tz = pl.Z(2.4), dx = tx - g.x, dz = tz - g.z, d = Math.hypot(dx, dz);
+          if (d > .1) { const sp = Math.min(1.6, d / dt); g.x += dx / d * sp * dt; g.z += dz / d * sp * dt; g.speed = sp; g.puppet.anim = 'walk'; g.heading = Math.atan2(dx, dz); }
+          else { g.speed = 0; g.puppet.anim = 'flirt'; g.heading = -Math.PI / 2; }
+          if (S.t > 3.2 && S.t - dt <= 3.2) fade(true);
+          if (S.t > 3.6) {
+            // lights down: the blanket, the two of them under it
+            S.state = 'scene'; S.t = 0; grp.visible = true; fade(false);
+            P.m.root.visible = false; P.blob.visible = false; g.y = -40; g.noBlob = true;
+            P.place(pl.X(0), pl.Z(.9), 0); if (G.view) G.view(Math.PI, .85);
+            const L = g.look.col; heads[0].face.material.color.set(L.head || '#e0b090'); for (const k of ['hair', 'back']) heads[0][k].material.color.set(L.hairTop || '#141010');
+          }
+        } else if (S.state === 'scene') {
+          const t = S.t, beat = Math.sin(t * 7.5);
+          P.blob.visible = false;
+          bump.position.y = .95 + Math.max(0, beat) * .1; bump.scale.y = 1 + Math.max(0, beat) * .3;
+          blanket.position.y = .74 + beat * .02; grp.position.y = Math.abs(beat) * .012;
+          heads[0].h.rotation.x = -.15 + beat * .06; heads[1].h.rotation.x = -.1 - beat * .05;
+          for (const h of hearts) { h.t += dt; const k = (h.t % 2.2) / 2.2; if (k < dt / 2.2 * 1.5) h.x = (Math.random() - .5) * 1.4; h.s.position.set(h.x + Math.sin(h.t * 3) * .1, 1.1 + k * 1.6, 3.1); h.s.material.opacity = Math.sin(k * Math.PI) * .95; h.s.scale.setScalar(.2 + k * .25); }
+          if (t > 8.5 && t - dt <= 8.5) fade(true);
+          if (t > 9) {
+            // an hour later: dressed again, both on their feet
+            S.state = 'after'; S.t = 0; grp.visible = false; fade(false);
+            P.m.root.visible = true; P.blob.visible = true; P.place(pl.X(.4), pl.Z(1.4), Math.PI);
+            g.x = pl.X(1.5); g.z = pl.Z(2.0); g.y = 0; g.noBlob = false; g.heading = -Math.PI * .75; g.puppet.anim = 'flirt'; g.speed = 0;
+            if (G.passTime) G.passTime(60);
+            P.hp = 100;
+            say(g, ['Приходи ещё, красавчик', 'Ты был великолепен', 'Мой номер ты знаешь', 'Для тебя — всегда'][(Math.random() * 4) | 0]);
+            G.flash('Час спустя… Здоровье восстановлено', 3.2);
+          }
+        } else if (S.state === 'after') { g.puppet.anim = 'flirt'; g.speed = 0; }
+      };
+      // leaving the room: she goes back down to the kerb
+      pl.onLeave = () => {
+        const g = S.girl; S.girl = null; S.state = 'off'; grp.visible = false; fade(false);
+        if (G) { G.player.m.root.visible = true; G.player.blob.visible = true; }
+        if (g && G && G.crowd.people.includes(g) && pl.after) { g.x = pl.after.x + 1; g.z = pl.after.z; g.y = .17; g.noBlob = false; g.speed = 0; G.crowd.releasePuppet(g); }
+      };
     }
 
     K.finish();

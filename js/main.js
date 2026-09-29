@@ -248,7 +248,7 @@
     });
   }
   function enterPlace(p) { teleport(p.inside.x, p.inside.z, p.inside.heading, p, p.name); }
-  function exitPlace(p) { const d = p.door; teleport(d.x + d.nx * .9, d.z + d.nz * .9, d.heading, null, world.districtAt(d.x, d.z)); }
+  function exitPlace(p) { const d = p.door; teleport(d.x + d.nx * .9, d.z + d.nz * .9, d.heading, null, world.districtAt(d.x, d.z), d.y); }
   function leavePlace() { if (places.current && places.current.onLeave) places.current.onLeave(); places.current = null; }
   // a night's sleep: time jumps to the next morning (or to the evening if it's already day), full health, saved
   function sleep(msg) {
@@ -271,13 +271,15 @@
   // Base Omega: the patrol jeep, the trespass alarm, the armoury crate, a boat at the jetty
   if (world.military) { world.military.attach({ player, vehicles, crowd, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t), give: (id, n) => combat.give(id, n), setArmor: n => { progress.armor = Math.max(progress.armor, n); } }); const b = world.military.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   if (world.tropic) { world.tropic.attach({ progress, addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s) }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
+  { const room = places.byId('motel'), m = world.street.motel; if (room && m) { room.door = m.room; room.after = m.door; } }
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
-    room: fn => blink(() => { time += 60; const d = world.street.motel.door; player.place(d.x, d.z, d.heading); rig.snap(player); fn(); }),
+    room: girl => { const pl = places.byId('motel'); pl.guest = girl; enterPlace(pl); },   // in through the door upstairs, she's already inside
     crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
   places.attach({
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
     flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport, drunk: s => { drunkT = s; },
+    say: (p, t) => say(p, t), passTime: m => { time += m; }, view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     openShop: () => { if (shop.canServe()) openShop(); }
   });
@@ -822,6 +824,14 @@
         input.move.x = input.move.y = 0; input.fire = false; input.action = false; input.jump = false; input.throttle = 0;
       }
       // in the spray shop the car stands still until the door goes up again
+      // following a girl up to the motel room: the hero walks after her on his own
+      const lead = world.street.autoWalk && world.street.autoWalk();
+      if (lead) {
+        const cy = Math.cos(rig.yaw), sy = Math.sin(rig.yaw), m = lead.mag || 0;
+        input.move.x = (lead.dx * cy - lead.dz * sy) * m; input.move.y = (-lead.dx * sy - lead.dz * cy) * m;
+        input.sprint = false; input.fire = false; input.jump = false; input.action = false;
+      }
+      if (places.current && places.current.busy && places.current.busy()) { input.move.x = input.move.y = 0; input.fire = false; input.jump = false; input.action = false; }
       if (world.spray.busy) { input.throttle = 0; input.move.x = 0; input.handbrake = true; input.horn = false; input.action = false; }
       if (input.cycle) { combat.cycle(1); input.cycle = 0; }
       if (input.select >= 0) { combat.select(input.select); input.select = -1; }

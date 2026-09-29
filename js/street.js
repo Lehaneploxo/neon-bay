@@ -121,17 +121,18 @@
       bx(FX, 3.0, Z0, FX + .04, 3.25, Z1, '#e890b0');
       // the walkway upstairs, its railing and posts, and the stairs up at the north end
       bx(FX, FL - .2, Z0, FX + 1.7, FL, Z1, TRIM, true);
-      bx(FX + 1.6, FL, Z0, FX + 1.7, FL + 1, Z1, TRIM, true); bx(FX + 1.6, FL + .9, Z0, FX + 1.72, FL + 1.02, Z1, '#ff4fa3');
+      bx(FX + 1.6, FL, Z0, FX + 1.7, FL + 1, Z1 - 1.3, TRIM, true); bx(FX + 1.6, FL + .9, Z0, FX + 1.72, FL + 1.02, Z1 - 1.3, '#ff4fa3');   // open at the top of the stairs
       for (let z = Z0 + .2; z < Z1; z += 3.4) bx(FX + 1.5, 0, z, FX + 1.7, FL - .2, z + .2, TRIM, true);
       const steps = 11;
       for (let i = 0; i < steps; i++) { const y = (i + 1) * FL / steps, z = Z1 - 4.4 + i * .4; bx(FX + 1.75, 0, z, FX + 3, y, z + .4, '#d8d0c8', true); }
       bx(FX + 2.95, 0, Z1 - 4.4, FX + 3.05, FL + 1, Z1, TRIM, true);
       // numbered doors and windows on both floors; some rooms have their lights on
-      let n = 1;
+      let n = 1, topDoor = null;
       for (const y0 of [.17, FL]) {
         for (let z = Z0 + 1.2; z < Z1 - 1.8; z += 2.6) {
           bx(FX, y0, z, FX + .05, y0 + 2.2, z + .95, ['#2fa8a0', '#8a5ad8', '#e0286a', '#3f7fd0'][n % 4]);
           bx(FX, y0 + 2.3, z + .3, FX + .06, y0 + 2.55, z + .65, '#f5f0e6');
+          if (y0 > 1) topDoor = { z: z + .47, n };
           if (Math.random() < .55) neon(FX, y0 + .9, z + 1.15, FX + .04, y0 + 2, z + 2.1, pick(['#ffd58a', '#ffe4b0', '#ff9fd2']));
           else bx(FX, y0 + .9, z + 1.15, FX + .04, y0 + 2, z + 2.1, '#26304a');
           n++;
@@ -142,7 +143,7 @@
       bx(FX + 1.7, .15, Z0, L.x1, .17, Z1, '#3a3542');
       for (let z = Z0 + .5; z < Z1 - 4.5; z += 3) bx(FX + 3.5, .17, z, FX + 8.5, .175, z + .1, '#ece6dc');
       // a drinks machine by the stairs, glowing
-      bx(FX + 1.8, .17, Z1 - 5.4, FX + 2.5, 2, Z1 - 4.6, '#c81e1e', true); neon(FX + 2.5, 1.2, Z1 - 5.3, FX + 2.53, 1.9, Z1 - 4.7, '#ffffff');
+      bx(FX + 1.8, .17, Z0 + .5, FX + 2.5, 2, Z0 + 1.3, '#c81e1e', true); neon(FX + 2.5, 1.2, Z0 + .6, FX + 2.53, 1.9, Z0 + 1.2, '#ffffff');
       // the roadside sign on a tall pole at the corner of the car park
       const px = L.x1 - 1.2, pz = Z0 + 1;
       bx(px - .12, 0, pz - .12, px + .12, 7, pz + .12, '#b8b4c4', true);
@@ -176,6 +177,9 @@
         center: { x: (X0 + L.x1) / 2, z: (Z0 + Z1) / 2 },
         // after a night in a room you come down the stairs to the car park
         door: { x: FX + 2.6, z: Z1 - 7, heading: Math.PI / 2 },
+        // the room upstairs: its door on the walkway, and the way there from the kerb, up the stairs
+        room: { x: FX + .1, z: topDoor.z, y: FL, nx: 1, nz: 0, heading: Math.PI / 2, n: topDoor.n },
+        path: [[FX + 3.7, Z1 - 5.6], [FX + 2.35, Z1 - 4.9], [FX + 2.35, Z1 - .3], [FX + 1.05, Z1 - .65], [FX + 1.0, topDoor.z]],
         girls: [[L.x1 - .6, Z0 + 4.5], [L.x1 - .5, Z0 + 6], [L.x1 - .7, Z0 + 7.5]],   // at the kerb, where a car can pull up
         vacancy: vMat
       };
@@ -400,11 +404,53 @@
     }
 
     let girlsT = 3;
+    // a girl the hero has paid: she walks ahead up the stairs to the room, he follows a step behind
+    let escort = null;
+    function escortEnd(msg) {
+      if (!escort) return;
+      const p = escort.p; escort = null;
+      if (G.crowd.people.includes(p) && p.puppet) { p.speed = 0; G.crowd.releasePuppet(p); if (msg) say(p, msg); }
+    }
+    function escortUpdate(dt) {
+      if (!escort) return;
+      const E = escort, p = E.p, P = G.player, path = motel.path;
+      E.t += dt;
+      if (!G.crowd.people.includes(p) || p.dead || p.down || !p.puppet) { escort = null; return; }
+      if (G.police.wanted > 0) { escortEnd('Копы! Всё, я пошла!'); return; }
+      if (P.dead || G.vehicles.driving || E.t > 90 || Math.hypot(P.x - p.x, P.z - p.z) > 14) { escortEnd('Ну и ладно, деньги не верну!'); return; }
+      if ((E.wait -= dt) > 0) { p.speed = 0; p.puppet.anim = 'idle'; p.heading += U.angDiff(p.heading, Math.atan2(P.x - p.x, P.z - p.z)) * Math.min(1, dt * 5); return; }
+      // she walks on to the next point, waiting for him if he falls behind
+      const w = path[Math.min(E.k, path.length - 1)], dx = w[0] - p.x, dz = w[1] - p.z, d = Math.hypot(dx, dz);
+      const behind = Math.hypot(P.x - p.x, P.z - p.z) > 3.2;
+      if (d < .25) { if (E.k < path.length - 1) E.k++; }
+      if (E.k >= path.length - 1 && d < .25) {
+        p.speed = 0; p.puppet.anim = 'flirt'; p.heading += U.angDiff(p.heading, -Math.PI / 2) * Math.min(1, dt * 5);   // at the door, facing it
+        if (Math.hypot(P.x - p.x, P.z - p.z) < 1.6 && Math.abs(P.y - p.y) < .6) { escort = null; G.room(p); }
+        return;
+      }
+      if (behind) { p.speed = 0; p.puppet.anim = 'idle'; p.heading += U.angDiff(p.heading, Math.atan2(P.x - p.x, P.z - p.z)) * Math.min(1, dt * 5); return; }
+      const sp = Math.min(2.1, d / dt);
+      p.x += dx / d * sp * dt; p.z += dz / d * sp * dt; p.y = P.floorAt(p.x, p.z, p.y + .05);
+      p.speed = sp; p.running = false; p.puppet.anim = 'walk';
+      p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
+    }
     const api = {
       spots,
       // where the girls stand, while it's their hours (for the map)
       nightSpot() { return night() && girls.length ? { x: girls[1].x, z: girls[1].z } : null; },
       get motel() { return motel; },
+      // while a girl leads the hero to the room: the direction to walk in, or null when he's free
+      autoWalk() {
+        if (!escort || escort.wait > 0) return null;
+        const p = escort.p, P = G.player, dx = p.x - P.x, dz = p.z - P.z, d = Math.hypot(dx, dz);
+        // he walks the same points she does (the stairs, the gap onto the walkway), never passing her
+        const path = motel.path, E = escort;
+        while (E.pk < path.length - 1 && E.pk < E.k && Math.hypot(path[E.pk][0] - P.x, path[E.pk][1] - P.z) < .4) E.pk++;
+        if (d < 1.2 || E.pk > E.k) return { dx: 0, dz: 0 };
+        const w = path[E.pk], ex = w[0] - P.x, ez = w[1] - P.z, e = Math.hypot(ex, ez) || 1;
+        return { dx: ex / e, dz: ez / e, mag: d > 2.2 ? .55 : .42 };
+      },
+      get escorting() { return !!escort; },
       carts,
       buskers,
       court: COURT,
@@ -414,6 +460,7 @@
         for (const b of buskers) b.inst.visible = onShow(b.spot);
         volleyUpdate(dt);
         nightUpdate(dt);
+        escortUpdate(dt);
         // the girls call out to the hero passing by
         if (night() && (girlsT -= dt) <= 0) {
           girlsT = rand(9, 16);
@@ -434,13 +481,15 @@
       interactions() {
         const out = [];
         for (const s of girls) {
-          const p = s.person; if (!p || p.spot !== s || !night()) continue;
+          const p = s.person; if (!p || p.spot !== s || !night() || escort) continue;
           out.push({ x: p.x, z: p.z, y: s.y, r: 1.6, short: 'НОМЕР', label: () => 'Снять номер в мотеле Pink Flamingo · $100',
             use: () => {
               if (G.police.wanted > 0) { say(p, 'Копы на хвосте! Иди отсюда!'); return; }
               if (!G.money.spend(100, 'Номер в мотеле')) { say(p, 'Сто долларов, милый. Приходи с деньгами'); return; }
-              say(p, pick(['Пойдём, красавчик', 'Номер на втором этаже', 'Не заставляй ждать', 'Седьмой номер свободен']));
-              G.room(() => { G.player.hp = 100; G.flash('Час в номере мотеля Pink Flamingo… Здоровье восстановлено', 3.2); });
+              if (!G.crowd.takePuppet(p)) return;
+              say(p, pick(['Пойдём, красавчик', 'Номер на втором этаже', 'Не заставляй ждать', 'Номер ' + motel.room.n + ' наш, пошли']));
+              escort = { p, k: 0, pk: 0, t: 0, wait: .6 };
+              G.flash('Идите с ней в номер ' + motel.room.n + ' на втором этаже', 2.6);
             } });
         }
         for (const c of carts) {

@@ -148,13 +148,23 @@
         set('torso', '#b0203a'); sleeves('long', '#b0203a'); legs('pants', '#1a1a22'); set('shoeL shoeR', '#0c0c0e');
         show('brim crown'); set('crown', '#b0203a'); set('brim', '#c9a04a'); L.speed = 1.5; break;
       }
-      case 'escort': { // a night out: a short bright dress, bare shoulders, boots, big hair, a little bag
-        const c = pick(['#ff2d7a', '#e0102a', '#141418', '#9b30ff', '#ffd23d', '#3fe6e0', '#f5f5f0']);
-        set('torso', c); sleeves('none', c); legs('bare', c); show('skirt'); set('skirt', c); L.skirt = 1;
-        const boot = pick(['#141418', '#f5f5f0', '#ff2d7a', '#c81e1e']); set('shinL shinR shoeL shoeR', boot);
+      case 'escort': { // working girls: loud colours, as little as possible on, thigh boots or heels, big hair
+        const NEON = ['#ff2d7a', '#e0102a', '#141418', '#9b30ff', '#ffd23d', '#3fe6e0', '#39ff6a', '#ff7a1a', '#f5f5f0'];
+        const c = pick(NEON), c2 = pick(NEON.filter(x => x !== c)), look = pick(['bikini', 'bikini', 'dress', 'crop', 'body']);
+        if (look === 'bikini') {        // a bikini top and tiny hot pants
+          set('torso', skin); sleeves('none'); legs('bare', c2); show('top'); set('top', c);
+        } else if (look === 'dress') {  // a skin-tight mini dress, bare shoulders
+          set('torso', c); sleeves('none', c); legs('bare', c); show('skirt'); set('skirt', c); L.skirt = 1;
+        } else if (look === 'crop') {   // a crop top over a bare belly, a mini skirt
+          set('torso', skin); sleeves('none'); show('top'); set('top', c); legs('bare', c2); show('skirt'); set('skirt', c2); L.skirt = 1;
+        } else {                        // a shiny bodysuit, bare legs
+          set('torso', c); sleeves('none', c); legs('bare', c);
+        }
+        const boot = pick(['#141418', '#f5f5f0', '#ff2d7a', '#c81e1e', c]);
+        if (chance(.7)) set('shinL shinR shoeL shoeR', boot); else set('shoeL shoeR', boot);   // thigh-high boots or just heels
         set('hairTop hairBack', pick(['#f0dca0', '#141010', '#b34a2a', '#e9d6a4', '#6b2a4a'])); L.long = true;
         show('bag'); set('bag', pick(['#141418', '#f5f5f0', '#ffd23d', '#ff4fa3'])); L.purse = true;
-        L.speed = 1.05; L.hs = rand(.95, 1.02); extras(0, .25); break;
+        L.speed = 1.05; L.hs = rand(.97, 1.04); L.ws = rand(.88, .98); if (chance(.3)) { show('shades'); set('shades', pick(['#141018', '#ff2d7a'])); } break;
       }
       case 'worker': { // overalls, a cap, boots
         const o = pick(['#2b4a7a', '#c86a1e', '#4a5a3a', '#6a6a70']); set('torso', o); sleeves(chance(.5) ? 'short' : 'long', o); legs('pants', o); set('shoeL shoeR', '#3a2a1e');
@@ -1119,6 +1129,11 @@
         const p = spawn(makeLook(type), x, z, 'puppet');
         if (!p) return null;
         p.puppet = { anim: 'idle' }; p.keep = true; p.heading = heading || 0; p.anim = 'idle'; p.hitT = 0;
+        return p;
+      },
+      takePuppet(p) {
+        if (!people.includes(p) || p.dead || p.down) return null;
+        detachSpot(p); p.puppet = { anim: 'idle' }; p.keep = true; p.mode = 'puppet'; p.target = null; p.fleeT = p.fightT = 0; p.hitT = 0;
         return p;
       },
       // back to ordinary life: runs off if scared, otherwise strolls away
