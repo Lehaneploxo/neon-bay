@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], tower: [1900, 1500], airport: [2000, 1512] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], tower: [1900, 1500], airport: [2000, 1512] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -1249,6 +1249,131 @@
     }
 
     /* ---------------------------------------------------------------
+       NEON FASHION: an expensive boutique. White marble and gold, chandeliers, a black runway down the
+       middle with mannequins; shirts hanging along the left wall, trousers and a wall of shoes on the right,
+       hats, glasses, chains and watches at the back, a women's corner, a fitting room with a big mirror.
+       A shop assistant stands in every department: walk up to one and pick what you like.
+       --------------------------------------------------------------- */
+    if (doors.fashion) {
+      const pl = interior('fashion', 'Бутик Neon Fashion', doors.fashion, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-9, -6, 9, 14], light: lit('#fff8ee', '#b8a890', 1.05), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      const GOLD = '#c9a04a', CREAM = '#f3ece2';
+      K.room(-9, -6, 9, 14, 4.6, { wall: CREAM, ceil: '#fbf7f0', trim: GOLD, neon: '#e8c547', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-9, -6, 9, 14, T.marble, 2.5);
+      // the runway: black with gold edges, from the door to the counter
+      K.box(-1.1, 0, -3.2, 1.1, .03, 10.6, '#141418'); K.box(-1.16, 0, -3.2, -1.1, .035, 10.6, GOLD); K.box(1.1, 0, -3.2, 1.16, .035, 10.6, GOLD);
+      // gold pilasters on the walls and the name over the counter
+      for (const z of [-2, 2.5, 7, 11.5]) for (const x of [-8.9, 8.9]) K.box(x - .1, 0, z - .15, x + .1, 4.6, z + .15, GOLD);
+      K.picture('-z', 0, 3.7, 13.83, 5.2, .9, T.sign('NEON FASHION', null, '#c9a04a', '#141418'));
+      // chandeliers: a gold ring hung with glowing crystals
+      for (const z of [1.5, 8]) {
+        K.box(-.02, 3.6, z - .02, .02, 4.6, z + .02, GOLD);
+        for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, x = Math.cos(a) * .7, zz = z + Math.sin(a) * .7; K.box(x - .05, 3.55, zz - .05, x + .05, 3.62, zz + .05, GOLD); K.neon(x - .03, 3.3, zz - .03, x + .03, 3.55, zz + .03, '#fff6dc', k % 2 === 0); }
+        K.neon(-.08, 3.2, z - .08, .08, 3.5, z + .08, '#fff6dc');
+      }
+      const C = NB.CLOTHES;
+      const tex = it => { if (!it.map && it.tex) it.map = it.tex(); return it.map; };
+      const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(pl.X(x), y, pl.Z(z)); scene.add(o); return o; };
+      const lam = c => new THREE.MeshLambertMaterial({ color: c });
+      // LEFT WALL: tops on two chrome rails, each shirt showing its real print
+      const tops = Object.keys(C.top).filter(k => !C.top[k].hidden).sort((a, b) => C.top[a].price - C.top[b].price);
+      const shirtGeo = new THREE.BoxGeometry(.06, .6, .46);
+      tops.slice(0, 26).forEach((k, i) => {
+        const row = i < 13 ? 0 : 1, j = row ? i - 13 : i, z = .3 + j * .78 + row * .39, y = row ? 1.2 : 2.55;
+        const s = add(shirtGeo, new THREE.MeshLambertMaterial({ map: tex(C.top[k]) }), -8.35, y, z);
+        s.rotation.x = row ? .02 : -.02;
+        K.box(-8.39, y + .3, z - .015, -8.33, y + .42, z + .015, '#c9c9d4');
+      });
+      for (const y of [2.97, 1.62]) K.box(-8.45, y, 0, -8.35, y + .04, 10.6, '#d8dce4', false);
+      for (const z of [0, 10.6]) K.box(-8.9, 1.6, z - .03, -8.35, 1.66, z + .03, '#d8dce4');
+      // RIGHT WALL: trousers folded on low tables, and a lit wall of shoes
+      const pk = Object.keys(C.pants).filter(k => !C.pants[k].hidden);
+      for (const [tz, from] of [[1.2, 0], [4.2, 8]]) {
+        K.box(5.6, 0, tz - 1, 7.6, .8, tz + 1, '#2a2226', true); K.box(5.55, .8, tz - 1.05, 7.65, .85, tz + 1.05, GOLD);
+        pk.slice(from, from + 8).forEach((k, i) => {
+          const it = C.pants[k], x = 5.95 + (i % 2) * .9, z = tz - .7 + ((i / 2) | 0) * .45;
+          for (let n = 0; n < 3; n++) { const m = it.tex ? new THREE.MeshLambertMaterial({ map: tex(it) }) : lam(it.color); add(new THREE.BoxGeometry(.7, .07, .36), m, x, .89 + n * .075, z); }
+        });
+      }
+      K.box(8.3, 0, 6.6, 8.9, 3.6, 12.6, '#2a2226', true);
+      const sk = Object.keys(C.shoes);
+      for (let r = 0; r < 4; r++) {
+        const y = .5 + r * .8; K.box(8.1, y - .04, 6.7, 8.35, y, 12.5, GOLD); K.neon(8.3, y + .6, 6.7, 8.33, y + .64, 12.5, '#fff6dc', false);
+        for (let i = 0; i < 7; i++) { const it = C.shoes[sk[(r * 7 + i) % sk.length]], z = 7.1 + i * .78; for (const dz of [-.1, .1]) add(new THREE.BoxGeometry(.3, .1, .14), lam(it.color), 8.18, y + .05, z + dz); }
+      }
+      // BACK: hats on busts along the wall, a glass counter with chains and watches, a tower of glasses
+      const hk = Object.keys(C.hat).filter(k => C.hat[k].kind && !C.hat[k].hidden);
+      K.box(-8.2, 0, 12.4, -3.6, .9, 13.8, '#2a2226', true); K.box(-8.25, .9, 12.35, -3.55, .95, 13.85, GOLD);
+      hk.forEach((k, i) => {
+        const it = C.hat[k], x = -7.8 + (i % 6) * .8, y = i < 6 ? 1.3 : 2.4, z = 13.2;
+        if (i >= 6) K.box(x - .3, 1.95, 12.9, x + .3, 2.0, 13.85, GOLD);
+        add(new THREE.BoxGeometry(.2, .26, .2), lam(0xf4f1ea), x, y - .2, z);
+        const w = it.kind === 'cowboy' ? .46 : it.kind === 'fedora' || it.kind === 'tophat' ? .34 : .26, hh = it.kind === 'tophat' ? .3 : it.kind === 'cap' || it.kind === 'bandana' ? .08 : .14;
+        add(new THREE.BoxGeometry(w, .025, w), lam(it.color), x, y - .06, z); add(new THREE.BoxGeometry(.22, hh, .22), lam(it.color), x, y - .05 + hh / 2, z);
+      });
+      K.box(-1.6, 0, 11.6, 3.6, .95, 12.4, '#2a2226', true);
+      K.box(-1.65, .95, 11.55, 3.65, 1.0, 12.45, '#bfe4ee'); K.neon(-1.6, .9, 11.54, 3.6, .94, 11.58, '#e8c547', false);
+      [...Object.keys(C.chain), ...Object.keys(C.watch)].forEach((k, i) => {
+        const it = C.chain[k] && C.chain[k].color != null ? C.chain[k] : C.watch[k]; if (!it || it.color == null) return;
+        const x = -1.2 + i * .55; add(new THREE.BoxGeometry(.3, .03, .16), lam(it.color), x, 1.02, 12);
+        add(new THREE.BoxGeometry(.06, .06, .06), new THREE.MeshBasicMaterial({ color: it.color }), x, 1.07, 12);
+      });
+      K.box(4.8, 0, 11.3, 5.8, 2.2, 12.3, '#2a2226', true);
+      Object.keys(C.glasses).filter(k => C.glasses[k].kind).forEach((k, i) => {
+        const it = C.glasses[k], y = .6 + (i % 4) * .4, x = 4.95 + ((i / 4) | 0) * .45;
+        for (const s of [-1, 1]) add(new THREE.BoxGeometry(.12, .07, .02), lam(it.kind === 'nerd' ? 0xbfd8e8 : it.color), x + s * .09, y, 11.28);
+      });
+      // mannequins on the runway wearing whole looks
+      const mannequin = (x, z, h, look) => {
+        const g = new THREE.Group(); g.position.set(pl.X(x), 0, pl.Z(z)); g.rotation.y = h; scene.add(g);
+        const b = (w, hh, d, m, px, py, pz) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), m); o.position.set(px, py, pz); g.add(o); };
+        const white = lam(0xf4f1ea), plinth = lam(0x141418);
+        b(.9, .2, .9, plinth, 0, .1, 0); b(.92, .03, .92, lam(0xc9a04a), 0, .21, 0);
+        if (look.dress) { b(.4, .62, .3, lam(look.dress), 0, 1.5, 0); b(.5, .5, .36, lam(look.dress), 0, .98, 0); b(.12, .5, .12, white, -.09, .45, 0); b(.12, .5, .12, white, .09, .45, 0); b(.12, .46, .12, white, -.26, 1.5, 0); b(.12, .46, .12, white, .26, 1.5, 0); }
+        else {
+          const top = C.top[look.top], sm = new THREE.MeshLambertMaterial({ map: tex(top) }), pn = C.pants[look.pants], pm = pn.tex ? new THREE.MeshLambertMaterial({ map: tex(pn) }) : lam(pn.color);
+          b(.4, .52, .24, sm, 0, 1.55, 0); b(.36, .16, .22, pm, 0, 1.22, 0);
+          for (const s of [-1, 1]) { b(.15, .86, .17, pm, s * .1, .7, 0); b(.14, .08, .27, lam(C.shoes[look.shoes].color), s * .1, .26, .05); b(.13, .22, .14, top.sleeves === 'tank' ? white : sm, s * .27, 1.68, 0); b(.09, .42, .09, top.sleeves === 'long' ? lam(top.sleeve) : white, s * .27, 1.36, 0); }
+        }
+        b(.1, .1, .1, white, 0, 1.87, 0); b(.22, .25, .23, white, 0, 2.02, 0);
+        if (look.hat) { const it = C.hat[look.hat]; b(.34, .025, .34, lam(it.color), 0, 2.15, 0); b(.24, .13, .25, lam(it.color), 0, 2.22, 0); }
+      };
+      mannequin(-2.2, 2, Math.PI / 2, { top: 'miami', pants: 'white', shoes: 'whiteleather', hat: 'panama' });
+      mannequin(2.2, 4.5, -Math.PI / 2, { top: 'leopard', pants: 'leather', shoes: 'black' });
+      mannequin(-2.2, 7, Math.PI / 2, { top: 'croc', pants: 'black', shoes: 'croc', hat: 'fedora' });
+      mannequin(2.2, 9.2, -Math.PI / 2, { top: 'flamingo', pants: 'sh_white', shoes: 'flip' });
+      // the women's corner: pink carpet, three mannequins in dresses, a sign
+      K.box(3.2, 0, -5.8, 8.8, .02, -.6, '#f7c6d6');
+      mannequin(4.4, -4.4, 0, { dress: 0xd0102a }); mannequin(6, -4.4, 0, { dress: 0xe8c547 }); mannequin(7.6, -4.4, 0, { dress: 0x39ff6a });
+      K.picture('+z', 6, 3.2, -5.83, 3.4, .6, T.sign('WOMEN · СКОРО', null, '#ff4fa3', '#1a0f24'));
+      // the fitting room: a curtain, a gold-framed mirror, a pouf
+      K.box(-8.9, 0, -5.9, -5.8, 3, -5.8, '#6a1e3a', true); K.box(-5.9, 0, -5.9, -5.8, 3, -2.9, '#6a1e3a', true);
+      K.box(-8.85, .3, -4.6, -8.8, 2.6, -3.4, '#c9a04a'); K.box(-8.8, .4, -4.5, -8.75, 2.5, -3.5, '#dbe8f0');
+      K.box(-7.6, 0, -4.4, -6.8, .45, -3.6, '#f3ece2', true);
+      // a white leather sofa and a low table with champagne, for the one waiting
+      K.box(-4.6, 0, -1.2, -2.2, .45, -.4, '#faf6ee', true); K.box(-4.6, .45, -1.2, -2.2, 1.0, -1.0, '#faf6ee');
+      K.box(-4, 0, .2, -2.8, .4, .9, '#141418', true); K.neon(-3.5, .4, .45, -3.42, .7, .53, '#5fd38a', false);
+      // shop assistants, one per department
+      for (const [x, z, h, type] of [[-7, 5.2, Math.PI / 2, 'business_f'], [6.6, 2.8, -Math.PI / 2, 'business_m'], [7.3, 9.6, -Math.PI / 2, 'business_f'],
+        [-5.8, 11.4, Math.PI, 'business_m'], [1, 13, Math.PI, 'business_f'], [5.3, 10.5, Math.PI, 'business_m'], [5.2, -2, -Math.PI / 2, 'business_f']])
+        spots.push(K.spot({ kind: 'idle', x, z, heading: h, type, home: true }));
+      for (const [x, z] of [[-3, 6], [3, 3]]) spots.push(K.spot({ kind: 'idle', x, z, heading: Math.random() * 6, type: Math.random() < .5 ? 'tourist_f' : 'business_f' }));
+      const dept = (x, z, short, label, fn) => ({ ...pl.P(x, z), r: 1.7, short, label: () => label, use: fn });
+      pl.attach = () => {
+        pl.interactions = [
+          dept(-6, 5.2, 'ВЕРХ', 'Рубашки, футболки и пиджаки', () => G.ui.clothes('top')),
+          dept(5.6, 2.8, 'БРЮКИ', 'Брюки и шорты', () => G.ui.clothes('pants')),
+          dept(6.3, 9.6, 'ОБУВЬ', 'Обувь', () => G.ui.clothes('shoes')),
+          dept(-5.8, 10.4, 'ШЛЯПЫ', 'Шляпы и кепки', () => G.ui.clothes('hat')),
+          dept(4.3, 10.3, 'ОЧКИ', 'Очки', () => G.ui.clothes('glasses')),
+          dept(0, 10.9, 'УКРАШЕНИЯ', 'Цепи и часы', () => G.ui.jewels()),
+          dept(5.2, -1, 'ЖЕНСКОЕ', 'Женская коллекция', () => G.ui.womens()),
+          dept(-7.2, -2.6, 'ПРИМЕРКА', 'Примерочная: ваш гардероб', () => G.ui.wardrobe())
+        ];
+      };
+    }
+
+    /* ---------------------------------------------------------------
        MOTEL ROOM at the Pink Flamingo: a girl from the kerb brings you up here. A heart-shaped headboard,
        red satin, a mirror on the ceiling, a TV nobody watches. What happens stays under the blanket.
        --------------------------------------------------------------- */
@@ -1331,14 +1456,13 @@
           for (const h of hearts) { h.t += dt; const k = (h.t % 2.2) / 2.2; if (k < dt / 2.2 * 1.5) h.x = (Math.random() - .5) * 1.4; h.s.position.set(h.x + Math.sin(h.t * 3) * .1, 1.1 + k * 1.6, 3.1); h.s.material.opacity = Math.sin(k * Math.PI) * .95; h.s.scale.setScalar(.2 + k * .25); }
           if (t > 8.5 && t - dt <= 8.5) fade(true);
           if (t > 9) {
-            // an hour later: dressed again, both on their feet
+            // done: dressed again, both on their feet (no time skip: the clock runs the same for everyone)
             S.state = 'after'; S.t = 0; grp.visible = false; fade(false);
             P.m.root.visible = true; P.blob.visible = true; P.place(pl.X(.4), pl.Z(1.4), Math.PI);
             g.x = pl.X(1.5); g.z = pl.Z(2.0); g.y = 0; g.noBlob = false; g.heading = -Math.PI * .75; g.puppet.anim = 'flirt'; g.speed = 0;
-            if (G.passTime) G.passTime(60);
             P.hp = 100;
             say(g, ['Приходи ещё, красавчик', 'Ты был великолепен', 'Мой номер ты знаешь', 'Для тебя — всегда'][(Math.random() * 4) | 0]);
-            G.flash('Час спустя… Здоровье восстановлено', 3.2);
+            G.flash('Здоровье восстановлено', 3.2);
           }
         } else if (S.state === 'after') { g.puppet.anim = 'flirt'; g.speed = 0; }
       };

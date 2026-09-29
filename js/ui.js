@@ -48,20 +48,34 @@
       };
       render();
     }
-    function wardrobe() {
-      menu({ eyebrow: 'Вилла', title: 'Гардероб', items: () => Object.keys(NB.OUTFITS).filter(k => k !== 'cop' && o.progress.owned.includes(k)).map(k => ({
-        name: NB.OUTFITS[k].name, desc: '', price: 0, label: 'Надеть', current: o.progress.outfit === k,
-        disabled: o.progress.outfit === k ? 'Надето' : '', buy: () => { o.setOutfit(k); return 'Отлично выглядите!'; }
-      })) });
+    /* ---------- clothes: bought piece by piece, worn in any combination ---------- */
+    const SLOT_NAME = { top: 'Верх', pants: 'Низ', shoes: 'Обувь', hat: 'Шляпа', glasses: 'Очки', chain: 'Цепь', watch: 'Часы' };
+    const owns = (slot, k) => o.progress.wear.includes(slot + ':' + k);
+    const wearing = (slot, k) => o.progress.outfit !== 'cop' && o.progress.look[slot] === k;
+    const piece = (slot, k) => {
+      const it = NB.CLOTHES[slot][k], own = owns(slot, k), on = wearing(slot, k), bare = k === 'none';
+      return { name: it.name, desc: bare ? '' : own ? 'Уже ваше · ' + SLOT_NAME[slot] : SLOT_NAME[slot], price: own ? 0 : it.price || 0,
+        label: own ? (bare ? 'Снять' : 'Надеть') : 'Купить и надеть', current: on, disabled: on ? (bare ? 'Выбрано' : 'Надето') : '',
+        buy: () => { if (!own) o.progress.wear.push(slot + ':' + k); o.wear(slot, k); return bare ? 'Сняли' : own ? 'Переоделись' : 'Отличный выбор! Теперь это ваше'; } };
+    };
+    const catalog = slot => Object.keys(NB.CLOTHES[slot]).filter(k => !NB.CLOTHES[slot][k].hidden).sort((a, b) => (NB.CLOTHES[slot][a].price || 0) - (NB.CLOTHES[slot][b].price || 0));
+    // one department of the boutique
+    function clothes(slot) {
+      const s = NB.SLOTS.find(x => x.id === slot) || NB.SLOTS[0];
+      menu({ eyebrow: 'Бутик Neon Fashion', title: s.name, items: () => catalog(s.id).map(k => piece(s.id, k)) });
     }
-
-    function clothes() {
-      menu({ eyebrow: 'Магазин одежды', title: 'Neon Fashion', items: () => Object.keys(NB.OUTFITS).filter(k => k !== 'cop')
-        .sort((a, b) => (NB.OUTFITS[a].price || 0) - (NB.OUTFITS[b].price || 0)).map(k => {
-          const it = NB.OUTFITS[k], own = o.progress.owned.includes(k), on = o.progress.outfit === k;
-          return { name: it.name, desc: own ? 'Уже ваша' : '', price: own ? 0 : it.price || 0, label: own ? 'Надеть' : 'Купить и надеть', current: on, disabled: on ? 'Надето' : '',
-            buy: () => { if (!own) o.progress.owned.push(k); o.setOutfit(k); return own ? 'Переоделись' : 'Отличный выбор! Теперь это ваше'; } };
-        }) });
+    function jewels() {
+      menu({ eyebrow: 'Бутик Neon Fashion', title: 'Цепи и часы', items: () => catalog('chain').map(k => piece('chain', k)).concat(catalog('watch').map(k => piece('watch', k))) });
+    }
+    // the women's line: on show, for the heroines to come
+    function womens() {
+      const F = NB.CLOTHES_F, NAME = { top: 'Топы', bottom: 'Юбки и брюки', dress: 'Платья', shoes: 'Обувь', hat: 'Шляпы', glasses: 'Очки' };
+      menu({ eyebrow: 'Бутик Neon Fashion', title: 'Женская коллекция', items: () => Object.keys(F).flatMap(g => Object.keys(F[g]).map(k => ({
+        name: F[g][k].name, desc: NAME[g] + ' · ' + fmt(F[g][k].price), price: 0, disabled: 'Скоро — для героинь', buy: () => '' }))) });
+    }
+    // the fitting room (and the villa's wardrobe): everything you own, to mix and match
+    function wardrobe() {
+      menu({ eyebrow: 'Гардероб', title: 'Ваша одежда', items: () => NB.SLOTS.flatMap(s => catalog(s.id).filter(k => owns(s.id, k)).map(k => piece(s.id, k))) });
     }
 
     // Shield Security: hire bodyguards, one at a time, up to five; or let them all go
@@ -272,6 +286,6 @@
       rg.fillText('ОЧКИ ' + (R.score || 0), 12, 12); rg.textAlign = 'right'; rg.fillText('РЕКОРД ' + (o.progress.records.racer || 0), W - 12, 12);
     }
 
-    return { menu, wardrobe, clothes, security, slots, roulette, racer, close, get open() { return open; } };
+    return { menu, wardrobe, clothes, jewels, womens, security, slots, roulette, racer, close, get open() { return open; } };
   };
 })(window.NB);

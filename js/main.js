@@ -129,17 +129,31 @@
   progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, 100);
   if (!progress.records || typeof progress.records !== 'object') progress.records = {};
   if (!Array.isArray(progress.garage)) progress.garage = [];
-  // outfits you own: the starter ones, plus whatever was bought at Neon Fashion
-  if (!Array.isArray(progress.owned)) progress.owned = NB.STARTER_OUTFITS.slice();
-  progress.owned = progress.owned.filter(k => NB.OUTFITS[k]);
-  if (!progress.owned.includes(progress.outfit) && progress.outfit !== 'cop') progress.owned.push(progress.outfit);
+  // clothes are owned and worn piece by piece (progress.wear: 'slot:key', progress.look: slot -> key).
+  // An old save had whole outfits: each becomes a top, with trousers of its colour
+  {
+    const CL = NB.CLOTHES, PANTS_OF = { 0xf5f0e6: 'white', 0x141418: 'black', 0x18223c: 'navy', 0x8a1f2a: 'red' };
+    const pantsFor = k => { const o = NB.OUTFITS[k]; if (!o) return 'jeans'; const c = o.pants; return PANTS_OF[c] || Object.keys(CL.pants).find(p => CL.pants[p].color === c) || 'jeans'; };
+    const oldOwned = Array.isArray(progress.owned) ? progress.owned : [];
+    if (!Array.isArray(progress.wear)) progress.wear = NB.STARTER_WEAR.concat(oldOwned.filter(k => CL.top[k]).flatMap(k => ['top:' + k, 'pants:' + pantsFor(k)]));
+    progress.wear = [...new Set(progress.wear.concat(NB.STARTER_WEAR))].filter(w => { const [s, k] = w.split(':'); return CL[s] && CL[s][k]; });
+    if (!progress.look || typeof progress.look !== 'object') {
+      const old = progress.outfit !== 'cop' ? progress.outfit : progress.prevOutfit;
+      progress.look = CL.top[old] && old !== 'cop' ? { top: old, pants: pantsFor(old) } : {};
+    }
+    progress.look = Object.assign({}, NB.DEFAULT_LOOK, progress.look);
+    for (const s in progress.look) if (!CL[s] || !CL[s][progress.look[s]] || !progress.wear.includes(s + ':' + progress.look[s])) progress.look[s] = NB.DEFAULT_LOOK[s];
+    if (progress.outfit !== 'cop') progress.outfit = 'own';
+    progress.prevOutfit = 'own';
+  }
   combat.load(progress.inv);
-  player.setOutfit(progress.outfit);
+  player.setLook(progress.look);
+  if (progress.outfit === 'cop') player.setOutfit('cop');
   let saveT = 0;
   function saveProgress() {
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, owned } = progress, guardsN = guards ? guards.count : progress.guards | 0;
-    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, owned, guards: guardsN, time: Math.round(time) })); } catch (e) {}
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear } = progress, guardsN = guards ? guards.count : progress.guards | 0;
+    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, guards: guardsN, time: Math.round(time) })); } catch (e) {}
     saveT = 0;
   }
   // cars standing in the villa garage are kept between visits
@@ -230,7 +244,9 @@
   });
 
   /* ---------- places: doors, interiors, and the things to do in them ---------- */
-  function setOutfit(id) { progress.outfit = id; player.setOutfit(id); saveProgress(); }
+  function setOutfit(id) { progress.outfit = id === 'cop' ? 'cop' : 'own'; if (id === 'cop') player.setOutfit('cop'); else player.setLook(progress.look); saveProgress(); }
+  // one piece on (or off): out of a police uniform, if it was on, into your own clothes
+  function wear(slot, key) { progress.look[slot] = key; progress.outfit = 'own'; player.setLook(progress.look); saveProgress(); }
   // a short blink to black, then the hero is somewhere else (through a door, up a lift)
   let fading = false, drunkT = 0;
   function blink(fn) {
@@ -250,17 +266,13 @@
   function enterPlace(p) { teleport(p.inside.x, p.inside.z, p.inside.heading, p, p.name); }
   function exitPlace(p) { const d = p.door; teleport(d.x + d.nx * .9, d.z + d.nz * .9, d.heading, null, world.districtAt(d.x, d.z), d.y); }
   function leavePlace() { if (places.current && places.current.onLeave) places.current.onLeave(); places.current = null; }
-  // a night's sleep: time jumps to the next morning (or to the evening if it's already day), full health, saved
+  // a rest: full health and a save. The clock never jumps (the game is headed online: one time for everyone)
   function sleep(msg) {
-    blink(() => {
-      const h = ((START_MIN + time) / 60) % 24, target = h >= 6 && h < 18 ? 20 : 8;
-      time += ((target - h + 24) % 24) * 60;
-      player.hp = 100; saveProgress(); flashTip(msg + ' Сейчас ' + String(target).padStart(2, '0') + ':00', 3);
-    });
+    blink(() => { player.hp = 100; saveProgress(); flashTip(msg, 3); });
   }
   const ui = NB.createUI({
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
-    audio, progress, save: saveProgress, setOutfit,
+    audio, progress, save: saveProgress, setOutfit, wear,
     onOpen: () => { if (state === 'playing') { state = 'panel'; input.reset(); if (document.pointerLockElement) document.exitPointerLock(); show('panelOnly'); } },
     onClose: () => { if (state === 'panel') play(); }
   });
@@ -279,7 +291,7 @@
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
     flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport, drunk: s => { drunkT = s; },
-    say: (p, t) => say(p, t), passTime: m => { time += m; }, view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
+    say: (p, t) => say(p, t), view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     openShop: () => { if (shop.canServe()) openShop(); }
   });
@@ -287,7 +299,7 @@
   // Shield Security: bodyguards for hire, $1000 a head, up to five
   guards = NB.createGuards({ crowd, vehicles, player, progress, flash: (t, sec) => flashTip(t, sec), say: (p, t) => say(p, t) });
   const securityDoor = world.security ? [{ x: world.security.x, z: world.security.z, r: 2, short: 'ОХРАНА', label: () => 'Охранное агентство Shield Security', use: () => ui.security(guards) }] : [];
-  const fashionDoor = world.fashion ? [{ x: world.fashion.x, z: world.fashion.z, r: 2, short: 'ОДЕЖДА', label: () => 'Магазин одежды Neon Fashion', use: () => ui.clothes() }] : [];
+  const fashionDoor = [];   // Neon Fashion is a boutique you walk into (places.js)
   // the nearest thing to use (F / the action button), if any
   let interact = null;
   function findInteraction() {

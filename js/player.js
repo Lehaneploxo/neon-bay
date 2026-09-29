@@ -65,7 +65,7 @@
     const head = G(0, .52, 0, torso);
     B(.1, .08, .1, skin, 0, .04, 0, head);
     B(.22, .25, .23, skin, 0, .2, .005, head);
-    B(.235, .07, .245, hair, 0, .33, -.005, head);
+    const hairTop = B(.235, .07, .245, hair, 0, .33, -.005, head);
     B(.235, .17, .07, hair, 0, .24, -.095, head);
     B(.045, .055, .035, skin, 0, .17, .128, head); B(.03, .065, .055, skin, -.118, .2, 0, head); B(.03, .065, .055, skin, .118, .2, 0, head);
     {
@@ -79,21 +79,21 @@
     B(.25, .09, .26, L({ color: 0x18223c }), 0, .38, -.005, cap); B(.25, .03, .16, L({ color: 0x111111 }), 0, .34, .1, cap); B(.06, .05, .02, L({ color: 0xe8c547 }), 0, .39, .13, cap);
     const arm = side => {
       const sh = G(side * .255, .46, 0, torso);
-      B(.13, .2, .14, shirt, 0, -.08, 0, sh);
-      B(.09, .1, .09, skin, 0, -.22, 0, sh);
+      const up = B(.13, .2, .14, shirt, 0, -.08, 0, sh);
+      const elb = B(.09, .1, .09, skin, 0, -.22, 0, sh);
       const el = G(0, -.27, 0, sh);
-      B(.085, .24, .085, skin, 0, -.12, 0, el);
+      const fore = B(.085, .24, .085, skin, 0, -.12, 0, el);
       B(.09, .09, .065, skin, 0, -.28, 0, el);
       const hand = G(0, -.3, 0, el);
-      return { sh, el, hand };
+      return { sh, el, hand, up, elb, fore };
     };
     const leg = side => {
       const hip = G(side * .1, 0, 0, hips);
       B(.15, .46, .17, jeans, 0, -.23, 0, hip);
       const kn = G(0, -.46, 0, hip);
-      B(.13, .42, .15, jeans, 0, -.21, 0, kn);
+      const shin = B(.13, .42, .15, jeans, 0, -.21, 0, kn);
       B(.14, .08, .27, shoe, 0, -.45, .05, kn);
-      return { hip, kn };
+      return { hip, kn, shin };
     };
     const aL = arm(-1), aR = arm(1), lL = leg(-1), lR = leg(1);
     root.rotation.order = 'YXZ';
@@ -108,7 +108,7 @@
     const batWood = L({ color: 0xc9a06a }), grip = L({ color: 0x1e1e22 });
     // the bat hangs down from the fist and swings forward with the punch animation
     gun('bat', [[.045, .2, .045, grip, 0, -.04, .01], [.06, .38, .06, batWood, 0, -.32, .03], [.08, .3, .08, batWood, 0, -.64, .05]], [0, -.78, .05]);
-    return { root, hips, torso, head, aL, aR, lL, lR, guns, shirt, jeans, cap };
+    return { root, hips, torso, head, aL, aR, lL, lR, guns, shirt, jeans, cap, skin, shoe, hairTop };
   }
 
   const MELEE = { fists: true, bat: true };
@@ -183,13 +183,12 @@
     }
     place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; this.swim = false; }
     get speed() { return Math.hypot(this.vx, this.vz); }
+    // the police uniform from the station lockers; everything else is worn piece by piece (setLook)
     setOutfit(id) {
-      const o = OUTFITS[id] || OUTFITS.hawaii, m = this.m;
-      if (!o.map) o.map = o.tex();
-      m.shirt.map = o.map; m.shirt.needsUpdate = true;
-      m.jeans.color.setHex(o.pants); m.cap.visible = !!o.cap;
-      this.outfit = OUTFITS[id] ? id : 'hawaii';
+      if (id === 'cop') { NB.dressHero(this.m, { top: 'cop', pants: 'navy', shoes: 'black', hat: 'police' }); this.outfit = 'cop'; }
+      else this.setLook(this.look);
     }
+    setLook(look) { this.look = NB.dressHero(this.m, look || {}); this.outfit = 'own'; }
     setWeapon(id) { this.weapon = id; for (const k in this.m.guns) this.m.guns[k].visible = k === id && !this.swim; }   // no gun in hand while swimming
     punch() { this.punchT = .3; }
     fired() { this.recoil = 1; this.aimT = Math.max(this.aimT, .8); }
