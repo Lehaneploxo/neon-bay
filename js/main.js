@@ -124,6 +124,7 @@
   });
   let guards = null;
   const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'),
+    power: () => 1 + ((progress.stats && progress.stats.str) || 0) / 100,   // trained strength: up to twice as hard
     targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
 
   /* ---------- money, armour and the saved game ---------- */
@@ -156,8 +157,8 @@
   let saveT = 0;
   function saveProgress() {
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear } = progress, guardsN = guards ? guards.list : progress.guards;
-    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, guards: guardsN, time: Math.round(time) })); } catch (e) {}
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats } = progress, guardsN = guards ? guards.list : progress.guards;
+    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, guards: guardsN, time: Math.round(time) })); } catch (e) {}
     saveT = 0;
   }
   // cars standing in the villa garage are kept between visits
@@ -299,7 +300,7 @@
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
     flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport, drunk: s => { drunkT = s; },
-    say: (p, t) => say(p, t), view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
+    say: (p, t) => say(p, t), get input() { return input; }, day: () => Math.floor((START_MIN + time) / 1440), view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     openShop: () => { if (shop.canServe()) openShop(); }
   });
@@ -352,6 +353,7 @@
   }
   function heroDamage(d) {
     if (player.dead || respawnT > 0) return;
+    d *= 1 - ((progress.stats && progress.stats.tough) || 0) / 400;   // trained toughness: up to a quarter less
     if (progress.armor > 0) { const a = Math.min(progress.armor, d); progress.armor -= a; d -= a; }   // the vest takes the hit first
     player.hp = Math.max(0, player.hp - d); vignette = Math.min(1, vignette + (d > 0 ? .45 : .2)); audio.hurt();
     if (player.hp <= 0) endLife('wasted');
@@ -671,6 +673,8 @@
     if (world.military) icon(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
+    if (world.north && world.north.sport) icon(world.north.sport.x, world.north.sport.z, '#c81e2a', '#fff', '🥊', false);
+    if (world.strip) icon(world.strip.cx, world.strip.cz, '#ff2d7a', '#fff', '♀', false);
     if (world.north && world.north.prison) icon(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
@@ -703,6 +707,8 @@
     if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Лёхи: необитаемый, только на лодке или вертолёте');
     if (world.military) add(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', 'Остров Омега-21: секретная военная база, вход запрещён');
     if (world.north) for (const h of world.north.hangouts) add(h.x, h.z, h.gang === 'red' ? '#c81e1e' : '#1f9a55', '#fff', '☠', h.name);
+    if (world.north && world.north.sport) add(world.north.sport.x, world.north.sport.z, '#c81e2a', '#fff', '🥊', 'NOT BAD BOXING и NEPLOXO GYM: ринг, спарринги, тренажёры');
+    if (world.strip) add(world.strip.cx, world.strip.cz, '#ff2d7a', '#fff', '♀', 'Стрип-клуб NOT BAD GIRLS (круглосуточно)');
     if (world.north && world.north.prison) add(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', 'Тюрьма Района 21: можно зайти и посмотреть камеры');
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
@@ -882,6 +888,8 @@
         input.move.x = (lead.dx * cy - lead.dz * sy) * m; input.move.y = (-lead.dx * sy - lead.dz * cy) * m;
         input.sprint = false; input.fire = false; input.jump = false; input.action = false;
       }
+      if (places.current && places.current.onInput) places.current.onInput(input);   // training, the ring: the place reads the buttons first
+      player.speedMul = 1 + ((progress.stats && progress.stats.sta) || 0) / 1000;
       if (places.current && places.current.busy && places.current.busy()) { input.move.x = input.move.y = 0; input.fire = false; input.jump = false; input.action = false; }
       // in the tank: the fire button fires the main gun straight down the barrel
       if (vehicles.driving && vehicles.driving.model.id === 'tank') { tankReload -= dt; if (input.fire && tankReload <= 0) { tankReload = 1.4; fireTankGun(vehicles.driving); } }

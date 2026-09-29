@@ -163,9 +163,9 @@
       }
       if (!best) return;
       player.heading = Math.atan2(best.x - player.x, best.z - player.z);
-      crowd.damage(best, w.dmg, { byPlayer: true, kind: 'melee', x: player.x, z: player.z });
+      crowd.damage(best, w.dmg * (o.power ? o.power() : 1), { byPlayer: true, kind: 'melee', x: player.x, z: player.z });
       audio.punch([best.x, 1.5, best.z], cur === 'bat'); burst(best.x, best.y + 1.5, best.z, cur === 'bat' ? 6 : 3, BLOOD, 1.2);
-      if (!best.cop) o.police.reportCrime('punch', best.x, best.z);
+      if (!best.cop && !best.boxer) o.police.reportCrime('punch', best.x, best.z);
     }
 
     /* ---------- police gunfire ---------- */

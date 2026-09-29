@@ -1085,7 +1085,7 @@
           // hanging about armed near a gang's corner: a warning, then trouble
           if (p.gang && p.spot && !player.inCar && d < 7 && opts.playerArmed && opts.playerArmed()) { p.warnT = (p.warnT || 0) + dt; if (p.warnT > .2 && !p.warned) { p.warned = true; bumpCallback(p, pick(talkOf(p.gang).warn)); } if (p.warnT > 6) provoke(p.gang, p.x, p.z); } else if (p.gang && d > 12) { p.warnT = 0; p.warned = false; }
           // a puppet (surfer, volleyball player) is moved by its game until it's scared off or picks a fight
-          if (p.puppet && (p.fleeT > 0 || p.fightT > 0)) api.releasePuppet(p);
+          if (p.puppet && !p.boxer && (p.fleeT > 0 || p.fightT > 0)) api.releasePuppet(p);
           if (p.puppet) { if (p.hitT > 0) p.hitT -= dt; if (p.stumbleT > 0) p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : p.puppet.anim; }
           else if (!p.spot) updateWalker(p, dt, player, people);
           else if (STAND[p.spot.kind] && p.stumbleT > 0) { p.stumbleT -= dt; p.anim = p.stumbleT > 0 ? 'stumble' : p.spot.kind; }
@@ -1199,6 +1199,7 @@
       },
       damage(p, dmg, src) {
         if (p.dead || (p.bodyguard && src && src.byPlayer)) return;   // the hero can't hurt his own bodyguards
+        if (p.boxer && p.boxer.guardT > 0 && src && src.kind === 'melee') dmg *= .3;   // punches into a boxer's guard
         p.hp -= dmg;
         const grp = p.spot && p.spot.grp && !p.spot.grp.club ? p.spot.grp : null;   // a dance floor is a crowd of strangers, not a group of friends
         detachSpot(p);
@@ -1236,7 +1237,7 @@
           return;
         }
         p.stumbleT = Math.max(p.stumbleT, .35);
-        if (!p.cop && !p.bouncer && !p.gang && !p.bodyguard && src && src.byPlayer) {
+        if (!p.cop && !p.bouncer && !p.gang && !p.bodyguard && !p.boxer && src && src.byPlayer) {
           const hurt = p.hp < p.maxHp * .3;
           // someone already in a fight keeps at it until he's badly hurt; a man hit for the first time may hit back
           if (src.kind === 'melee' && p.fightT > 0 && !hurt) p.fightT = 12;

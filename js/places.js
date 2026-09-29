@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], tower: [1900, 1500], airport: [2000, 1512] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -1437,6 +1437,302 @@
       spots.push(K.spot({ kind: 'guard', x: 4.9, z: -3.8, heading: Math.PI, type: 'cop' }));
       spots.push(K.spot({ kind: 'walk', x: -2.5, z: 2, y: 0, fixedY: true, heading: 0, type: 'cop', patrol: [[-2.5, 2], [-2.5, 24], [2.5, 24], [2.5, 2]] }));
       spots.push(K.spot({ kind: 'walk', x: -2.6, z: 5, y: UP, fixedY: true, heading: 0, type: 'cop', patrol: [[-2.6, 5], [-2.6, 26], [2.6, 26], [2.6, 5]] }));
+    }
+
+    /* ---------------------------------------------------------------
+       TRAINING: the hero's strength (harder punches), stamina (runs faster) and toughness (takes less
+       damage), 0..100 each, saved. A session is eight seconds of hammering the punch button; at most
+       +10 of each a game day, so it takes a while to get strong.
+       --------------------------------------------------------------- */
+    const STAT_NAME = { str: 'Сила', sta: 'Выносливость', tough: 'Крепость' }, DAY_CAP = 10;
+    function stats() {
+      const P = G.progress; if (!P.stats || typeof P.stats !== 'object') P.stats = {};
+      const S = P.stats; for (const k of ['str', 'sta', 'tough']) S[k] = Math.max(0, Math.min(100, +S[k] || 0));
+      const day = G.day ? G.day() : 0; if (S.day !== day) { S.day = day; S.got = { str: 0, sta: 0, tough: 0 }; }
+      if (!S.got) S.got = { str: 0, sta: 0, tough: 0 };
+      return S;
+    }
+    // one training session in a place: pl gets busy() and onInput() while it runs
+    function trainer(pl) {
+      const T = { on: false, t: 0, n: 0, last: false, stat: null, label: '' };
+      pl.busy = () => T.on;
+      pl.onInput = input => { if (!T.on) return; if (input.fire && !T.last) { T.n++; G.player.punch(); G.audio.punch(null, false); } T.last = input.fire; input.fire = false; input.jump = false; };
+      const start = (stat, label, x, z, heading) => {
+        if (T.on) return;
+        const S = stats();
+        if (S[stat] >= 100) { G.flash(STAT_NAME[stat] + ' уже на максимуме — 100', 2.4); return; }
+        if (S.got[stat] >= DAY_CAP) { G.flash('На сегодня хватит: ' + STAT_NAME[stat].toLowerCase() + ' +' + DAY_CAP + ' за день. Приходите завтра', 3); return; }
+        Object.assign(T, { on: true, t: 8, n: 0, last: true, stat, label });
+        G.player.place(pl.X(x), pl.Z(z), heading); if (G.view) G.view(heading + Math.PI, .25);
+      };
+      const update = dt => {
+        if (!T.on) return;
+        T.t -= dt;
+        pl.hudInfo = { tag: 'ТРЕНИРОВКА', text: T.label + ' — жмите УДАР как можно чаще! Повторов: ' + T.n, time: '0:0' + Math.max(0, Math.ceil(T.t)), warn: T.t < 3 };
+        if (T.t > 0) return;
+        T.on = false; pl.hudInfo = null;
+        const S = stats(), gain = Math.max(T.n > 3 ? 1 : 0, Math.min(DAY_CAP - S.got[T.stat], 100 - S[T.stat], Math.round(T.n / 5)));
+        S[T.stat] += gain; S.got[T.stat] += gain; G.save();
+        G.flash(gain ? T.label + ': +' + gain + ' · ' + STAT_NAME[T.stat] + ' ' + S[T.stat] + '/100' : 'Слабовато. Жмите чаще!', 3);
+      };
+      return { start, update, get on() { return T.on; } };
+    }
+    const statsMenu = (eyebrow) => G.ui.menu({ eyebrow, title: 'Ваша форма', items: () => { const S = stats(); return ['str', 'sta', 'tough'].map(k => ({
+      name: STAT_NAME[k] + ': ' + S[k] + ' / 100', desc: (k === 'str' ? 'Удар кулаком сильнее, до ×2' : k === 'sta' ? 'Бегаете быстрее, до +10%' : 'Меньше урона от всего, до −25%') + ' · сегодня +' + S.got[k] + ' из ' + DAY_CAP,
+      price: 0, disabled: k === 'str' ? 'Жим, груша' : k === 'sta' ? 'Дорожка' : 'Турник', buy: () => '' })); } });
+
+    /* ---------------------------------------------------------------
+       NOT BAD BOXING: a ring in the middle, heavy bags, benches of spectators. Talk to the coach to call
+       someone out: five fighters, each harder than the last, three rounds of 45 seconds, win by knockout
+       or on points. УДАР punches, ПРЫЖОК raises the guard, moving about makes him miss.
+       (Built so the one in the other corner could be another player one day.)
+       --------------------------------------------------------------- */
+    if (doors.boxing) {
+      const pl = interior('boxing', 'NOT BAD BOXING', doors.boxing, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-12, -6, 12, 20], light: lit('#fff2e0', '#5a4a48', .95), music: 'arcade' });
+      K.at(pl.ox, pl.oz);
+      K.room(-12, -6, 12, 20, 6, { wall: '#3a3438', ceil: '#1e1a1e', trim: '#141214', neon: '#ff3a3a', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-12, -6, 12, 20, T.wood, 2);
+      K.picture('-z', 0, 4.6, 19.83, 9, 1.4, T.sign('NOT BAD BOXING', 'чемпионы Района 21', '#ff3a3a', '#141418'));
+      // the ring: a raised canvas, corner posts, three ropes
+      const RY = .9, R0 = { x0: -3.4, x1: 3.4, z0: 5.6, z1: 12.4 };
+      K.box(R0.x0 - .4, 0, R0.z0 - .4, R0.x1 + .4, RY - .05, R0.z1 + .4, '#1c2a4a', true);
+      K.box(R0.x0 - .3, RY - .05, R0.z0 - .3, R0.x1 + .3, RY, R0.z1 + .3, '#e8e2d4');
+      if (NB.drawLogo) { const lt = K.tex(256, 256, (g, w) => { g.clearRect(0, 0, w, w); NB.drawLogo(g, w / 2, w / 2, w * .46); }, false); const m = new THREE.Mesh(new THREE.PlaneGeometry(3, 3).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: lt, transparent: true, opacity: .85 })); m.position.set(pl.X(0), RY + .01, pl.Z(9)); scene.add(m); }
+      for (const [x, z, c] of [[R0.x0, R0.z0, '#e02a2a'], [R0.x1, R0.z1, '#2a5ae0'], [R0.x0, R0.z1, '#f2f2f2'], [R0.x1, R0.z0, '#f2f2f2']]) { K.box(x - .15, 0, z - .15, x + .15, RY + 1.5, z + .15, c, true); }
+      for (const [y, c] of [[RY + .45, '#e02a2a'], [RY + .85, '#f2f2f2'], [RY + 1.25, '#2a5ae0']]) {
+        K.box(R0.x0, y, R0.z0 - .04, R0.x1, y + .05, R0.z0 + .04, c); K.box(R0.x0, y, R0.z1 - .04, R0.x1, y + .05, R0.z1 + .04, c);
+        K.box(R0.x0 - .04, y, R0.z0, R0.x0 + .04, y + .05, R0.z1, c); K.box(R0.x1 - .04, y, R0.z0, R0.x1 + .04, y + .05, R0.z1, c);
+      }
+      for (const [a, b, c, d] of [[R0.x0, R0.z0 - .1, R0.x1, R0.z0], [R0.x0, R0.z1, R0.x1, R0.z1 + .1], [R0.x0 - .1, R0.z0, R0.x0, R0.z1], [R0.x1, R0.z0, R0.x1 + .1, R0.z1]]) K.solid(a, RY, b, c, RY + 1.4, d);
+      // lights over the ring
+      for (const [x, z] of [[-2, 7.5], [2, 7.5], [-2, 10.5], [2, 10.5]]) { K.box(x - .02, 4.6, z - .02, x + .02, 6, z + .02, '#444450'); K.neon(x - .4, 4.4, z - .4, x + .4, 4.6, z + .4, '#fff6dc'); }
+      // heavy bags along the left wall, benches of spectators on the right, a scoreboard
+      for (const z of [1, 5, 9, 13]) { K.box(-9.1, 3.1, z - .02, -9.06, 6, z + .02, '#6a6a70'); K.box(-9.45, 1.1, z - .35, -8.75, 3.1, z + .35, '#b0202a', true); K.box(-9.47, 2.9, z - .37, -8.73, 3.1, z + .37, '#1a1a1e'); }
+      for (let z = 1; z < 17; z += 2.6) { K.box(8.4, 0, z - .9, 9.6, .45, z + .9, '#5a4030', true); for (const dz of [-.5, .5]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: 9, z: z + dz, y: .51, heading: -Math.PI / 2, type: Math.random() < .5 ? 'beach_m' : 'worker' })); }
+      for (const [x, z] of [[-7.5, 3], [-7.5, 11]]) spots.push(K.spot({ kind: 'guard', x, z, heading: -Math.PI / 2, type: 'beach_m' }));
+      spots.push(K.spot({ kind: 'idle', x: 5.9, z: 9, heading: -Math.PI / 2, type: 'business_m' }));   // the coach
+      // five fighters, each harder than the last
+      const LV = [
+        { name: 'Вася «Новичок»', hp: 90, dmg: [4, 7], rate: 1.3, guard: .1, speed: 2.2, prize: 100 },
+        { name: 'Гоша «Крепыш»', hp: 140, dmg: [6, 9], rate: 1.1, guard: .2, speed: 2.5, prize: 250 },
+        { name: 'Рома «Молот»', hp: 200, dmg: [7, 11], rate: .95, guard: .3, speed: 2.8, prize: 600 },
+        { name: 'Зверь из Района 21', hp: 280, dmg: [9, 13], rate: .85, guard: .35, speed: 3, prize: 1500 },
+        { name: '«Железный» Макс — чемпион зала', hp: 380, dmg: [11, 16], rate: .75, guard: .45, speed: 3.2, prize: 5000 }];
+      const Bx = { state: 'off', t: 0, round: 0, opp: null, lv: null, i: 0, hpBefore: 100, weapon: 0, blockT: 0, taken: 0, cd: 0, side: 1, sideT: 0 };
+      const rec = () => (G.progress.records.boxing | 0);
+      const fade = on => { const f = document.getElementById('fade'); if (f) f.classList.toggle('on', on); };
+      const corners = () => { const P = G.player; P.place(pl.X(-2.5), pl.Z(6.5), Math.PI * .25); P.y = RY; const o = Bx.opp; if (o) { o.x = pl.X(2.5); o.z = pl.Z(11.5); o.y = RY; o.heading = -Math.PI * .75; } if (G.view) G.view(Math.PI * .25 + Math.PI, .3); };
+      function startBout(i) {
+        if (Bx.state !== 'off') return;
+        const lv = LV[i], opp = G.crowd.spawnPuppet('beach_m', pl.X(2.5), pl.Z(11.5), -Math.PI * .75);
+        if (!opp) { G.flash('Соперник не пришёл, попробуйте ещё раз', 2); return; }
+        opp.boxer = { guardT: 0 }; opp.hp = opp.maxHp = lv.hp; opp.puppet.anim = 'ready'; opp.y = RY;
+        Object.assign(Bx, { state: 'intro', t: 3, round: 1, opp, lv, i, hpBefore: G.player.hp, blockT: 0, taken: 0, cd: 1.5 });
+        const w = G.combat.weapon; Bx.weapon = NB.WEAPON_ORDER.indexOf(w ? w.id : 'fists'); G.combat.select(0);
+        G.player.hp = 100; corners(); G.say(opp, pick(['Ну давай, покажи что умеешь', 'Сейчас узнаешь, что такое Район 21', 'Не плачь потом', 'Разомнёмся']));
+      }
+      function endBout(win, how) {
+        Bx.state = 'end'; Bx.t = 3;
+        const lv = Bx.lv;
+        pl.hudInfo = { tag: win ? 'ПОБЕДА' : 'ПОРАЖЕНИЕ', text: (win ? 'Вы победили' : 'Вы проиграли') + how + (win ? ' · приз $' + lv.prize.toLocaleString('ru-RU') : ''), time: '', warn: !win };
+        if (win) { G.money.add(lv.prize, 'Бокс'); if (Bx.i + 1 > rec()) G.progress.records.boxing = Bx.i + 1; G.save(); G.flash('ПОБЕДА' + how + '! ' + lv.name + ' повержен. Приз $' + lv.prize, 4); }
+        else G.flash('Поражение' + how + '. ' + lv.name + ' сильнее — тренируйтесь в зале', 4);
+        if (Bx.opp && !Bx.opp.down) G.say(Bx.opp, win ? pick(['Неплохо... очень неплохо', 'Ты силён', 'Реванш за мной']) : pick(['Приходи, когда подкачаешься', 'Слабовато', 'Следующий!']));
+      }
+      function cleanup() {
+        const o = Bx.opp; Bx.state = 'off'; Bx.opp = null; pl.hudInfo = null;
+        if (o && G.crowd.people.includes(o)) { o.boxer = null; if (o.down) G.crowd.revive(o, 40); o.x = pl.X(6.5); o.z = pl.Z(11); o.y = 0; G.crowd.releasePuppet(o); }
+        G.player.hp = Math.max(1, Bx.hpBefore); G.player.place(pl.X(5), pl.Z(7.5), -Math.PI / 2); G.player.y = 0;
+        if (Bx.weapon > 0) G.combat.select(Bx.weapon);
+      }
+      const tr = trainer(pl), trInput = pl.onInput;
+      pl.busy = () => Bx.state === 'intro' || Bx.state === 'rest' || Bx.state === 'end' || tr.on;
+      pl.onInput = input => {
+        if (tr.on) { trInput(input); return; }
+        if (Bx.state === 'fight' && input.jump) { Bx.blockT = .7; input.jump = false; }
+      };
+      pl.update = dt => {
+        tr.update(dt);
+        if (Bx.state === 'off') return;
+        const P = G.player, o = Bx.opp, lv = Bx.lv;
+        Bx.t -= dt; if (Bx.blockT > 0) Bx.blockT -= dt;
+        if (!o || !G.crowd.people.includes(o)) { cleanup(); return; }
+        const dealt = Math.max(0, lv.hp - o.hp);
+        const clock = s => Math.floor(s / 60) + ':' + String(Math.max(0, Math.ceil(s) % 60)).padStart(2, '0');
+        if (Bx.state === 'intro') {
+          pl.hudInfo = { tag: 'БОКС', text: lv.name + ' · бой через ' + Math.ceil(Bx.t) + '… УДАР — бить, ПРЫЖОК — блок, двигайтесь, чтобы уклоняться', time: '', warn: true };
+          if (Bx.t <= 0) { Bx.state = 'fight'; Bx.t = 45; G.flash('Раунд ' + Bx.round + '! Бой!', 1.5); }
+          return;
+        }
+        if (Bx.state === 'rest') { pl.hudInfo = { tag: 'ПЕРЕРЫВ', text: 'Раунд ' + (Bx.round + 1) + ' через ' + Math.ceil(Bx.t) + ' · вы нанесли ' + Math.round(dealt) + ', пропустили ' + Math.round(Bx.taken), time: '', warn: false }; if (Bx.t <= 0) { Bx.round++; Bx.state = 'fight'; Bx.t = 45; G.flash('Раунд ' + Bx.round + '!', 1.5); } return; }
+        if (Bx.state === 'end') { if (Bx.t <= 0) { fade(true); setTimeout(() => fade(false), 250); cleanup(); } return; }
+        // the fight
+        pl.hudInfo = { tag: 'РАУНД ' + Bx.round + '/3', text: 'Вы ' + Math.max(0, Math.round(P.hp)) + ' · ' + lv.name + ' ' + Math.max(0, Math.round(o.hp)) + (Bx.blockT > 0 ? ' · БЛОК' : ''), time: clock(Bx.t), warn: Bx.t < 10 };
+        if (o.down || o.hp <= 0) { endBout(true, ' нокаутом'); return; }
+        if (P.hp <= 0) { P.hp = 1; endBout(false, ' нокаутом'); return; }
+        if (Bx.t <= 0) {
+          if (Bx.round < 3) { Bx.state = 'rest'; Bx.t = 4; corners(); return; }
+          endBout(dealt > Bx.taken * 1.05, ' по очкам (' + Math.round(dealt) + ' : ' + Math.round(Bx.taken) + ')'); return;
+        }
+        // keep both on the canvas
+        const inRing = (x, z) => [U.clamp(x, pl.X(R0.x0 + .35), pl.X(R0.x1 - .35)), U.clamp(z, pl.Z(R0.z0 + .35), pl.Z(R0.z1 - .35))];
+        [P.x, P.z] = inRing(P.x, P.z); if (P.y < RY - .2) P.y = RY;
+        // the opponent: closes in, circles, raises his guard, throws punches
+        const dx = P.x - o.x, dz = P.z - o.z, d = Math.hypot(dx, dz) || .001;
+        o.heading = Math.atan2(dx, dz);
+        if (o.boxer.guardT > 0) o.boxer.guardT -= dt; else if (d < 1.8 && Math.random() < lv.guard * dt * 1.5) o.boxer.guardT = U.rand(.5, 1.1);
+        if ((Bx.sideT -= dt) <= 0) { Bx.sideT = U.rand(.8, 2); Bx.side = Math.random() < .5 ? -1 : 1; }
+        let vx = 0, vz = 0;
+        if (d > 1.15) { vx = dx / d * lv.speed; vz = dz / d * lv.speed; }
+        else { vx = -dz / d * Bx.side * .9; vz = dx / d * Bx.side * .9; }
+        [o.x, o.z] = inRing(o.x + vx * dt, o.z + vz * dt); o.y = RY; o.speed = Math.hypot(vx, vz);
+        Bx.cd -= dt;
+        if (o.punchT > 0) o.punchT -= dt;
+        o.puppet.anim = o.punchT > 0 ? 'punch' : o.boxer.guardT > 0 ? 'guard' : 'ready';
+        if (d < 1.35 && Bx.cd <= 0 && o.boxer.guardT <= 0) {
+          Bx.cd = lv.rate * U.rand(.8, 1.25); o.punchT = .35;
+          let dmg = U.rand(lv.dmg[0], lv.dmg[1]);
+          if (Bx.blockT > 0) dmg *= .25;
+          else if (P.speed > 2.2 && Math.random() < .45) dmg = 0;   // slipped it
+          if (dmg > 0) { P.hp -= dmg; Bx.taken += dmg; G.audio.punch(null, false); }
+        }
+      };
+      pl.onLeave = () => { if (Bx.state !== 'off') cleanup(); };
+      pl.attach = () => {
+        pl.interactions = [
+          { ...pl.P(5, 9), r: 1.6, short: 'ВЫЗОВ', label: () => 'Бросить вызов: бой на ринге', use: () => G.ui.menu({ eyebrow: 'NOT BAD BOXING', title: 'Кого вызвать на бой?', items: () => LV.map((lv, i) => ({
+            name: lv.name, desc: 'Здоровье ' + lv.hp + ' · приз $' + lv.prize.toLocaleString('ru-RU') + (i < rec() ? ' · уже побеждён' : ''), price: 0, label: 'На ринг',
+            disabled: i > rec() ? 'Сначала победите предыдущего' : '', buy: () => { G.ui.close(); setTimeout(() => startBout(i), 60); return ''; } })) }) },
+          ...[1, 5, 9, 13].map(z => ({ ...pl.P(-8.1, z), r: 1.2, short: 'ГРУША', label: () => 'Бить грушу (сила)', use: () => tr.start('str', 'Груша', -8.3, z, -Math.PI / 2) })),
+          { ...pl.P(4.5, 3), r: 1.4, short: 'ФОРМА', label: () => 'Ваша форма', use: () => statsMenu('NOT BAD BOXING') }
+        ];
+      };
+    }
+
+    /* ---------------------------------------------------------------
+       NEPLOXO GYM: bench presses, treadmills, a pull-up bar, dumbbells and mirrors; people working out
+       --------------------------------------------------------------- */
+    if (doors.gym) {
+      const pl = interior('gym', 'NEPLOXO GYM', doors.gym, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-10, -6, 10, 16], light: lit('#f2f8ff', '#5a6068', 1), music: 'arcade' });
+      K.at(pl.ox, pl.oz);
+      K.room(-10, -6, 10, 16, 5, { wall: '#d8dce4', ceil: '#2a2e36', trim: '#2a2e36', neon: '#3fe6e0', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-10, -6, 10, 16, T.darkTile, 1.5);
+      K.picture('-z', 0, 3.9, 15.83, 7, 1.2, T.sign('NEPLOXO GYM', 'no pain · no gain', '#3fe6e0', '#10202a'));
+      K.box(-6, .8, 15.8, 6, 3.2, 15.85, '#bfe4ee');   // mirrors
+      const tr = trainer(pl);
+      const ints = [];
+      // bench presses on the left
+      for (const z of [1.5, 6, 10.5]) {
+        K.box(-8.4, 0, z - .3, -6.6, .45, z + .3, '#1a1a1e', true);
+        for (const s of [-1, 1]) K.box(-7.9 - .04, 0, z + s * .7 - .04, -7.9 + .04, 1.25, z + s * .7 + .04, '#8a8a90');
+        K.box(-7.95, 1.2, z - 1.1, -7.85, 1.26, z + 1.1, '#c9c9d4'); for (const s of [-1, 1]) K.box(-8.15, .95, z + s * .95 - .06, -7.65, 1.5, z + s * .95 + .06, '#1a1a1e');
+        ints.push({ ...pl.P(-5.9, z), r: 1.2, short: 'ЖИМ', label: () => 'Жим лёжа (сила)', use: () => tr.start('str', 'Жим лёжа', -6.2, z, -Math.PI / 2) });
+      }
+      // treadmills on the right
+      for (const z of [1.5, 6, 10.5]) {
+        K.box(6.8, 0, z - .45, 8.8, .25, z + .45, '#2a2a30', true); K.box(6.85, .25, z - .35, 8.75, .27, z + .35, '#141418');
+        for (const s of [-1, 1]) K.box(8.5, .25, z + s * .4 - .03, 8.56, 1.3, z + s * .4 + .03, '#8a8a90');
+        K.box(8.45, 1.2, z - .45, 8.8, 1.5, z + .45, '#3a3a44'); K.screen('-x', 8.44, 1.35, z, .5, .25, 3);
+        ints.push({ ...pl.P(6.2, z), r: 1.2, short: 'ДОРОЖКА', label: () => 'Беговая дорожка (выносливость)', use: () => tr.start('sta', 'Беговая дорожка', 7.6, z, Math.PI / 2) });
+      }
+      // the pull-up bar at the back, dumbbell racks in the middle
+      for (const s of [-1, 1]) K.box(s * 1.2 - .06, 0, 13.4, s * 1.2 + .06, 2.6, 13.52, '#8a8a90', true);
+      K.box(-1.2, 2.5, 13.4, 1.2, 2.56, 13.52, '#c9c9d4');
+      ints.push({ ...pl.P(0, 12.4), r: 1.3, short: 'ТУРНИК', label: () => 'Подтягивания (крепость)', use: () => tr.start('tough', 'Подтягивания', 0, 13, 0) });
+      for (const x of [-2.5, 2.5]) { K.box(x - .9, 0, 5.5, x + .9, .8, 6.3, '#3a3a44', true); for (let k = 0; k < 5; k++) K.box(x - .8 + k * .38, .8, 5.7, x - .62 + k * .38, .95, 6.1, '#1a1a1e'); }
+      // people working out, a coach at the desk by the door
+      for (const [x, z, h] of [[-7, 3.7, Math.PI / 2], [7.8, 8.2, -Math.PI / 2], [-1, 8.5, 0], [1.5, 3, Math.PI], [-6, 12.5, Math.PI / 2]]) spots.push(K.spot({ kind: 'idle', x, z, heading: h, type: Math.random() < .5 ? 'beach_m' : 'jogger' }));
+      K.box(3, 0, -3.2, 6, 1.05, -2.4, '#2a2e36', true); K.neon(3, 1.0, -3.22, 6, 1.05, -3.18, '#3fe6e0', false);
+      spots.push(K.spot({ kind: 'idle', x: 4.5, z: -3.8, heading: 0, type: 'jogger' }));
+      ints.push({ ...pl.P(4.5, -1.7), r: 1.5, short: 'ТРЕНЕР', label: () => 'Тренер: ваша форма', use: () => statsMenu('NEPLOXO GYM') });
+      pl.busy = () => tr.on;
+      pl.update = dt => tr.update(dt);
+      pl.attach = () => { pl.interactions = ints; };
+    }
+
+    /* ---------------------------------------------------------------
+       NOT BAD GIRLS: the strip club, open round the clock. A stage with three poles and a runway, dancers,
+       chairs round the stage, a bar, two VIP booths, a bouncer. Tip the girls, buy a drink, or pay for a
+       private dance in a VIP booth.
+       --------------------------------------------------------------- */
+    if (doors.strip) {
+      const pl = interior('strip', 'NOT BAD GIRLS', doors.strip, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-11, -6, 11, 20], light: lit('#ff9ad0', '#3a1030', .75), music: 'club' });
+      K.at(pl.ox, pl.oz);
+      K.room(-11, -6, 11, 20, 5, { wall: '#2a0f24', ceil: '#12060e', trim: '#ff2d7a', neon: '#ff2d7a', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-11, -6, 11, 20, T.carpetPink, 2); K.box(-11, 0, -6, 11, .01, 20, '#3a1030');
+      K.picture('-z', 0, 4.1, 19.83, 7, 1.1, T.sign('NOT BAD GIRLS', 'открыто круглосуточно', '#ff2d7a', '#12060e'));
+      const SY = .8;
+      // the stage and the runway, lit round the edges, three chrome poles
+      K.box(-4.5, 0, 13, 4.5, SY, 19.8, '#1a0a14', true); K.box(-1.3, 0, 7, 1.3, SY, 13, '#1a0a14', true);
+      for (const [a, b, c, d] of [[-4.5, 12.96, -1.3, 13.02], [1.3, 12.96, 4.5, 13.02], [-1.34, 7, -1.28, 13], [1.28, 7, 1.34, 13], [-1.3, 6.96, 1.3, 7.02]]) K.neon(a, SY - .08, b, c, SY, d, '#ff2d7a', false);
+      for (const [x, z] of [[-2.8, 16], [2.8, 16], [0, 8.6]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 5 - SY, 8), new THREE.MeshLambertMaterial({ color: 0xe8e8f0, emissive: 0x222228 })); p.position.set(pl.X(x), SY + (5 - SY) / 2, pl.Z(z)); scene.add(p); K.solid(x - .08, SY, z - .08, x + .08, 5, z + .08); spots.push(K.spot({ kind: 'dance', x: x, z: z - .45, y: SY, fixedY: true, heading: Math.PI, type: 'escort' })); }
+      spots.push(K.spot({ kind: 'dance', x: 0, z: 15.5, y: SY, fixedY: true, heading: Math.PI, type: 'escort' }));
+      // coloured spotlights on the stage
+      for (const [x, z, c] of [[-2.8, 14, 0xff2d7a], [2.8, 14, 0x9b30ff], [0, 9.5, 0x3fe6e0]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.1, 1.2, 4.2, 14, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .13, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.position.set(pl.X(x), SY + 2.1, pl.Z(z)); scene.add(m); }
+      // chairs and small tables round the runway, men watching
+      for (const s of [-1, 1]) for (const z of [7.8, 9.6, 11.4]) {
+        const x = s * 2.3; K.box(x - .25, 0, z - .25, x + .25, .45, z + .25, '#6a1e3a', true); K.box(x + s * .2 - .03, .45, z - .25, x + s * .25, 1, z + .25, '#6a1e3a');
+        if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x: x - s * .02, z, y: .51, heading: -s * Math.PI / 2, type: Math.random() < .6 ? 'business_m' : 'tourist_m' }));
+        K.box(x + s * 1 - .25, 0, z - .25, x + s * 1 + .25, .7, z + .25, '#1a0a14', true); K.neon(x + s * 1 - .05, .7, z - .05, x + s * 1 + .05, .85, z + .05, '#ffd84f', false);
+      }
+      // the bar along the left wall
+      K.box(-10.9, 0, 0, -8.6, 1.1, 11, '#1a0a14', true); K.box(-8.65, 1.05, 0, -8.5, 1.12, 11, '#ff2d7a');
+      for (const y of [1.6, 2.3]) { K.neon(-10.95, y - .05, 0.5, -10.9, y, 10.5, '#9b30ff', false); for (let z = .8; z < 10.3; z += .38) K.neon(-10.88, y, z, -10.78, y + .3, z + .09, ['#5fd38a', '#ffb347', '#ff6b8a', '#9fd8ff'][(z * 7 | 0) % 4], false); }
+      spots.push(K.spot({ kind: 'idle', x: -10, z: 5.5, heading: Math.PI / 2, type: 'waitress' }));
+      for (const z of [2, 4, 7]) spots.push(K.spot({ kind: 'idle', x: -8, z, heading: -Math.PI / 2, type: Math.random() < .5 ? 'business_m' : 'escort' }));
+      // two VIP booths on the right with curtains and a sofa
+      for (const z0 of [1, 8]) {
+        K.box(7, 0, z0 - .1, 11, 3, z0 + .1, '#6a1e3a', true); K.box(7, 0, z0 + 5.9, 11, 3, z0 + 6.1, '#6a1e3a', true);
+        K.box(9.9, 0, z0 + 1, 10.9, .5, z0 + 5, '#b0102a', true); K.box(10.6, .5, z0 + 1, 10.9, 1.2, z0 + 5, '#b0102a');
+        K.neon(7, 2.9, z0 + .1, 11, 3, z0 + .2, '#ff2d7a', false);
+        for (const s of [-1, 1]) K.box(6.95, 0, z0 + 3 + s * 2.2 - .7, 7.05, 3, z0 + 3 + s * 2.2 + .7, '#8a1a44');
+      }
+      K.picture('-x', 6.9, 3.4, 7.5, 3, .6, T.sign('VIP', null, '#ffd84f', '#12060e'));
+      spots.push(K.spot({ kind: 'guard', x: 2.2, z: -3.4, heading: 0, type: 'bouncer' }));
+      // money thrown on the stage flutters down
+      const bills = [], billMat = new THREE.MeshBasicMaterial({ color: 0x7ad07a, side: THREE.DoubleSide });
+      for (let k = 0; k < 18; k++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(.22, .1), billMat); m.visible = false; scene.add(m); bills.push({ m, t: 0 }); }
+      const rain = (x, z) => { let n = 0; for (const b of bills) if (b.t <= 0 && n < 8) { n++; b.t = 1.6; b.x = pl.X(x) + U.rand(-.6, .6); b.z = pl.Z(z) + U.rand(-.6, .6); b.y = 2.4 + U.rand(0, .8); b.m.visible = true; } };
+      // the private dance: a girl dances for you alone in a booth
+      const V = { on: false, t: 0, girl: null };
+      const fade = on => { const f = document.getElementById('fade'); if (f) f.classList.toggle('on', on); };
+      pl.busy = () => V.on;
+      pl.update = dt => {
+        for (const b of bills) if (b.t > 0) { b.t -= dt; b.y = Math.max(SY + .02, b.y - dt * 1.4); b.m.position.set(b.x + Math.sin(b.t * 6) * .1, b.y, b.z); b.m.rotation.set(b.t * 3, b.t * 5, 0); if (b.t <= 0) b.m.visible = false; }
+        if (!V.on) return;
+        V.t -= dt; const g = V.girl;
+        if (g && G.crowd.people.includes(g)) { g.puppet.anim = V.t % 4 < 2 ? 'dance' : 'flirt'; g.heading = Math.PI / 2 + Math.sin(V.t * 1.3) * .6; }
+        pl.hudInfo = { tag: 'VIP', text: 'Приватный танец…', time: '0:' + String(Math.max(0, Math.ceil(V.t))).padStart(2, '0'), warn: false };
+        if (V.t <= 0) {
+          V.on = false; pl.hudInfo = null; fade(true);
+          setTimeout(() => { fade(false); if (g && G.crowd.people.includes(g)) { G.say(g, pick(['Приходи ещё, красавчик', 'Ты мой любимый клиент', 'Неплохо провели время'])); G.crowd.releasePuppet(g); } G.player.place(pl.X(5.5), pl.Z(4), -Math.PI / 2); }, 260);
+          G.flash('Неплохо! Приватный танец окончен', 2.6);
+        }
+      };
+      pl.onLeave = () => { if (V.on) { V.on = false; pl.hudInfo = null; if (V.girl) G.crowd.releasePuppet(V.girl); } };
+      pl.attach = () => {
+        pl.interactions = [
+          { ...pl.P(0, 6.2), r: 1.6, short: 'ЧАЕВЫЕ', label: () => 'Бросить на сцену $20', use: () => {
+            if (!G.money.spend(20, 'Чаевые')) return;
+            rain(0, 8.2); G.audio.cash(false);
+            const d = G.crowd.people.filter(p => p.look.type === 'escort' && p.spot && Math.abs(p.x - pl.X(0)) < 5 && p.z > pl.Z(7)).sort((a, b) => a.z - b.z)[0];
+            if (d) G.say(d, pick(['Спасибо, милый!', 'Ещё, ещё!', 'Ты такой щедрый', 'Этот танец для тебя']));
+          } },
+          { ...pl.P(-8, 9.5), r: 1.6, short: 'БАР', label: () => 'Коктейль · $15', use: () => { if (!G.money.spend(15, 'Коктейль')) return; if (G.drunk) G.drunk(25); G.audio.pickup(); G.flash('Коктейль «Неплохо»: голова приятно кружится', 2.4); } },
+          { ...pl.P(6.3, 4), r: 1.6, short: 'ПРИВАТ', label: () => 'Приватный танец в VIP · $300', use: () => {
+            if (V.on) return;
+            if (!G.money.spend(300, 'Приватный танец')) return;
+            fade(true);
+            setTimeout(() => {
+              fade(false);
+              const g = G.crowd.spawnPuppet('escort', pl.X(8.6), pl.Z(4), Math.PI / 2); if (!g) return;
+              g.puppet.anim = 'dance'; V.on = true; V.t = 14; V.girl = g;
+              G.player.place(pl.X(10.3), pl.Z(4), -Math.PI / 2); if (G.view) G.view(Math.PI / 2, .3);
+              G.say(g, pick(['Расслабься, красавчик…', 'Это только для тебя', 'Садись поудобнее']));
+            }, 260);
+          } }
+        ];
+      };
     }
 
     /* ---------------------------------------------------------------

@@ -248,7 +248,7 @@
       let wx = mx * cy - my * sy, wz = -mx * sy - my * cy;
       const wl = Math.hypot(wx, wz);
       // swimming is slow, wading slows you down the deeper it gets
-      let top = input.sprint ? SPRINT : JOG;
+      let top = (input.sprint ? SPRINT : JOG) * (this.speedMul || 1);
       if (this.swim) top = input.sprint ? 3.3 : 2.2;
       else if (this.wade > 0) top *= 1 - Math.min(.55, this.wade * .6);
       if (wl > 1e-4) { wx = wx / wl * top * mag; wz = wz / wl * top * mag; }

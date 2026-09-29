@@ -108,7 +108,7 @@
     let hotelN = 0;
     const WHITE = C('#ffffff');
     const palms = [], lamps = [], umbrellas = [], blocks = [], benches = [], loungers = [];
-    let fashion = null, security = null;
+    let fashion = null, security = null, strip = null;
     let station = null, hospital = null, gunShop = null, hotelRoof = null, towerRoof = null;
     // beach plots kept free of random props: the hero's villa at the north end and the tiki bar
     const RESERVED = [{ id: 'villa', x0: 110.5, x1: 134, z0: 79.5, z1: 104 }, { id: 'tiki', x0: 118, x1: 136, z0: -76, z1: -58 }, { id: 'pier', x0: 121, x1: 166, z0: 40.5, z1: 51.5 }, { id: 'bridge', x0: 106, x1: 170, z0: -107, z1: -89 }, NB.STREET_RESERVED];
@@ -342,12 +342,14 @@
           const isGun = i === 2 && j === 3 && ix === 1 && iz === 0;
           const isFashion = i === 1 && j === 3 && ix === 1 && iz === 0;   // Neon Fashion, the clothes shop
           const isGuards = i === 2 && j === 3 && ix === 0 && iz === 1;    // Shield Security, the bodyguard agency
+          const isStrip = i === 2 && j === 3 && ix === 1 && iz === 1;     // NOT BAD GIRLS, the strip club
           awning(f, b, pick(['#ff7eb6', '#4fd1c5', '#ffcf5c', '#b388ff', '#ff9966']), 5.5);
           const word = (R() * 16) | 0;
-          sign(f, b, 3.45, 4.95, 1.5, isGun ? 'AMMO' : isFashion ? 'FASHION' : isGuards ? 'SECURITY' : word);
+          sign(f, b, 3.45, 4.95, 1.5, isGun ? 'AMMO' : isFashion ? 'FASHION' : isGuards ? 'SECURITY' : isStrip ? 'GIRLS' : word);
           if (R() < .35) neonRing(b.x0, b.z0, b.x1, b.z1, h - .3, pick(NEON));
           if (isGun) gunShopFront(f, b, h);
           if (isGuards) { neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#3fe6e0'); const d = frontDoor('security', f, b, 0, '#3fe6e0'); security = { x: d.x, z: d.z, cx: d.cx, cz: d.cz }; mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#7fd6e0', k: 'b' }); }
+          if (isStrip) { neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff2d7a'); neonRing(b.x0, b.z0, b.x1, b.z1, 3.2, '#9b30ff'); const d = frontDoor('strip', f, b, 0, '#ff2d7a'); strip = { x: d.x, z: d.z, cx: d.cx, cz: d.cz }; mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#ff5fa0', k: 'b' }); }
           if (isFashion) { neonRing(b.x0, b.z0, b.x1, b.z1, h - .6, '#ff4fa3'); const d = frontDoor('fashion', f, b, 0, '#ff7eb6'); fashion = { x: d.x, z: d.z, cx: d.cx, cz: d.cz }; mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#ff9fc3', k: 'b' }); }
           rooftop(b);
         }
@@ -501,6 +503,7 @@
     const bay = NB.buildBayview({ C, U, col, scene, bPlain, bFacade, bNeon, bGlow, bAsphalt, bPaving, building, sign, awning, neonRing, mapShapes, palms, lamps, FT });
     if (bay.door) doors.airport = bay.door;
     if (north.prison) doors.prison = north.prison.door;
+    if (north.sport) { doors.boxing = north.sport.boxing; doors.gym = north.sport.gym; }
 
     /* ---------- Turtle Island: uninhabited, far out in the open sea, no bridge ---------- */
     tropic = NB.buildTropic({ C, U, col, scene, bPlain, mapShapes, palms });
@@ -696,7 +699,7 @@
     }
 
     return {
-      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, security, club, places, island, north, bay, tropic, military, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, security, strip, club, places, island, north, bay, tropic, military, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {

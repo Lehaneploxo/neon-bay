@@ -140,7 +140,7 @@
     // what stands where: the docks along the north shore, factories and a junkyard behind them, tenements and shops
     // towards the bridge; each gang's court in the middle of its turf
     const PLAN = [
-      ['shops', 'lot', 'shops', 'tenements', 'lot', 'tenements', 'warehouse'],
+      ['shops', 'lot', 'shops', 'sport', 'lot', 'tenements', 'warehouse'],
       ['tenements', 'court', 'tenements', 'shops', 'tenements', 'court', 'tenements'],
       ['factory', 'factory', 'tenements', 'prison', 'warehouse', 'junkyard', 'factory'],
       ['warehouse', 'warehouse', 'containers', 'containers', 'containers', 'containers', 'warehouse']
@@ -151,7 +151,29 @@
     // a concrete wall with razor wire, a watchtower with a guard at each corner, a gate kept by two officers,
     // the exercise yard (basketball, weights, tables, inmates walking laps) and Block A at the back, whose
     // door leads into the cells (places.js). Only the inmates can't get past the gate.
-    let prison = null;
+    let prison = null, sport = null;
+    // NOT BAD BOXING and NEPLOXO GYM: one concrete building by the bridge, two doors, two big signs
+    function buildSport(lx0, lx1, lz0, lz1, Y) {
+      const b = building(lx0 + 1, lz0 + 3, lx1 - 1, lz1, G0 + 11, '#4a4e58', Y);
+      bPlain.box(b.x0 - .1, G0 + 10.4, b.z0 - .1, b.x1 + .1, G0 + 11, b.z1 + .1, C('#2a2e36'));
+      groundFloor(b, Y, '#2a2e36');
+      const bcx = (b.x0 + b.x1) / 2, bcz = (b.z0 + b.z1) / 2;
+      door('+z', b, -7, Y, '#c81e2a', true); door('+z', b, 7, Y, '#1c3a6a', true);
+      windowsAlong('+z', b, Y, 9, false);
+      const board = (text, sub, x, col, bg) => {
+        const t = U.canvasTex(512, 128, (g, w, h) => { g.fillStyle = bg; g.fillRect(0, 0, w, h); g.strokeStyle = col; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, h - 12); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.font = '900 52px Rubik, "Arial Black", Arial, sans-serif'; g.shadowColor = col; g.shadowBlur = 14; g.fillText(text, w / 2, 70); g.shadowBlur = 0; g.font = 'bold 22px Rubik, Arial, sans-serif'; g.fillStyle = col; g.fillText(sub, w / 2, 106); }, false);
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(9, 2.25), new THREE.MeshBasicMaterial({ map: t })); m.position.set(bcx + x, GF + 1.6, b.z1 + .08); scene.add(m);
+        bGlow.box(bcx + x - 4.7, GF + .4, b.z1 + .05, bcx + x + 4.7, GF + 2.8, b.z1 + .3, C(col).multiplyScalar(.5), { noTop: true });
+      };
+      board('NOT BAD BOXING', 'ринг · спарринги · чемпионы Района 21', -7, '#ff3a3a', '#141418');
+      board('NEPLOXO GYM', 'железо · дорожки · турник', 7, '#3fe6e0', '#10202a');
+      // the logo high up on the corner, lit
+      const lt = U.canvasTex(256, 256, (g, w) => { g.clearRect(0, 0, w, w); if (NB.drawLogo) NB.drawLogo(g, w / 2, w / 2, w * .48); }, false);
+      const lm = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 4.5), new THREE.MeshBasicMaterial({ map: lt, transparent: true })); lm.position.set(bcx, G0 + 8.2, b.z1 + .08); scene.add(lm);
+      mapShapes.push({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1, c: '#c83a4a', k: 'b' });
+      const d = (off, hex) => ({ x: bcx + off, z: b.z1 + 1.3, y: Y, heading: 0, nx: 0, nz: 1, hex, cx: bcx, cz: bcz });
+      return { x: bcx, z: bcz, boxing: d(-7, '#ff3a3a'), gym: d(7, '#3fe6e0') };
+    }
     function buildPrison(bx0, bx1, bz0, bz1, cx, Y) {
       const X0 = bx0 + 1, X1 = bx1 - 1, Z0 = bz0 + 1, Z1 = bz1 - 1, WH = 5.5, T = .6, GW = 1.8, CONC = '#9a958c', DARK = '#3a3a40';
       const box = (x0, y0, z0, x1, y1, z1, hex, solid) => { bPlain.box(x0, y0, z0, x1, y1, z1, C(hex)); if (solid) return col.add(x0, y0 < 1 ? 0 : y0, z0, x1, y1, z1); };
@@ -323,6 +345,8 @@
         for (const [x0, z0, x1, z1] of [[lx0, lz0, lx1, lz0 + .2], [lx0, lz1 - .2, lx1 - 8, lz1], [lx0, lz0, lx0 + .2, lz1], [lx1 - .2, lz0, lx1, lz1]]) { bPlain.box(x0, Y, z0, x1, Y + 2.6, z1, C('#6a6058')); col.add(x0, 0, z0, x1, Y + 2.6, z1); }
         for (let n = 0; n < 16; n++) { const x = rr(lx0 + 2, lx1 - 5), z = rr(lz0 + 2, lz1 - 4), h = rr(1, 3.5); bPlain.box(x, Y, z, x + rr(3, 4.5), Y + h, z + rr(1.8, 2.4), C(pick(['#6a3a2a', '#4a4a50', '#7a5a3a', '#3a4a5a']))); col.add(x, 0, z, x + 4.5, Y + h, z + 2.4); }
         const wall = { x0: lx0, x1: lx1, z0: lz0, z1: lz0 + .2 }; tag('-z', wall, -6, 'RUST'); tag('-z', wall, 6);
+      } else if (type === 'sport') {
+        sport = buildSport(lx0, lx1, lz0, lz1, Y);
       } else if (type === 'prison') {
         prison = buildPrison(bx0, bx1, bz0, bz1, cx, Y);
       } else if (type === 'court') {
@@ -394,7 +418,7 @@
     const id = (i, j) => j * XS.length + i;
     for (let j = 0; j < ZS.length; j++) for (let i = 0; i < XS.length; i++) { if (i + 1 < XS.length) links.push([id(i, j), id(i + 1, j)]); if (j + 1 < ZS.length) links.push([id(i, j), id(i, j + 1)]); }
     return {
-      spots, parking, blocks, territories, hangouts, bounds: B, districtAt, prison,
+      spots, parking, blocks, territories, hangouts, bounds: B, districtAt, prison, sport,
       walkways: [BX - (RW + PW) / 2, BX + (RW + PW) / 2].map(x => [[x, BZ0 + 2], [x, BZ1 - 2]]),
       roads: { lane: 2.6, nodes, links, bridge: { city: [BX, -100], island: id(XS.indexOf(BX), 0) }, north: true },
       update(t, env) {
