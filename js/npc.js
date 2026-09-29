@@ -534,6 +534,7 @@
     function detachSpot(p) {
       if (!p.spot) return;
       const s = p.spot; s.person = null; s.vacated = true; p.spot = null;
+      if (p.gang) p.gangSpot = s;   // a gangster remembers his corner: if he's taken out, nobody takes his place for a while
       if (s.grp) for (const o of spots) if (o.grp === s.grp) o.vacated = true;   // nobody joins a group that just broke up
       if (s.kind === 'lie') p.x += .9;
       p.y = surfaceAt(p.x, p.z);
@@ -675,6 +676,11 @@
     const ARMY_TALK = { warn: ['Стоять! Военный объект!', 'Посторонним вход запрещён!', 'Убери оружие!', 'Покиньте территорию!'], go: ['Тревога! Нарушитель!', 'Огонь на поражение!', 'Взять его!', 'Контакт!'] };
     const talkOf = g => g === 'army' ? ARMY_TALK : GANG_TALK;
     const gangHeat = { red: 0, green: 0, army: 0 }, warT = { t: 0, next: 60 + Math.random() * 60 };
+    // no endless fights: while a gang is after the hero no fresh members turn up, and a corner whose man was
+    // killed or knocked out stays empty for five minutes
+    const GANG_BACK = 300, spotGang = s => s.type === 'gang_red' ? 'red' : s.type === 'gang_green' ? 'green' : s.type === 'soldier' ? 'army' : null;
+    let simT = 0;
+    function gangLoss(p) { const s = p.gangSpot || (p.gang && p.homeSpot); if (s) s.backAt = simT + GANG_BACK; }
     function provoke(gang, x, z) {
       if (!gang) return;
       if (gangHeat[gang] <= 0) { const p = people.find(q => q.gang === gang && !q.dead && !q.down && Math.hypot(q.x - x, q.z - z) < 40); if (p) bumpCallback(p, pick(talkOf(gang).go)); }
@@ -986,6 +992,7 @@
       for (const s of spots) {
         const d = Math.hypot(s.x - px, s.z - pz);
         if (s.vacated) { if (d > lim.spotRange + 12) s.vacated = false; else continue; }
+        if (!s.person) { const g = spotGang(s); if (g && (gangHeat[g] > 0 || simT < (s.backAt || 0))) continue; }
         if (s.when && !s.when()) { if (s.person && s.person.spot === s && d > 30) despawn(s.person); continue; }   // not their hours: they leave when you're not looking
         if (s.person && d > lim.spotRange + 12) despawn(s.person);
         else if (!s.person && d < lim.spotRange && free.length) {
@@ -1011,6 +1018,7 @@
     const api = {
       update(dt, t, player, camYaw, dangers, police) {
         if (police) pol = police;
+        simT += dt;
         for (const g in gangHeat) if (gangHeat[g] > 0) gangHeat[g] -= dt;
         if (warT.t > 0) warT.t -= dt;
         else if ((warT.next -= dt) <= 0) { warT.next = 90 + Math.random() * 90; if (player.x > 20 && player.x < 130 && player.z < -180 && player.z > -400) warT.t = 25; }
@@ -1159,6 +1167,7 @@
           p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
           if (src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
           if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
+          if (p.gang) gangLoss(p);
           call('onHurt', p, src); call('onDown', p, src);
           return;
         }
@@ -1166,6 +1175,7 @@
           p.dead = true; p.hp = 0; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.running = false;
           if (src && src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
           if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
+          if (p.gang) gangLoss(p);
           call('onKill', p, src || {});
           return;
         }
