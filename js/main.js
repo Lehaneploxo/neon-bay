@@ -129,7 +129,7 @@
 
   /* ---------- money, armour and the saved game ---------- */
   const MEGA_VEST = 1000000;   // the golden vest on Turtle Island; an ordinary one is 100
-  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], time: 0, owned: null, guards: 0 };
+  const progress = { money: 150, armor: 0, inv: null, villa: false, outfit: 'hawaii', prevOutfit: 'hawaii', records: {}, bankT: 0, garage: [], owned: null, guards: 0 };
   try { Object.assign(progress, JSON.parse(localStorage.getItem('nb_save') || '{}')); } catch (e) {}
   progress.money = Math.max(0, Math.floor(+progress.money || 0)); progress.armor = U.clamp(+progress.armor || 0, 0, MEGA_VEST);
   if (!progress.records || typeof progress.records !== 'object') progress.records = {};
@@ -155,10 +155,16 @@
   player.setLook(progress.look);
   if (progress.outfit === 'cop') player.setOutfit('cop');
   let saveT = 0;
-  function saveProgress() {
+  // the save is kept in this browser and, for a signed-in player, on the game server too (see online.js).
+  // `urgent` (pause, leaving the page) sends it at once; the autosave every few seconds is batched
+  function saveProgress(urgent) {
+    const online = NB.online;
+    if (online && online.replacing) return;   // the server's copy is being loaded in: don't write over it
     progress.garage = garageCars();
     const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats } = progress, guardsN = guards ? guards.list : progress.guards;
-    try { localStorage.setItem('nb_save', JSON.stringify({ money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, guards: guardsN, time: Math.round(time) })); } catch (e) {}
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, guards: guardsN, _t: online ? online.now() : Date.now() };
+    try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
+    if (online) online.push(data, urgent === true);
     saveT = 0;
   }
   // cars standing in the villa garage are kept between visits
@@ -169,7 +175,7 @@
       .map(c => ({ id: c.model.id, color: c.color, accent: c.accent, x: +c.x.toFixed(2), z: +c.z.toFixed(2), h: +c.h.toFixed(3) }));
   }
   if (progress.villa) for (const g of progress.garage) vehicles.spawnParked(g.id, g.x, g.z, g.h, g.color, g.accent);
-  addEventListener('pagehide', saveProgress);
+  addEventListener('pagehide', () => saveProgress(true));
   let popTimer = 0;
   function moneyPop(text, sub, neg) {
     const el = $('moneyPop');
@@ -476,7 +482,13 @@
   addEventListener('resize', onResize);
 
   /* ---------- game state ---------- */
-  let state = 'menu', locked = false, everLocked = false, noLock = false, time = Math.max(0, +progress.time || 0);   // the clock carries on from the last visit
+  // One clock for everybody (the game is headed online): a game minute per real second, counted from the
+  // server's time, so every player has the same hour. `time` is game minutes past START_MIN, kept within a
+  // few years of minutes so the animations that use it stay precise; clockShift is only for NB.debug.setHour
+  const CLOCK_SPAN = 1440 * 1000;
+  let clockShift = 0;
+  const sharedTime = () => ((((NB.online ? NB.online.now() : Date.now()) / 1000 - START_MIN + clockShift) % CLOCK_SPAN) + CLOCK_SPAN) % CLOCK_SPAN;
+  let state = 'menu', locked = false, everLocked = false, noLock = false, time = sharedTime();
   const input = NB.createInput(canvas, {
     active: () => state === 'playing',
     locked: () => locked,
@@ -527,7 +539,7 @@
     onResize();
   }
   function pause() {
-    saveProgress();
+    saveProgress(true);
     if (state !== 'playing') return;
     state = 'paused'; input.reset(); show('pause');
     if (document.pointerLockElement) document.exitPointerLock();
@@ -873,6 +885,7 @@
   /* ---------- loop ---------- */
   function stepPlaying(dt, raw) {
       time += dt;
+      { const t = sharedTime(); if (Math.abs(t - time) > 1) time = t; }   // back in step after a pause or a slow frame
       guards.update(dt);
       wildlife.update(dt, player);
       input.poll();
@@ -1000,7 +1013,7 @@
   document.body.classList.add('ready');
   NB.debug = { player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
-    setHour(h) { time = ((h * 60 - START_MIN) % 1440 + 1440) % 1440; },
+    setHour(h) { clockShift = 0; const cur = (START_MIN + sharedTime()) % 1440; clockShift = ((h * 60 - cur) % 1440 + 1440) % 1440; time = sharedTime(); },
     get state() { return state; }, get promptCar() { return promptCar; } };
   requestAnimationFrame(frame);
 })(window.NB);
