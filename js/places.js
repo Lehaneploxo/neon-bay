@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -1836,6 +1836,220 @@
       };
     }
 
+    /* ---------------------------------------------------------------
+       SHARED ROOMS: one boutique, one café, one 24/7 store and three kinds of home, each built once.
+       Many doors in the city lead into the same room (shops.js hands each door its own name, menu and
+       sign); whoever comes in through a door goes back out through it.
+       --------------------------------------------------------------- */
+    // a sign whose words change with the door you came in by
+    function liveSign(face, cx, cy, cz, w, h) {
+      const t = K.tex(512, 128, () => {}, false), cv = t.image, g = cv.getContext('2d');
+      K.picture(face, cx, cy, cz, w, h, t);
+      return (text, sub, col) => {
+        const W = cv.width, H = cv.height;
+        g.clearRect(0, 0, W, H); g.fillStyle = '#140a1c'; g.fillRect(0, 0, W, H);
+        g.strokeStyle = col; g.lineWidth = 6; g.shadowColor = col; g.shadowBlur = 14; g.strokeRect(10, 10, W - 20, H - 20);
+        g.textAlign = 'center'; g.textBaseline = 'middle'; let fs = sub ? 50 : 62;
+        g.font = `800 ${fs}px Rubik, Arial, sans-serif`; while (g.measureText(text).width > W - 50 && fs > 20) { fs -= 2; g.font = `800 ${fs}px Rubik, Arial, sans-serif`; }
+        g.fillStyle = col; g.fillText(text, W / 2, sub ? H / 2 - 14 : H / 2); g.shadowBlur = 3; g.fillStyle = '#fff'; g.globalAlpha = .7; g.fillText(text, W / 2, sub ? H / 2 - 14 : H / 2); g.globalAlpha = 1;
+        if (sub) { g.shadowBlur = 0; g.font = '600 24px Rubik, Arial, sans-serif'; g.fillStyle = '#f5e8ff'; g.fillText(sub, W / 2, H / 2 + 32); }
+        t.needsUpdate = true;
+      };
+    }
+    // the room's own interactions ask the door's info what to do (shops.js fills it in)
+    const ask = (pl, what) => () => { if (pl.info && pl.info.use) pl.info.use(what, pl); };
+    const shared = (id, name, o) => { const pl = interior(id, name, null, o); pl.shared = true; return pl; };
+
+    /* --- boutique: rails of clothes down both walls, mirrors, a till and a fitting room --- */
+    {
+      const pl = shared('shop_clothes', 'Бутик', { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 12], light: lit('#fff6f0', '#9a8a90', 1.0), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      K.room(-8, -6, 8, 12, 4.2, { wall: '#f4eef2', ceil: '#fbf8fa', trim: '#2a2230', neon: '#ff7eb6', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-8, -6, 8, 12, T.marble, 2.5);
+      K.box(-1.2, 0, -3, 1.2, .02, 9, '#2a2230');
+      const SH = ['#ff7eb6', '#3fe6e0', '#ffd84f', '#f5f5f0', '#18181c', '#b388ff', '#ff8a3d', '#5fd38a', '#4f7ad8', '#c9a04a'];
+      for (const x of [-7.6, 7.6]) {
+        const s = x < 0 ? 1 : -1;
+        for (const y of [1.3, 2.6]) {
+          K.box(x - .04, y + .32, -4, x + .04, y + .36, 10, '#d8dce4');
+          for (let z = -3.6; z < 9.8; z += .42) K.box(x + s * .02 - .03, y - .3, z - .17, x + s * .02 + .03, y + .3, z + .17, pick(SH));
+        }
+        K.neon(x - .03, 3.5, -4, x + .03, 3.56, 10, '#ff7eb6');
+      }
+      // tables of folded jeans in the middle, a mirror wall at the back
+      for (const z of [0, 5]) for (const x of [-3.6, 3.6]) {
+        K.box(x - 1.1, 0, z - .7, x + 1.1, .8, z + .7, '#2a2230', true); K.box(x - 1.15, .8, z - .75, x + 1.15, .84, z + .75, '#c9a04a');
+        for (let k = 0; k < 6; k++) K.box(x - .9 + (k % 3) * .62, .84, z - .5 + ((k / 3) | 0) * .55, x - .4 + (k % 3) * .62, .84 + .08 * (1 + (k % 2)), z - .1 + ((k / 3) | 0) * .55, pick(['#2f4f8a', '#1a2a4a', '#f5f5f0', '#c8b48a', '#18181c']));
+      }
+      K.box(-6, .3, 11.8, -2, 3.4, 11.85, '#cfe2ee'); K.neon(-6.05, 3.4, 11.75, -1.95, 3.46, 11.85, '#3fe6e0');
+      // the till
+      K.box(1.5, 0, 9.4, 6, 1.05, 10.3, '#2a2230', true); K.box(1.45, 1.05, 9.35, 6.05, 1.1, 10.35, '#f4eef2'); K.neon(1.5, .2, 9.34, 6, .26, 9.38, '#ff7eb6', false);
+      K.box(4.8, 1.1, 9.6, 5.3, 1.45, 10, '#18181c');
+      // the fitting room behind a red curtain
+      K.box(-7.9, 0, 9.6, -6.2, 2.6, 9.7, '#2a2230', true); K.box(-6.2, .3, 9.7, -6.15, 2.5, 11.9, '#b0102a');
+      pl.sign = liveSign('-z', 0, 3.5, 11.83, 4.6, 1.1);
+      spots.push(K.spot({ kind: 'idle', x: 3.8, z: 11, heading: Math.PI, type: 'business_f', home: true }));
+      spots.push(K.spot({ kind: 'idle', x: -5.8, z: 3, heading: Math.PI / 2, type: 'business_m', home: true }));
+      for (const [x, z] of [[-2.5, 2.5], [2.6, 7]]) spots.push(K.spot({ kind: 'idle', x, z, heading: Math.random() * 6, type: pick(['tourist_f', 'business_f', 'beach_f']) }));
+      pl.attach = () => {
+        pl.interactions = [
+          { ...pl.P(3.8, 8.7), r: 1.8, short: 'КАССА', label: () => pl.info ? 'Каталог · ' + pl.info.title : 'Каталог', use: ask(pl, 'buy') },
+          { ...pl.P(-6.9, 8.7), r: 1.5, short: 'ПРИМЕРКА', label: () => 'Примерочная: ваш гардероб', use: () => G.ui.wardrobe() }
+        ];
+      };
+    }
+
+    /* --- café: a counter with the menu over it, a kitchen behind, tables and booths --- */
+    {
+      const pl = shared('shop_food', 'Кафе', { inside: [0, -3.4, 0], exit: [0, -4.3], bounds: [-9, -5, 9, 9], light: lit('#fff2e2', '#7a5a50', .95), music: 'diner' });
+      K.at(pl.ox, pl.oz);
+      K.room(-9, -5, 9, 9, 3.8, { wall: '#f7efe2', ceil: '#2a1c18', trim: '#3a2620', neon: '#ffb347', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-9, -5, 9, 9, T.checker, 1.2);
+      // counter and register, the kitchen line behind it
+      K.box(-6, 0, 5, 6, 1.05, 5.8, '#b0302a', true); K.box(-6.05, 1.05, 4.95, 6.05, 1.12, 5.85, '#e8e2d6'); K.neon(-6, .2, 4.94, 6, .26, 4.98, '#ffb347', false);
+      K.box(-3.2, 1.12, 5.1, -2.6, 1.5, 5.6, '#18181c');
+      K.box(-8.9, 0, 7, 8.9, 1.0, 8.9, '#9aa2ae', true); K.box(-8.9, 1.0, 7, 8.9, 1.05, 8.9, '#c8ccd4');
+      for (const x of [-6, -3, 0, 3]) { K.box(x, 1.05, 7.5, x + 1.6, 1.15, 8.6, '#2a2a30'); K.neon(x + .3, 1.15, 7.8, x + 1.3, 1.18, 8.3, '#ff6a3a', false); }
+      K.box(-8.9, 2.0, 8.4, 8.9, 2.4, 8.9, '#c8ccd4');
+      for (const [x, title, col] of [[-6, 'МЕНЮ', '#ffb347'], [6, 'ГОРЯЧЕЕ', '#ff4fa3']]) K.picture('-z', x, 3.05, 8.83, 3, 1.0, T.sign(title, 'вкусно · быстро · неплохо', col));
+      pl.sign = liveSign('-z', 0, 3.05, 8.82, 4, 1.1);
+      // tables with chairs, booths down the left wall
+      for (const [x, z] of [[3, -2], [6.5, -2], [3, 1.6], [6.5, 1.6]]) {
+        K.box(x - .5, 0, z - .5, x + .5, .76, z + .5, '#e8e2d6', true); K.box(x - .06, 0, z - .06, x + .06, .74, z + .06, '#9aa2ae');
+        for (const s of [-1, 1]) K.box(x - .25, 0, z + s * .85 - .2, x + .25, .46, z + s * .85 + .2, '#b0302a');
+      }
+      for (const z of [-2.5, 1.2]) {
+        K.box(-8.9, 0, z - 1.3, -6.4, .5, z - .8, '#b0302a', true); K.box(-8.9, .5, z - 1.3, -6.4, 1.3, z - 1.1, '#b0302a');
+        K.box(-8.9, 0, z + .8, -6.4, .5, z + 1.3, '#b0302a', true); K.box(-8.9, .5, z + 1.1, -6.4, 1.3, z + 1.3, '#b0302a');
+        K.box(-8.6, 0, z - .6, -6.8, .76, z + .6, '#e8e2d6', true);
+        K.neon(-8.95, 2.2, z - .8, -8.9, 2.3, z + .8, '#ffb347');
+      }
+      spots.push(K.spot({ kind: 'idle', x: 0, z: 6.4, heading: Math.PI, type: 'cook', home: true }));
+      spots.push(K.spot({ kind: 'idle', x: -4.5, z: 6.3, heading: Math.PI, type: 'waitress', home: true }));
+      for (const [x, z] of [[2.4, -.2], [7.2, 3.2]]) spots.push(K.spot({ kind: 'idle', x, z, heading: Math.random() * 6, mix: 'downtown' }));
+      pl.attach = () => {
+        pl.interactions = [{ ...pl.P(-1.5, 4.2), r: 2.0, short: 'МЕНЮ', label: () => pl.info ? 'Меню · ' + pl.info.title : 'Меню', use: ask(pl, 'menu') }];
+      };
+    }
+
+    /* --- 24/7 store: aisles of shelves, glowing fridges, a till by the door --- */
+    {
+      const pl = shared('shop_market', 'Магазин 24/7', { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 10], light: lit('#f2fbff', '#6a7a80', 1.05) });
+      K.at(pl.ox, pl.oz);
+      K.room(-8, -6, 8, 10, 3.6, { wall: '#eef3f4', ceil: '#f6f8fa', trim: '#2a8a5a', neon: '#5fd38a', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.floor(-8, -6, 8, 10, T.tiles, 1);
+      const GOODS = ['#ff4f4f', '#ffd84f', '#3fa8ff', '#5fd38a', '#ff8a3d', '#c28bff', '#f5f5f0', '#ff7eb6'];
+      for (const x of [-4.2, 0, 4.2]) {
+        K.box(x - .5, 0, -1, x + .5, 1.9, 7, '#d8dce4', true);
+        for (const y of [.35, .85, 1.35]) for (let z = -.8; z < 6.8; z += .38) for (const s of [-1, 1]) K.box(x + s * .5 - (s > 0 ? 0 : .22), y, z, x + s * .5 + (s > 0 ? .22 : 0), y + rand(.25, .42), z + .3, pick(GOODS));
+      }
+      // fridges down the back wall
+      for (let x = -7.5; x < 7.4; x += 1.5) { K.box(x, 0, 9.2, x + 1.4, 2.4, 9.95, '#c8ccd4', true); K.neon(x + .08, .2, 9.18, x + 1.32, 2.25, 9.2, '#bfefff', false); for (const y of [.5, 1.1, 1.7]) K.box(x + .15, y, 9.12, x + 1.25, y + .3, 9.17, pick(GOODS)); }
+      // the till with a lottery stand
+      K.box(4, 0, -4.4, 7.9, 1.0, -3.4, '#2a8a5a', true); K.box(3.95, 1.0, -4.45, 7.95, 1.05, -3.35, '#e8e2d6'); K.box(6.4, 1.05, -4.2, 6.9, 1.4, -3.7, '#18181c');
+      K.box(7.5, 1.05, -4.3, 7.9, 1.9, -3.5, '#ffd84f');
+      pl.sign = liveSign('-x', 7.83, 2.7, 3, 4, 1.1);
+      spots.push(K.spot({ kind: 'idle', x: 5.8, z: -2.9, heading: Math.PI, type: 'business_m', home: true }));
+      for (const [x, z] of [[-2, 2], [2.1, 4.5]]) spots.push(K.spot({ kind: 'idle', x, z, heading: Math.random() * 6, mix: 'downtown' }));
+      pl.attach = () => {
+        pl.interactions = [{ ...pl.P(5.6, -5), r: 1.8, short: 'КАССА', label: () => pl.info ? 'Касса · ' + pl.info.title : 'Касса', use: ask(pl, 'menu') }];
+      };
+    }
+
+    /* --- homes: the same three things to do in each --- */
+    function homeInteractions(pl, bed, closet, desk) {
+      pl.attach = () => {
+        pl.interactions = [
+          { ...pl.P(bed[0], bed[1]), r: 1.8, short: 'СПАТЬ', label: () => 'Спать и сохраниться', use: ask(pl, 'sleep') },
+          { ...pl.P(closet[0], closet[1]), r: 1.5, short: 'ОДЕЖДА', label: () => 'Гардероб', use: () => G.ui.wardrobe() },
+          { ...pl.P(desk[0], desk[1]), r: 1.5, short: 'ДОМ', label: () => 'Жильё: оплата и продажа', use: ask(pl, 'home') }
+        ];
+      };
+    }
+    const sofa = (x0, z0, x1, z1, hex, back) => { K.box(x0, 0, z0, x1, .45, z1, hex, true); if (back === '+z') K.box(x0, .45, z1 - .25, x1, 1.05, z1, hex); if (back === '-x') K.box(x0, .45, z0, x0 + .25, 1.05, z1, hex); };
+    const bedAt = (x, z, w, l, cover) => { K.box(x - w / 2, 0, z - l / 2, x + w / 2, .45, z + l / 2, '#3a2a30', true); K.box(x - w / 2 + .05, .45, z - l / 2 + .05, x + w / 2 - .05, .6, z + l / 2 - .05, '#f5f0ec'); K.box(x - w / 2 + .05, .6, z - l / 2 + .05, x + w / 2 - .05, .64, z + l / 4, cover); K.box(x - w / 2, .45, z + l / 2 - .1, x + w / 2, 1.3, z + l / 2, '#3a2a30'); };
+    const windowView = (face, x, y, z, w, h, night) => K.picture(face, x, y, z, w, h, K.tex(512, 256, (g, W, H) => {
+      const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, night ? '#1a1240' : '#7ac8ff'); gr.addColorStop(1, night ? '#ff6aa8' : '#ffd9a8'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      for (let k = 0; k < 14; k++) { const bw = 20 + Math.random() * 30, bh = 40 + Math.random() * 140, bx = Math.random() * W; g.fillStyle = night ? '#2a1c40' : '#8aa0b8'; g.fillRect(bx, H - bh, bw, bh); g.fillStyle = night ? '#ffd58a' : '#d8e4f0'; for (let y = H - bh + 6; y < H - 6; y += 12) for (let xx = bx + 4; xx < bx + bw - 4; xx += 8) if (Math.random() < .5) g.fillRect(xx, y, 4, 6); }
+      g.fillStyle = '#1a1a22'; g.fillRect(0, 0, W, 6); g.fillRect(0, H - 6, W, 6); g.fillRect(W / 2 - 3, 0, 6, H);
+    }, false));
+
+    // an apartment: one big room — sofa and TV, a kitchen corner, the bed behind a half wall
+    {
+      const pl = shared('home_flat', 'Квартира', { inside: [0, -3.4, 0], exit: [0, -4.3], bounds: [-6, -5, 6, 7], light: lit('#fff4ea', '#7a6a64', 1.0) });
+      K.at(pl.ox, pl.oz);
+      K.room(-6, -5, 6, 7, 3.0, { wall: '#efe8e0', ceil: '#f6f2ee', trim: '#6a5040', neon: '#3fe6e0', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.5 }] } });
+      K.floor(-6, -5, 6, 7, T.wood, 2); K.floor(-4.8, -1.6, -1.6, 1.6, T.carpetPink, 1.5, .01);
+      windowView('-z', -3, 1.7, 6.83, 3.6, 1.6, true);
+      sofa(-5.9, -1.2, -5.0, 1.2, '#4a5a8a', '-x'); K.box(-4.2, 0, -.5, -3.2, .4, .5, '#6a5040', true);
+      K.box(-1.2, 0, -.8, -.9, .7, .8, '#2a2a30', true); K.box(-1.15, .7, -.6, -1.05, 1.5, .6, '#141418'); K.screen('-x', -1.16, 1.1, 0, 1.15, .65, 2);
+      // kitchen corner
+      K.box(3.6, 0, -4.9, 5.9, .9, -2.4, '#f2f2f2', true); K.box(3.55, .9, -4.95, 5.95, .95, -2.35, '#3a3a40'); K.box(5.3, 0, -2.3, 5.9, 2.0, -1.5, '#d8dce4', true);
+      K.box(4.0, .95, -4.6, 4.6, 1.0, -4.0, '#18181c');
+      // the bedroom behind a half wall
+      K.box(.5, 0, 2.6, 6, 1.4, 2.8, '#e2dad2', true);
+      bedAt(3.6, 5.4, 2.0, 2.6, '#3fa8c8');
+      K.box(.6, 0, 5.8, 1.3, 2.2, 6.9, '#8a6a50', true);
+      K.neon(5.94, 1.8, 4, 5.98, 1.9, 6.6, '#ff7eb6');
+      homeInteractions(pl, [3.6, 3.5], [1.8, 6.2], [-1.8, -3.6]);
+    }
+
+    // a house: a living room with a fireplace and a dining table, a kitchen, a bedroom through a door
+    {
+      const pl = shared('home_house', 'Дом', { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 12], light: lit('#fff6ec', '#7a6a58', 1.0) });
+      K.at(pl.ox, pl.oz);
+      K.room(-8, -6, 8, 5, 3.2, { wall: '#f3ece0', ceil: '#faf6f0', trim: '#7a5a3a', neon: '#ffb347', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.5 }], '+z': [{ c: 4, w: 1.4, h: 2.4 }] } });
+      K.floor(-8, -6, 8, 5, T.wood, 2); K.floor(-7, -3, -2, 1.5, T.casino, 2, .01);
+      windowView('+x', 7.83, 1.7, -3.5, 3, 1.4, false);
+      sofa(-7.9, -2.6, -6.9, 1.2, '#7a3a3a', '-x'); sofa(-6.5, 1.2, -3, 2.1, '#7a3a3a', '+z');
+      // the fireplace, glowing
+      K.box(-5.5, 0, 4.4, -2.5, 1.6, 4.9, '#8a7a6a', true); K.box(-4.6, .1, 4.35, -3.4, 1.0, 4.4, '#1a1010'); K.neon(-4.4, .15, 4.36, -3.6, .5, 4.38, '#ff8a3d');
+      K.box(-5.7, 1.6, 4.3, -2.3, 1.72, 4.95, '#6a5040');
+      // the dining table, the kitchen along the right wall
+      K.box(1, 0, -1.5, 3.6, .78, .1, '#8a6a50', true); for (const z of [-1.1, -.3]) for (const x of [.6, 4.0]) K.box(x - .2, 0, z - .2, x + .2, .48, z + .2, '#5a4030');
+      K.box(6.2, 0, -1, 7.9, .9, 2.8, '#f2f2f2', true); K.box(6.15, .9, -1.05, 7.95, .95, 2.85, '#3a3a40'); K.box(6.2, 0, 3.2, 7.9, 2.1, 4.6, '#d8dce4', true);
+      K.box(6.4, .95, .2, 7.2, 1.0, 1.0, '#18181c');
+      // the bedroom
+      K.room(0, 5.3, 8, 12, 3.2, { wall: '#eef0f6', ceil: '#f6f6fa', trim: '#7a5a3a', neon: '#b388ff', gaps: { '-z': [{ c: 4, w: 1.4, h: 2.4 }] } });
+      K.floor(0, 5.3, 8, 12, T.wood, 2);
+      bedAt(4.6, 10.4, 2.2, 2.8, '#b388ff');
+      K.box(.3, 0, 7.6, 1.0, 2.4, 11.6, '#8a6a50', true);
+      windowView('-z', 4.6, 2.3, 11.83, 2.6, 1.0, true);
+      homeInteractions(pl, [4.6, 8.4], [1.7, 9.6], [-1.8, -4.4]);
+    }
+
+    // a mansion: a tall marble hall, a bar, a white piano, an aquarium wall, a master bedroom
+    {
+      const pl = shared('home_mansion', 'Особняк', { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-12, -6, 12, 18], light: lit('#fff8f0', '#8a7a70', 1.05), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      const GOLD = '#c9a04a';
+      K.room(-12, -6, 12, 10, 6, { wall: '#f8f4ee', ceil: '#fbf8f2', trim: GOLD, neon: '#ffd84f', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }], '+z': [{ c: 6, w: 1.6, h: 2.6 }] } });
+      K.floor(-12, -6, 12, 10, T.marble, 3); K.floor(-3, -2, 3, 6, T.casino, 2.5, .01);
+      for (const x of [-11.9, 11.9]) for (const z of [-3, 1.5, 6]) K.box(x - .12, 0, z - .2, x + .12, 6, z + .2, GOLD);
+      // a chandelier
+      K.box(-.03, 4.6, 2 - .03, .03, 6, 2 + .03, GOLD);
+      for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, x = Math.cos(a) * 1.1, z = 2 + Math.sin(a) * 1.1; K.neon(x - .04, 4.2, z - .04, x + .04, 4.55, z + .04, '#fff6dc', k % 2 === 0); }
+      // sofas round a glass table, the white piano, the bar with bottles
+      sofa(-3, -1.8, 3, -1, '#f5f0ec', '+z'); sofa(-3, 5, 3, 5.8, '#f5f0ec', '+z'); K.box(-1.2, 0, 1.4, 1.2, .42, 2.6, '#9fdfff', true);
+      K.box(7, 0, 2, 9.2, 1.0, 4.4, '#f8f8f8', true); K.box(7, 1.0, 3.9, 9.2, 1.6, 4.4, '#f8f8f8'); K.box(7.1, 1.0, 2.0, 9.1, 1.04, 2.5, '#18181c');
+      K.box(-11.9, 0, -5, -10, 1.1, 1, '#2a1a20', true); K.box(-11.95, 1.1, -5.05, -9.95, 1.16, 1.05, GOLD);
+      for (let z = -4.6; z < .8; z += .32) K.box(-11.8, 1.6, z, -11.6, 1.6 + rand(.3, .5), z + .14, pick(['#5fd38a', '#ffb347', '#c9a04a', '#ff6b8a', '#bfefff']));
+      K.box(-11.9, 1.55, -5, -11.5, 1.6, 1, '#d8dce4'); K.neon(-11.88, 2.4, -5, -11.84, 2.5, 1, '#ffd84f');
+      // the aquarium wall
+      K.box(-11.9, .4, 3, -11.4, 3.6, 9, '#1a3a6a'); K.screen('+x', -11.38, 2, 6, 5.8, 3.0, 3);
+      K.neon(-11.4, 3.6, 3, -11.3, 3.68, 9, '#3fe6e0');
+      windowView('-z', -3, 3.4, 9.83, 9, 3.6, true);
+      // the master bedroom through the back door
+      K.room(0, 10.3, 12, 18, 3.6, { wall: '#f6eef2', ceil: '#fbf6f8', trim: GOLD, neon: '#ff7eb6', gaps: { '-z': [{ c: 6, w: 1.6, h: 2.6 }] } });
+      K.floor(0, 10.3, 12, 18, T.pinkMarble, 2.5);
+      const bed = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, .55, 32).translate(0, .275, 0), new THREE.MeshLambertMaterial({ color: 0xffffff })); bed.position.set(K.wx(6), 0, K.wz(15.4)); scene.add(bed);
+      const cover = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.65, .12, 32).translate(0, .6, 0), new THREE.MeshLambertMaterial({ color: 0xc9a04a })); cover.position.copy(bed.position); scene.add(cover);
+      K.solid(4.3, 0, 13.7, 7.7, .66, 17.1);
+      K.box(.3, 0, 12, 1.1, 2.8, 17, '#e8dce4', true);
+      windowView('+x', 11.83, 2, 14, 4, 1.8, true);
+      homeInteractions(pl, [6, 13.1], [1.8, 14.5], [-2.2, -4.4]);
+    }
+
     K.finish();
 
     /* =====================================================================
@@ -1859,12 +2073,26 @@
           if (d > 1.8) { m.armed = true; continue; }
           if (!m.armed || !onFoot || d > .85 || Math.abs(player.y - m.g.position.y) > 1.5) continue;
           m.armed = false;
+          if (m.dir === 'in' && m.info) {
+            // one of the many doors into a shared room: it may be locked (a home you don't own), and it
+            // tells the room who it is this time — the name, the sign, the menu, the way back out
+            if (m.info.enabled && !m.info.enabled()) { if (m.info.locked) m.info.locked(); continue; }
+            const pl = m.place; pl.door = m.door; pl.info = m.info; pl.name = m.info.name || pl.name;
+            if (pl.sign) pl.sign(m.info.title, m.info.sub, m.info.hex);
+            return m;
+          }
           if (m.dir === 'in' && !m.place.enabled()) { G.flash(m.place.locked ? m.place.locked() : 'Закрыто', 2.4); continue; }
           return m;
         }
         return null;
       },
       disarm() { for (const m of markers) m.armed = false; },
+      // another door into a shared room (shops.js): door { x, z, y, nx, nz, heading, hex }, info { name, title, sub, hex, use, enabled, locked }
+      addDoor(id, door, info) {
+        const pl = api.byId(id); if (!pl) return null;
+        const m = marker(door.x, door.y != null ? door.y : .15, door.z, door.hex || '#ffd84f', pl, 'in');
+        m.door = door; m.info = info; markers.push(m); return m;
+      },
       // things to use right here: inside the current interior, or out in the city
       interactions() { return api.current ? api.current.interactions : outdoor; },
       update(dt) {

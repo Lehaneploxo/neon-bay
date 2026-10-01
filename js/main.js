@@ -161,8 +161,8 @@
     const online = NB.online;
     if (online && online.replacing) return;   // the server's copy is being loaded in: don't write over it
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats } = progress, guardsN = guards ? guards.list : progress.guards;
-    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, guards: guardsN, _t: online ? online.now() : Date.now() };
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn } = progress, guardsN = guards ? guards.list : progress.guards;
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, guards: guardsN, _t: online ? online.now() : Date.now() };
     try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
     if (online) online.push(data, urgent === true);
     saveT = 0;
@@ -315,6 +315,43 @@
   guards = NB.createGuards({ crowd, vehicles, player, progress, flash: (t, sec) => flashTip(t, sec), say: (p, t) => say(p, t) });
   const securityDoor = world.security ? [{ x: world.security.x, z: world.security.z, r: 2, short: 'ОХРАНА', label: () => 'Охранное агентство Shield Security', use: () => ui.security(guards) }] : [];
   const fashionDoor = [];   // Neon Fashion is a boutique you walk into (places.js)
+  // every way in gets a storefront you can't miss: neon frame, lit door, signs, an arrow and a name tag
+  const fronts = NB.buildEntrances(scene, world.col);
+  {
+    const ENT = {
+      ammo: ['AMMO BAY', 'оружие · патроны · тир', '🔫', 'ОРУЖИЕ', { canopy: false, board: false }],
+      bank: ['БАНК', 'Банк Неплохо Сити', '🏦', 'БАНК', { canopy: false }],
+      police: ['ПОЛИЦИЯ', '', '🚓', 'ПОЛИЦИЯ', { canopy: false, board: false }],
+      hospital: ['БОЛЬНИЦА', 'лечение · бронежилет · вертолёт', '🏥', 'БОЛЬНИЦА', { canopy: false, board: false }],
+      tower: ['NEPLOXO TOWER', 'лобби · лифт на крышу', '🏙', 'TOWER', { canopy: false, board: false }],
+      arcade: ['ИГРОВЫЕ АВТОМАТЫ', 'NEON RACER и другие', '🕹', 'ИГРЫ', { canopy: false }],
+      diner: ['ЗАКУСОЧНАЯ', 'бургеры · шейки · музыка', '🍔', 'ЕДА', { canopy: false }],
+      hotel: ['ОТЕЛЬ OCEAN', 'номера · бассейн на крыше', '🏨', 'ОТЕЛЬ', { canopy: false, board: false }],
+      casino: ['КАЗИНО', 'автоматы · рулетка', '🎰', 'КАЗИНО', { canopy: false }],
+      airport: ['АЭРОПОРТ', 'терминал · Duty Free', '✈', 'АЭРОПОРТ', { canopy: false, board: false }],
+      fashion: ['NOT BAD FASHION', 'бутик одежды', '👕', 'ОДЕЖДА', { canopy: false }],
+      prison: ['ТЮРЬМА', 'можно зайти посмотреть', '⛓', 'ТЮРЬМА', { canopy: false, board: false }],
+      boxing: ['NOT BAD BOXING', 'ринг · бои', '🥊', 'БОКС', { canopy: false, board: false }],
+      gym: ['NEPLOXO GYM', 'сила · выносливость', '🏋', 'ЗАЛ', { canopy: false, board: false }],
+      strip: ['NOT BAD GIRLS', 'круглосуточно', '💃', 'КЛУБ', { canopy: false }],
+      villa: ['ВИЛЛА', '', '🏠', 'ВИЛЛА', { canopy: false, board: false, blade: false }]
+    };
+    for (const id in ENT) {
+      const p = places.byId(id); if (!p || !p.door) continue;
+      const [title, sub, icon, tag, opt] = ENT[id], d = p.door;
+      const e = fronts.add(Object.assign({ x: d.x, z: d.z, y: d.y, nx: d.nx, nz: d.nz, hex: d.hex || '#ffd84f', title, sub, icon, tag }, opt));
+      if (id === 'villa') { e.hintFn = () => progress.villa ? 'ВАШ ДОМ' : 'ПРОДАЁТСЯ · $' + places.VILLA_PRICE.toLocaleString('ru-RU'); }
+    }
+    if (world.security) { const s = world.security; fronts.add({ x: s.x, z: s.z, ...doorDir(s), hex: '#3fe6e0', title: 'SHIELD SECURITY', sub: 'телохранители · $1 000', icon: '🛡', tag: 'ОХРАНА', hint: 'ОХРАНА · подойдите к двери', canopy: false, ring: true }); }
+    if (world.club) fronts.add({ x: world.club.door.out[0], z: world.club.door.z, nx: 1, nz: 0, wall: world.club.door.out[0] - world.club.door.x, hex: '#ff4fa3', title: 'NEPLOXO 21', sub: 'диско-клуб', icon: '🪩', tag: 'КЛУБ', canopy: false, board: false });
+  }
+  // the direction a door looks, from where it stands next to its building's centre
+  function doorDir(d) { const dx = d.x - d.cx, dz = d.z - d.cz; return Math.abs(dx) > Math.abs(dz) ? { nx: Math.sign(dx), nz: 0 } : { nx: 0, nz: Math.sign(dz) }; }
+  // shops, cafés, 24/7 stores and homes for sale all over the city (shops.js)
+  const shops = NB.createShops({ places, fronts, ui, player, progress, money: wallet, audio, drunk: s => { drunkT = s; },
+    flash: (t, s) => flashTip(t, s), save: saveProgress, sleep, leave: () => { if (places.current) exitPlace(places.current); } });
+  fronts.finish();
+  { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
   let interact = null;
   function findInteraction() {
@@ -680,6 +717,7 @@
     icon(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', false);
     if (world.fashion) icon(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', false);
     if (world.security) icon(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', false);
+    for (const s of shops.icons()) icon(s.x, s.z, s.bg, s.fg, s.ch, !!s.mine);   // shops, cafés, homes (yours stay at the edge)
     if (world.bay) icon(503, -433, '#3f8fe6', '#fff', '✈', false);
     if (world.tropic) icon(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', false);
     if (world.military) icon(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', false);
@@ -715,6 +753,7 @@
     add(places.tiki.x, places.tiki.z, '#a8743c', '#fff', 'T', 'Тики-бар');
     if (world.fashion) add(world.fashion.cx, world.fashion.cz, '#ff7eb6', '#fff', '👕', 'Бутик NOT BAD Fashion');
     if (world.security) add(world.security.cx, world.security.cz, '#1c2a3e', '#3fe6e0', '🛡', 'Охранное агентство Shield Security: телохранители');
+    for (const s of shops.icons()) add(s.x, s.z, s.bg, s.fg, s.ch, s.label);
     if (world.bay) add(503, -433, '#3f8fe6', '#fff', '✈', 'Аэропорт LEHA NEPLOXO International');
     if (world.tropic) add(world.tropic.center.x, world.tropic.center.z, '#3cc850', '#fff', '🐢', 'Остров Лёхи: необитаемый, только на лодке или вертолёте');
     if (world.military) add(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', 'Остров Омега-21: секретная военная база, вход запрещён');
@@ -923,7 +962,7 @@
       fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
-      places.update(dt);
+      places.update(dt); shops.tick(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       // the edge of the world: open ocean
@@ -984,6 +1023,7 @@
     sky.position.copy(camera.position);
     env.px = fx; env.pz = fz;
     world.update(now / 1000, env);
+    fronts.update(now / 1000, camera.position, env.night || 0, !!inside);
     // venue music: the building you're in, else the club or the tiki bar if you're close (muffled through walls)
     if (state === 'menu') audio.venue(null, 0, false);
     else {

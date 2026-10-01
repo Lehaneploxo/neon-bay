@@ -64,6 +64,13 @@
       const s = NB.SLOTS.find(x => x.id === slot) || NB.SLOTS[0];
       menu({ eyebrow: 'Бутик NOT BAD Fashion', title: s.name, items: () => catalog(s.id).map(k => piece(s.id, k)) });
     }
+    // a boutique in the city with its own line: stock { slot: [keys] | true (the whole catalogue) }
+    function boutique(name, stock) {
+      menu({ eyebrow: 'Бутик ' + name, title: 'Каталог', items: () => NB.SLOTS.flatMap(s => {
+        const want = stock[s.id]; if (!want) return [];
+        return catalog(s.id).filter(k => k !== 'none' && (want === true || want.includes(k))).map(k => piece(s.id, k));
+      }) });
+    }
     function jewels() {
       menu({ eyebrow: 'Бутик NOT BAD Fashion', title: 'Цепи и часы', items: () => catalog('chain').map(k => piece('chain', k)).concat(catalog('watch').map(k => piece('watch', k))) });
     }
@@ -286,6 +293,6 @@
       rg.fillText('ОЧКИ ' + (R.score || 0), 12, 12); rg.textAlign = 'right'; rg.fillText('РЕКОРД ' + (o.progress.records.racer || 0), W - 12, 12);
     }
 
-    return { menu, wardrobe, clothes, jewels, womens, security, slots, roulette, racer, close, get open() { return open; } };
+    return { menu, wardrobe, clothes, boutique, jewels, womens, security, slots, roulette, racer, close, get open() { return open; } };
   };
 })(window.NB);
