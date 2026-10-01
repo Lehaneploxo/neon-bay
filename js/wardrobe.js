@@ -73,7 +73,14 @@
     bucket: P('Панамка', 120, 0xf5e6a8, { kind: 'bucket' }), panama: P('Панама', 350, 0xf5f0e0, { kind: 'fedora', band: 0x141418 }),
     cowboy: P('Ковбойская шляпа', 450, 0x8a5a2a, { kind: 'cowboy' }), fedora: P('Федора', 600, 0x2a2a30, { kind: 'fedora', band: 0xb0203a }),
     tophat: P('Цилиндр', 1500, 0x141418, { kind: 'tophat' }), crown: P('Золотая корона', 25000, 0xe8c547, { kind: 'crown' }),
-    police: P('Фуражка', 0, 0x18223c, { kind: 'police', hidden: true })
+    police: P('Фуражка', 0, 0x18223c, { kind: 'police', hidden: true }),
+    medcap: P('Кепка медика', 0, 0xf5f7f8, { kind: 'cap', hidden: true }),
+    helmet: P('Каска пожарного', 0, 0xc81e1e, { kind: 'helmet', hidden: true })
+  });
+  // the service uniforms (handed out at the hospital and the fire station, never sold)
+  Object.assign(top, {
+    medic: { name: 'Форма медика', price: 0, hidden: true, sleeves: 'short', tex: tee('#f5f7f8', '#d8dde0', (g, s) => { g.fillStyle = '#d42a2a'; g.fillRect(s * .62, s * .3, s * .2, s * .07); g.fillRect(s * .685, s * .235, s * .07, s * .2); g.fillStyle = '#2a8a9a'; g.fillRect(0, s * .9, s, s * .1); }) },
+    fire: { name: 'Боёвка пожарного', price: 0, hidden: true, sleeves: 'long', sleeve: '#4a4232', tex: jacket('#4a4232', '#3a3428', (g, s) => { for (const y of [.55, .8]) { g.fillStyle = '#e8e2c0'; g.fillRect(0, s * y, s, s * .06); g.fillStyle = '#e8c547'; g.fillRect(0, s * y + s * .06, s, s * .03); } }) }
   });
   Object.assign(glasses, {
     none: P('Без очков', 0), nerd: P('Очки ботаника', 90, 0x141418, { kind: 'nerd' }), shutter: P('Неоновые «жалюзи»', 120, 0x3fe6e0, { kind: 'shutter' }),
@@ -118,6 +125,7 @@
     const H = m.head, A = {}, add = (kind, fn) => { const g = new THREE.Group(); g.visible = false; H.add(g); const c = mat(0xffffff), c2 = mat(0x141418); fn(g, c, c2); A[kind] = { g, c, c2 }; };
     add('cap', (g, c) => { box(g, .25, .09, .26, c, 0, .38, -.005); box(g, .25, .03, .16, c, 0, .345, .1); });
     add('police', (g, c, c2) => { box(g, .25, .09, .26, c, 0, .38, -.005); box(g, .25, .03, .16, c2, 0, .34, .1); box(g, .06, .05, .02, mat(0xe8c547), 0, .39, .13); });
+    add('helmet', (g, c) => { box(g, .27, .12, .28, c, 0, .4, -.005); box(g, .3, .025, .36, c, 0, .345, -.03); box(g, .06, .05, .02, mat(0xe8c547), 0, .42, .14); });
     add('bandana', (g, c) => { box(g, .245, .08, .255, c, 0, .33, -.005); box(g, .08, .06, .08, c, 0, .3, -.15); });
     add('beanie', (g, c) => { box(g, .255, .14, .265, c, 0, .38, -.005); box(g, .26, .04, .27, c, 0, .31, -.005); });
     add('bucket', (g, c) => { box(g, .25, .1, .26, c, 0, .4, -.005); box(g, .34, .035, .35, c, 0, .35, -.005); });

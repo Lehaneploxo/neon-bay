@@ -672,6 +672,12 @@
       p.fightT -= dt; p.punchT -= dt;
       // a bodyguard who stepped in becomes the one to fight (while he's standing and close)
       const foe = p.foe && !p.foe.dead && !p.foe.down && people.includes(p.foe) && Math.hypot(p.foe.x - p.x, p.foe.z - p.z) < 12 ? p.foe : null;
+      if (!foe && p.brawl) {
+        const was = p.foe; p.brawl = false; p.foe = null; p.fightT = 0;
+        if (p.suspect && was) { p.fleeT = rand(12, 16); p.fleeX = was.x; p.fleeZ = was.z; bumpCallback(p, pick(['Валим отсюда!', 'Сам виноват!', 'Получил своё!'])); }
+        else resumeRoute(p);
+        return;
+      }
       if (!foe) p.foe = null;
       const T = foe || player;
       const dx = T.x - p.x, dz = T.z - p.z, d = Math.hypot(dx, dz) || .001;
@@ -1215,7 +1221,7 @@
         if (src && src.byPlayer && p.gang) provoke(p.gang, p.x, p.z);
         // fists and the bat knock people out (the ambulance or a few minutes brings them round); guns and cars kill
         if (p.hp <= 0 && src && src.kind === 'melee' && !p.medic) {
-          p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
+          p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false; p.brawl = false;
           if (src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
           if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
           if (p.gang) gangLoss(p);
@@ -1231,7 +1237,7 @@
           return;
         }
         if (!p.cop && !p.medic && p.hp < p.maxHp * .3 && src && src.kind === 'car') {
-          p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false;
+          p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false; p.brawl = false;
           if (src.x != null) p.heading = Math.atan2(src.x - p.x, src.z - p.z);
           call('onHurt', p, src); call('onDown', p, src);
           return;
@@ -1280,6 +1286,12 @@
       releaseMedic(p) { if (people.includes(p)) { p.medic = null; resumeRoute(p); } },
       despawnPerson(p) { if (people.includes(p)) despawn(p); },
       // paramedics got them back on their feet
+      // two passers-by come to blows: a, the one who starts it, is a suspect for the police afterwards
+      brawl(a, b) {
+        for (const [p, q] of [[a, b], [b, a]]) { detachSpot(p); p.foe = q; p.fightT = 30; p.punchCD = rand(.3, 1); p.brawl = true; p.fleeT = 0; p.dodge = null; }
+        a.suspect = true; a.suspectT = 0;
+        bumpCallback(a, pick(FIGHT_PHRASES)); bumpCallback(b, pick(['Ты кто такой?!', 'Отвали от меня!', 'Сам напросился!']));
+      },
       revive(p, hp) {
         if (!people.includes(p)) return;
         p.dead = false; p.down = false; p.hp = Math.min(p.maxHp, hp || 60); p.anim = 'idle'; p.fallT = 0; p.deadT = 0; p.ems = null;

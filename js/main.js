@@ -100,7 +100,7 @@
       const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto || !!promptCar.autopilot, isPolice = !!promptCar.police;
       const ej = vehicles.enter(promptCar, player);
       if (ej) { if (ej.cop || isPolice) crowd.spawnCop(0, 0, 0, 0, 0, 0, ej.x, ej.z); else crowd.ejectDriver(ej.x, ej.z, ej.h); }
-      if (isPolice) police.reportCrime('copcar', player.x, player.z); else if (wasDriven) police.reportCrime('carjack', player.x, player.z);
+      if (isPolice && !(jobs && jobs.duty === 'police')) police.reportCrime('copcar', player.x, player.z); else if (wasDriven) police.reportCrime('carjack', player.x, player.z);
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
       document.body.classList.add('driving');
       showDistrict(promptCar.model.name);
@@ -220,8 +220,10 @@
   const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
-  const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s) });
+  let jobs = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
+  const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
+    hold: p => !!jobs && jobs.holdEMS(p),
     crowd, vehicles, say: (p, t) => say(p, t),
     onDispatch: u => { if (Math.hypot(u.patient.x - player.x, u.patient.z - player.z) < 45) flashTip('Скорая выехала на вызов', 2); }
   });
@@ -359,6 +361,21 @@
     flash: (t, s) => flashTip(t, s), save: saveProgress, sleep, leave: () => { if (places.current) exitPlace(places.current); }, villa: { price: places.VILLA_PRICE } });
   placeCtx.homeOk = id => shops.ok(id);   // the villa's door opens only while its rent is paid
   fronts.finish();
+  // city jobs: sign on at the police station, the hospital or the fire station
+  jobs = NB.createJobs({ crowd, vehicles, player, police, ui, audio, world, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t),
+    inside: () => !!places.current,
+    // the uniform: the police one is the station's (the police take you for one of theirs), the others are just worn
+    wear: id => { if (id === 'cop') setOutfit('cop'); else if (id) { if (progress.outfit === 'cop') setOutfit('own'); player.setOutfit(id); } else setOutfit('own'); } });
+  for (const [id, kind] of [['police', 'police'], ['hospital', 'ems']]) {
+    const pl = places.byId(id); if (!pl) continue;
+    pl.interactions.push({ x: pl.inside.x + 1.6, z: pl.inside.z + .6, r: 1.6, short: 'РАБОТА', label: () => jobs.duty === kind ? 'Закончить смену' : 'Работа: ' + jobs.JOBS[kind].title.toLowerCase(), use: () => jobs.desk(kind) });
+  }
+  const fireDesk = [];
+  if (world.fireStation) {
+    const fx = world.fireStation.center.x, fz = -57.9;
+    fronts.add({ x: fx, z: fz, nx: 0, nz: 1, hex: '#ff3344', title: 'ПОЖАРНАЯ ЧАСТЬ', sub: 'работа пожарным', icon: '🚒', tag: 'РАБОТА', hint: 'РАБОТА · подойдите к двери', canopy: false, board: false, ring: true });
+    fireDesk.push({ x: fx, z: fz, r: 2, short: 'РАБОТА', label: () => jobs.duty === 'fire' ? 'Закончить смену' : 'Работа: пожарный', use: () => jobs.desk('fire') });
+  }
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
   let interact = null;
@@ -366,7 +383,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.military ? world.military.interactions() : []);
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.military ? world.military.interactions() : [], fireDesk, jobs.interactions());
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -706,6 +723,7 @@
     };
     const dot = (p, r, c) => { if (!p) return; g.fillStyle = c; g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fill(); };
     for (const pk of combat.pickups) if (pk.active) dot(toMap(pk.x, pk.z), W * .02, pk.type === 'health' ? '#ff4f6a' : '#ffd84f');
+    if ((time * 3 | 0) % 2 === 0) for (const m of jobs.markers()) dot(toMap(m.x, m.z, true), W * .04, m.color);   // calls for the shift, blinking (at the edge when far)
     for (const c of combat.cashDrops) if (c.active) dot(toMap(c.x, c.z), W * .018, '#6bff8a');
     if (police.wanted > 0) {
       for (const p of crowd.people) if (p.cop && !p.dead) dot(toMap(p.x, p.z), W * .025, '#4f8cff');
@@ -986,7 +1004,7 @@
       fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
-      places.update(dt); shops.tick(dt);
+      places.update(dt); shops.tick(dt); jobs.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       // the edge of the world: open ocean

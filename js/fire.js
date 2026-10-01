@@ -65,9 +65,17 @@
     function release(u) { for (const m of u.crew) if (alive(m)) o.crowd.releaseMedic(m); u.crew = []; }
     function goHome(u) {
       if (u.fire && u.fire.fireUnit === u) u.fire.fireUnit = null;
-      u.state = 'leave'; u.t = 0; u.car.sirenOn = false;
-      if (st) o.vehicles.driveTo(u.car, st.exit.x + 3, st.exit.z - 3.5, 12);
+      u.state = 'leave'; u.t = 0; u.car.sirenOn = false; u.goal = null;
+      if (st) { u.goal = [st.exit.x + 3, st.exit.z - 3.5]; o.vehicles.driveTo(u.car, u.goal[0], u.goal[1], 12); }
     }
+    // is the engine getting any closer to where it's going? returns the seconds it has been stuck
+    function headway(u, dt) {
+      if (!u.goal) return 0;
+      const d = Math.hypot(u.car.x - u.goal[0], u.car.z - u.goal[1]);
+      if (u.best == null || d < u.best - 2) { u.best = d; u.stuckT = 0; } else u.stuckT = (u.stuckT || 0) + dt;
+      return u.stuckT;
+    }
+    const unseen = (car, player) => !car.visible || Math.hypot(car.x - player.x, car.z - player.z) > 70;
     return {
       units,
       update(dt, player) {
@@ -77,13 +85,13 @@
           scanT = 1;
           if (units.length < 2) {
             let best = null, bd = 150;
-            for (const c of o.vehicles.fires()) { if (c.fireUnit || c === o.vehicles.driving) continue; const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = c; } }
+            for (const c of o.vehicles.fires()) { if (c.fireUnit || c === o.vehicles.driving || (o.hold && o.hold(c))) continue; const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = c; } }
             if (best) {
               const car = o.vehicles.spawnDepot('firetruck', st.exit.x, st.exit.z, best.x, best.z);
               if (car) {
                 const [kx, kz] = o.vehicles.kerbPoint(best.x, best.z);
                 o.vehicles.driveTo(car, kx, kz, 15); car.sirenOn = true;
-                const u = { car, fire: best, state: 'drive', t: 0, crew: [] };
+                const u = { car, fire: best, state: 'drive', t: 0, crew: [], goal: [kx, kz] };
                 best.fireUnit = u; units.push(u);
                 if (Math.hypot(st.exit.x - player.x, st.exit.z - player.z) < 60 || bd < 60) o.flash('Пожарные выехали', 1.8);
               }
@@ -98,8 +106,12 @@
             units.splice(units.indexOf(u), 1); continue;
           }
           switch (u.state) {
-            case 'drive':
+            case 'drive': {
               if (!burning(f)) { goHome(u); break; }
+              const stuck = headway(u, dt);
+              if (stuck > 12 && unseen(car, player)) {   // nobody sees it: it gets there
+                car.x = u.goal[0]; car.z = u.goal[1]; car.vx = car.vz = 0; car.h = Math.atan2(f.x - car.x, f.z - car.z); u.best = null; u.stuckT = 0;
+              } else if (stuck > 25 && Math.hypot(car.x - f.x, car.z - f.z) < 45) car.goto = { arrived: true, x: car.x, z: car.z };   // stuck in sight: walk from here
               // stop short of the fire, the crew gets out
               if (Math.hypot(car.x - f.x, car.z - f.z) < 15 || (car.goto && car.goto.arrived)) {
                 car.goto = null; car.vx = car.vz = 0;
@@ -115,6 +127,7 @@
                 if (o.say && u.crew[0]) o.say(u.crew[0], SHOUT[(Math.random() * SHOUT.length) | 0]);
               } else if (u.t > 100) goHome(u);
               break;
+            }
             case 'approach':
               if (!burning(f)) { u.state = 'return'; u.t = 0; for (const m of u.crew) if (alive(m)) { m.medic.goal = [car.x, car.z]; m.medic.face = null; } break; }
               if (u.crew.every(m => !alive(m) || m.medic.arrived) || u.t > 12) { for (const m of u.crew) if (alive(m)) m.medic.anim = 'hose'; u.state = 'spray'; u.t = 0; }
@@ -132,8 +145,8 @@
               if (u.crew.every(m => !alive(m) || m.medic.arrived) || u.t > 20) { for (const m of u.crew) o.crowd.despawnPerson(m); u.crew = []; goHome(u); }
               break;
             case 'leave': {
-              const d = Math.hypot(car.x - player.x, car.z - player.z);
-              if ((d > 95 && !car.visible) || (car.goto && car.goto.arrived)) { o.vehicles.remove(car); units.splice(units.indexOf(u), 1); }
+              const d = Math.hypot(car.x - player.x, car.z - player.z), stuck = headway(u, dt);
+              if ((d > 70 && !car.visible) || (car.goto && car.goto.arrived) || (stuck > 12 && unseen(car, player)) || stuck > 40) { o.vehicles.remove(car); units.splice(units.indexOf(u), 1); }
               break;
             }
           }

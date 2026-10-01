@@ -36,7 +36,7 @@
           if (units.length < maxUnits) {
             let best = null, bd = 130;
             for (const p of o.crowd.people) {
-              if (!(p.dead || p.down) || p.ems || p.bodyguard || p.fallT < 2 || p.x > 1000) continue;   // not inside the buildings; the hero's bodyguards get no medics
+              if (!(p.dead || p.down) || p.ems || p.bodyguard || p.fallT < (o.hold && o.hold(p) ? 40 : 2) || p.x > 1000) continue;   // not inside the buildings; the hero's bodyguards get no medics
               const d = Math.hypot(p.x - player.x, p.z - player.z); if (d < bd) { bd = d; best = p; }
             }
             if (best) {

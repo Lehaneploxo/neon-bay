@@ -188,6 +188,8 @@
     // the police uniform from the station lockers; everything else is worn piece by piece (setLook)
     setOutfit(id) {
       if (id === 'cop') { NB.dressHero(this.m, { top: 'cop', pants: 'navy', shoes: 'black', hat: 'police' }); this.outfit = 'cop'; }
+      else if (id === 'medic') { NB.dressHero(this.m, { top: 'medic', pants: 'white', shoes: 'white', hat: 'medcap' }); this.outfit = 'medic'; }
+      else if (id === 'fire') { NB.dressHero(this.m, { top: 'fire', pants: 'olive', shoes: 'black', hat: 'helmet' }); this.outfit = 'fire'; }
       else this.setLook(this.look);
     }
     setLook(look) { this.look = NB.dressHero(this.m, look || {}); this.outfit = 'own'; }

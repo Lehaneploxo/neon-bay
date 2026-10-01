@@ -680,12 +680,13 @@
       }
       const want = Math.atan2(ax - car.x, az - car.z), diff = U.angDiff(car.h, want), vF = speedOf(car);
       let target = Math.min(G.speed || 13, Math.max(2, dist * .9));
-      if (Math.abs(diff) > 1) target = Math.min(target, 5);
+      const long = car.model.l > 6;
+      if (Math.abs(diff) > (long ? .55 : 1)) target = Math.min(target, long ? 3.5 : 5);
       let throttle = vF < target ? 1 : vF > target + 1.5 ? -.7 : .15, steer = U.clamp(-diff * 2.2, -1, 1);
       G.arrived = dist < 3 && Math.abs(vF) < .8;
       if (dist < 3) { throttle = vF > .3 ? -1 : 0; steer = 0; }
       if (G.revT > 0) { G.revT -= dt; throttle = -1; steer = -steer; }
-      else if (Math.abs(vF) < 1 && throttle > 0 && dist > 3) { G.stuckT = (G.stuckT || 0) + dt; if (G.stuckT > 1.5) { G.revT = 1.1; G.stuckT = 0; } }
+      else if (Math.abs(vF) < 1 && throttle > 0 && dist > 3) { G.stuckT = (G.stuckT || 0) + dt; if (G.stuckT > 1.5) { G.revT = long ? 2.2 : 1.1; G.stuckT = 0; } }
       else G.stuckT = 0;
       unjam(car, G, dt, dist > 3);
       physics(car, dt, { throttle, steer, handbrake: dist < 3 });
