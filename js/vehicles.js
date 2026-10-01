@@ -1121,6 +1121,15 @@
       islandStreets() { return NET.edges.filter(e => e.island).map(e => [NET.nodes[e.a].x, NET.nodes[e.a].z, NET.nodes[e.b].x, NET.nodes[e.b].z]); },
       // fires the fire brigade should go to: burning cars and burning wrecks
       fires() { return cars.filter(c => (c.burnT > 0 || c.wreckFireT > 3) && !c.model.heli); },
+      crash(c) {
+        if (!c || c === driving || c.wreck) return false;
+        if (c.ai) { releaseLock(c); c.ai = null; }
+        c.vx = c.vz = 0; c.damage = Math.max(c.damage, 150); c.wreckFireT = 120; c.accident = true;
+        c.driver = null; c.driverMesh.visible = false; c.awake = true; c.parked = false; c.goto = null; c.pursuit = null;
+        paint(c); audio.impact(9, [c.x, .5, c.z]);
+        for (let k = 0; k < 6; k++) puff(c.x + (Math.random() - .5) * 2, c.y + 1 + Math.random(), c.z + (Math.random() - .5) * 2, true);
+        return true;
+      },
       extinguish(c) { if (c.burnT > 0) { c.burnT = 0; c.damage = BURN_AT - 40; paint(c); } c.wreckFireT = 0; },
       driveTo(car, x, z, speed) { car.goto = { x, z, speed, arrived: false }; car.parked = false; car.awake = true; },
       remove(car) { if (cars.includes(car)) removeCar(car); },

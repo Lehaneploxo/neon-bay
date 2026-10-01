@@ -26,7 +26,7 @@
 
   NB.createJobs = function (o) {
     // o: crowd, vehicles, player, police, money { add }, flash, say, wear(outfit|null), ui, audio, inside() -> bool, world
-    let duty = null, payT = 0, brawlT = rand(60, 100);
+    let duty = null, payT = 0, brawlT = rand(60, 100), crashT = rand(90, 150);
     const seen = new Set();
     const P = () => o.player;
     const near = (a, r) => Math.hypot(a.x - P().x, a.z - P().z) < r;
@@ -34,10 +34,12 @@
 
     function start(kind) {
       const J = JOBS[kind];
+      if (duty === kind) return 'Вы уже на смене';
+      if (duty) end();
       if (kind === 'police' && o.police.wanted > 0) { o.flash('Вас разыскивают — в полицию на смену не возьмут', 2.6); o.audio.deny(); return 'Сначала избавьтесь от розыска'; }
       duty = kind; payT = 0; seen.clear();
       o.wear(J.outfit);
-      o.flash(J.title + ': смена началась. Зарплата ' + fmt(J.pay) + ' в минуту, за каждый вызов +' + fmt(J.bonus) + '. Вызовы мигают на карте', 5);
+      o.flash(J.title + ': смена началась. ' + J.task + '. Зарплата ' + fmt(J.pay) + ' в минуту, за вызов +' + fmt(J.bonus) + '. Вызовы мигают на карте', 6);
       return 'Вы на смене. Служебные машины — ваши';
     }
     function end() {
@@ -105,6 +107,18 @@
       return false;
     }
 
+    function startCrash() {
+      const max = duty === 'fire' || duty === 'ems' ? 170 : 120;
+      const pool = o.vehicles.cars.filter(c => c.ai && !c.model.police && !c.model.ems && !c.model.fire && !c.model.bike && !c.model.boat && !c.model.heli && !c.wreck && !near(c, 30) && near(c, max));
+      if (!pool.length) return false;
+      const c = pick(pool);
+      if (!o.vehicles.crash(c)) return false;
+      const sx = -Math.cos(c.h), sz = Math.sin(c.h), p = o.crowd.dropOff(c.x + sx * (c.model.w / 2 + .9), c.z + sz * (c.model.w / 2 + .9), c.h, null, pick(['Аааа, нога!', 'Помогите!', 'Тормоза отказали!']), true);
+      if (p) { p.fare = null; o.crowd.damage(p, p.maxHp * .85, { byPlayer: false, kind: 'car', x: c.x, z: c.z }); }
+      if (duty === 'fire' || duty === 'ems') o.flash('Вызов: авария, машина горит' + (duty === 'ems' ? ', водитель ранен' : '') + ' — отмечено на карте', 3);
+      return true;
+    }
+
     return {
       JOBS,
       get duty() { return duty; },
@@ -123,6 +137,8 @@
         // the wage, every minute on shift
         if (duty) { payT += dt; if (payT >= 60) { payT -= 60; const J = JOBS[duty]; o.money.add(J.pay, 'Зарплата: ' + J.title.toLowerCase()); } }
         // a brawl somewhere around every couple of minutes (more often when there's someone on shift to see to it)
+        // a road accident every couple of minutes (more often with a firefighter or a paramedic on shift)
+        if (!o.inside() && (crashT -= dt) <= 0) crashT = startCrash() ? (duty === 'fire' || duty === 'ems' ? rand(50, 90) : rand(120, 200)) : 10;
         if (!o.inside() && (brawlT -= dt) <= 0) { const g = crimeGap(o.district()); brawlT = startBrawl() ? rand(g[0], g[1]) : 5; }
         // suspects are wanted for three minutes, then it's forgotten
         for (const p of o.crowd.people) if (p.suspect && !p.brawl && (p.suspectT = (p.suspectT || 0) + dt) > 180) p.suspect = false;

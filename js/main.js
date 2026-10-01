@@ -371,13 +371,13 @@
   if (progress.outfit === 'cop') jobs.start('police');   // came back in the police uniform: still on shift
   for (const [id, kind] of [['police', 'police'], ['hospital', 'ems']]) {
     const pl = places.byId(id); if (!pl) continue;
-    pl.interactions.push({ x: pl.inside.x + 1.6, z: pl.inside.z + .6, r: 1.6, short: 'РАБОТА', label: () => jobs.duty === kind ? 'Закончить смену' : 'Работа: ' + jobs.JOBS[kind].title.toLowerCase(), use: () => jobs.desk(kind) });
+    pl.interactions.push({ x: pl.inside.x + 1.6, z: pl.inside.z + .6, r: 1.6, short: 'ФОРМА', label: () => jobs.duty === kind ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену: ' + jobs.JOBS[kind].title.toLowerCase(), use: () => jobs.duty === kind ? jobs.end() : jobs.start(kind) });
   }
   const fireDesk = [];
   if (world.fireStation) {
     const fx = world.fireStation.center.x, fz = -57.9;
     fronts.add({ x: fx, z: fz, nx: 0, nz: 1, hex: '#ff3344', title: 'ПОЖАРНАЯ ЧАСТЬ', sub: 'работа пожарным', icon: '🚒', tag: 'РАБОТА', hint: 'РАБОТА · подойдите к двери', canopy: false, board: false, ring: true });
-    fireDesk.push({ x: fx, z: fz, r: 2, short: 'РАБОТА', label: () => jobs.duty === 'fire' ? 'Закончить смену' : 'Работа: пожарный', use: () => jobs.desk('fire') });
+    fireDesk.push({ x: fx, z: fz, r: 2, short: 'ФОРМА', label: () => jobs.duty === 'fire' ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену: пожарный', use: () => jobs.duty === 'fire' ? jobs.end() : jobs.start('fire') });
   }
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
