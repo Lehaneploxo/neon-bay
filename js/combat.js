@@ -92,12 +92,30 @@
       g.icon = icon; scene.add(g); return g;
     }
     const groundY = (x, z) => world.col.query(x - .1, z - .1, x + .1, z + .1, []).reduce((m, b) => (b.maxY < .5 && x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ ? Math.max(m, b.maxY) : m), 0);
-    for (const [type, x, z] of [['pistol', 108.6, -12], ['pistol', -7.6, 25], ['pistol', 92.4, 30], ['smg', 25, -25], ['smg', -57.6, 30], ['shotgun', -65, 36], ['shotgun', 57.6, -70],
-      ['bat', -75, 16.6], ['rifle', 25, -75],
-      ['health', 108.6, 40], ['health', 7.6, -30], ['health', -57.6, -25], ['health', 42.4, 84]]) {
-      const y = groundY(x, z);
-      const mesh = makePickupMesh(type); mesh.position.set(x, y, z);
-      pickups.push({ type, x, y, z, mesh, active: true, t: 0 });
+    // Nothing lies about in the street: guns are bought in the gun shops or taken off police and soldiers,
+    // health comes from food, the girls, a bed. The one free first-aid kit waits by the ambulances at the
+    // hospital; once someone takes it, the next one is there 15 minutes later (real time, the same for everyone).
+    const MEDKIT_WAIT = 15 * 60;
+    const clock = () => (NB.online && NB.online.now ? NB.online.now() : Date.now());
+    const rec = () => (o.records && o.records()) || {};   // the save, where the kit's timer is kept
+    let medkit = null;
+    if (world.hospital) {
+      const h = world.hospital, x = h.x, z = h.z + 4, y = groundY(x, z);
+      const mesh = makePickupMesh('health'); mesh.position.set(x, y, z);
+      medkit = { type: 'health', medkit: true, x, y, z, mesh, active: true, t: 0 };
+      pickups.push(medkit);
+    }
+    // once the save is loaded: if the kit was taken less than 15 minutes ago, it isn't back yet
+    function syncMedkit() {
+      if (!medkit) return;
+      const left = Math.max(0, ((rec().medkitT || 0) - clock()) / 1000);
+      medkit.active = left <= 0; medkit.t = left; medkit.mesh.visible = medkit.active;
+    }
+    // a gun dropped by a policeman or a soldier: lies for 40 seconds, then it's gone
+    function dropWeapon(x, z, type) {
+      const px = x + rand(-.5, .5), pz = z + rand(-.5, .5), y = groundY(px, pz);
+      const mesh = makePickupMesh(type); mesh.position.set(px, y, pz);
+      pickups.push({ type, x: px, y, z: pz, mesh, active: true, t: 0, life: 40, dropped: true });
     }
     // money dropped by people the hero knocks out: a small pool of banknote stacks that vanish after a while
     const cashDrops = [];
@@ -215,7 +233,7 @@
       get weapon() { return WEAPONS[cur]; },
       get ammo() { return WEAPONS[cur].melee ? null : range ? '∞' : inv[cur]; },
       isMelee: () => !!WEAPONS[cur].melee,
-      cycle, copShoot, npcShoot, bloodPool, dropCash,
+      cycle, copShoot, npcShoot, bloodPool, dropCash, dropWeapon, syncMedkit,
       select(i) { const id = ORDER[i]; if (id && inv[id] > 0) { cur = id; player.setWeapon(cur); } },
       pickups, cashDrops,
       inv,
@@ -264,13 +282,20 @@
         if (any) pGeo.attributes.position.needsUpdate = true;
         // pickups: spin, bob, collect, respawn
         const tt = performance.now() / 1000;
-        for (const pk of pickups) {
+        for (let i = pickups.length - 1; i >= 0; i--) {
+          const pk = pickups[i];
+          if (pk.dropped && (!pk.active || (pk.life -= dt) <= 0)) {
+            scene.remove(pk.mesh); pickups.splice(i, 1);
+            pk.mesh.traverse(m => { if (m.geometry && m.geometry !== beamGeo) m.geometry.dispose(); if (m.material) m.material.dispose(); });
+            continue;
+          }
           if (!pk.active) { pk.t -= dt; if (pk.t <= 0) { pk.active = true; pk.mesh.visible = true; } continue; }
           pk.mesh.icon.rotation.y = tt * 2; pk.mesh.icon.position.y = .9 + Math.sin(tt * 3 + pk.x) * .1;
           if (driving || player.dead || Math.hypot(pk.x - player.x, pk.z - player.z) > 1.3) continue;
           if (pk.type === 'health') {
             if (player.hp >= 100) continue;
-            player.hp = Math.min(100, player.hp + 50); o.flash('Аптечка: +50 здоровья', 1.8);
+            player.hp = 100; o.flash('Аптечка скорой помощи: здоровье полное. Следующая будет здесь через 15 минут', 3);
+            rec().medkitT = clock() + MEDKIT_WAIT * 1000; if (o.save) o.save();
           } else if (WEAPONS[pk.type].melee) {
             if (inv[pk.type] > 0) continue;
             inv[pk.type] = 1; if (cur === 'fists') { cur = pk.type; player.setWeapon(cur); }
@@ -280,7 +305,7 @@
             if (WEAPONS[cur].melee) { cur = pk.type; player.setWeapon(cur); }
             o.flash(w.name + ': +' + w.give + ' патронов' + (input.touch ? '' : ' · Q — сменить оружие'), 2.4);
           }
-          audio.pickup(); pk.active = false; pk.mesh.visible = false; pk.t = 40;
+          audio.pickup(); pk.active = false; pk.mesh.visible = false; pk.t = pk.medkit ? MEDKIT_WAIT : 40;
         }
         for (const c of cashDrops) {
           if (!c.active) continue;

@@ -96,11 +96,10 @@
         document.body.classList.remove('driving'); rig.snap(player);
       } else flashTip(car.model.heli ? 'Сначала приземлитесь' : 'Сначала остановитесь', 1.5);
     } else if (promptCar) {
-      const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto || !!promptCar.autopilot, isPolice = !!promptCar.police, isAmb = !!promptCar.ems;
+      const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto || !!promptCar.autopilot, isPolice = !!promptCar.police;
       const ej = vehicles.enter(promptCar, player);
       if (ej) { if (ej.cop || isPolice) crowd.spawnCop(0, 0, 0, 0, 0, 0, ej.x, ej.z); else crowd.ejectDriver(ej.x, ej.z, ej.h); }
       if (isPolice) police.reportCrime('copcar', player.x, player.z); else if (wasDriven) police.reportCrime('carjack', player.x, player.z);
-      if (isAmb && player.hp < 100) { player.hp = 100; flashTip('Аптечка скорой: здоровье восстановлено', 2.4); }
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
       document.body.classList.add('driving');
       showDistrict(promptCar.model.name);
@@ -123,7 +122,7 @@
     disguised: () => progress.outfit === 'cop'
   });
   let guards = null;
-  const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'),
+  const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'), records: () => progress.records, save: () => saveProgress(),
     power: () => 1 + ((progress.stats && progress.stats.str) || 0) / 100,   // trained strength: up to twice as hard
     targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
 
@@ -151,7 +150,7 @@
     if (progress.outfit !== 'cop') progress.outfit = 'own';
     progress.prevOutfit = 'own';
   }
-  combat.load(progress.inv);
+  combat.load(progress.inv); combat.syncMedkit();
   player.setLook(progress.look);
   if (progress.outfit === 'cop') player.setOutfit('cop');
   let saveT = 0;
@@ -183,6 +182,11 @@
     el.className = neg ? 'neg' : ''; void el.offsetWidth; el.className = (neg ? 'neg ' : '') + 'on';
     clearTimeout(popTimer); popTimer = setTimeout(() => { el.className = ''; }, 2300);
   }
+  // police and soldiers carry guns, and drop them: a policeman his pistol, a soldier his rifle
+  function dropGun(p, chance) {
+    const type = p.cop && !p.medic ? 'pistol' : p.gang === 'army' ? 'rifle' : null;
+    if (type && Math.random() < chance) combat.dropWeapon(p.x, p.z, type);
+  }
   function addMoney(n, sub) { if (n <= 0) return; progress.money += n; audio.cash(n >= 100); moneyPop('+$' + n, sub); saveProgress(); }
   function spend(n, sub) { n = Math.min(n, progress.money); if (n <= 0) return 0; progress.money -= n; moneyPop('−$' + n, sub, true); saveProgress(); return n; }
 
@@ -192,10 +196,11 @@
       if (src.byPlayer) {
         police.reportCrime(p.cop ? 'copKill' : 'kill', p.x, p.z);
         if (!p.medic && (p.cop || Math.random() < .7)) combat.dropCash(p.x, p.z, p.cop ? 40 + (Math.random() * 40 | 0) : 5 + (Math.random() * 40 | 0));
+        dropGun(p, 1);
       }
     },
     // knocked out: sometimes a few dollars fall out of their pockets
-    onDown: (p, src) => { if (src.byPlayer && !p.medic && Math.random() < .5) combat.dropCash(p.x, p.z, 3 + (Math.random() * 25 | 0)); },
+    onDown: (p, src) => { if (src.byPlayer && !p.medic && Math.random() < .5) combat.dropCash(p.x, p.z, 3 + (Math.random() * 25 | 0)); if (src.byPlayer) dropGun(p, .5); },
     onHurt: (p, src) => { if (src.byPlayer && p.cop && src.kind !== 'car') police.reportCrime('copAttack', p.x, p.z); },
     onCopShoot: p => combat.copShoot(p, police.wanted),
     onGangShoot: p => combat.copShoot(p, p.gang === 'army' ? 4 : 2),   // soldiers shoot straighter than gangsters

@@ -2108,6 +2108,13 @@
       // another door into a shared room (shops.js): door { x, z, y, nx, nz, heading, hex }, info { name, title, sub, hex, use, enabled, locked }
       addDoor(id, door, info) {
         const pl = api.byId(id); if (!pl) return null;
+        // a place that had one door of its own (the gun shop) now has several: its own door must also say
+        // which way is out, or you'd leave by whichever door was used last
+        if (!pl.shared && !pl.manyDoors) {
+          pl.manyDoors = true;
+          const own = markers.find(m => m.place === pl && m.dir === 'in' && !m.info);
+          if (own) { own.door = pl.door; own.info = { name: pl.name, title: pl.name }; }
+        }
         const m = marker(door.x, door.y != null ? door.y : .15, door.z, door.hex || '#ffd84f', pl, 'in');
         m.door = door; m.info = info; markers.push(m); return m;
       },

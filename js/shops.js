@@ -79,6 +79,8 @@
     { id: 'west_donut', kind: 'food', menu: 'donut', name: 'Bayview Donuts', sub: 'пончики · кофе · шейки', icon: '🍩', tag: 'ПОНЧИКИ', hex: '#ff7eb6', b: [423.5, -231, 438.5, -216], face: '+x' },
     { id: 'view_bbq', kind: 'food', menu: 'bbq', name: 'BBQ Лёха-Вью', sub: 'рёбрышки · гриль · пиво', icon: '🍖', tag: 'ГРИЛЬ', hex: '#ff8a3d', b: [456.5, -214, 472.8, -199], face: '-x' },
     { id: 'view_247', kind: 'market', name: 'Bayview 24/7', sub: 'продукты · аптечки · лотерея', icon: '🛒', tag: '24/7', hex: '#5fd38a', b: [474.8, -214, 491, -199], face: '+x' },
+    // Район 21: the second gun shop (the same Ammo Bay hall inside, with its counter and its range)
+    { id: 'n21_ammo', kind: 'guns', name: 'Ammo Bay · Район 21', sub: 'оружие · патроны · тир', icon: '🔫', tag: 'ОРУЖИЕ', hex: '#ff8a3d', b: [76, -264, 91, -249], face: '+z' },
     { id: 'east_cafe', kind: 'food', menu: 'cafe', name: 'East Side Café', sub: 'кофе · выпечка · сэндвичи', icon: '☕', tag: 'КАФЕ', hex: '#ffcf3f', b: [690, -310, 730, -300], face: '-x' }
   ];
   /* ---------- homes ----------
@@ -133,7 +135,7 @@
     house: { room: 'home_house', word: 'Дом', icon: '🏡', hex: '#ffb347', inside: 'Гостиная с камином, кухня, столовая, спальня' },
     mansion: { room: 'home_mansion', word: 'Особняк', icon: '🏰', hex: '#ffd84f', inside: 'Мраморный зал, бар, рояль, аквариум, спальня с круглой кроватью' }
   };
-  const ROOM = { clothes: 'shop_clothes', food: 'shop_food', market: 'shop_market' };
+  const ROOM = { clothes: 'shop_clothes', food: 'shop_food', market: 'shop_market', guns: 'ammo' };
 
   // the spot on the pavement in front of the middle of a building's side
   function doorOf(s, fronts) {
