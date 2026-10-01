@@ -368,7 +368,7 @@
     // the uniform: the police one is the station's (the police take you for one of theirs), the others are just worn
     wear: id => { if (id === 'cop') setOutfit('cop'); else if (id) { if (progress.outfit === 'cop') setOutfit('own'); player.setOutfit(id); } else setOutfit('own'); } });
   placeCtx.jobs = jobs;   // the station lockers sign you on
-  if (progress.outfit === 'cop') jobs.start('police');   // came back in the police uniform: still on shift
+  if (progress.outfit === 'cop') setTimeout(() => jobs.start('police'), 0);   // came back in the police uniform: still on shift (once the whole game is set up)
   for (const [id, kind] of [['police', 'police'], ['hospital', 'ems']]) {
     const pl = places.byId(id); if (!pl) continue;
     pl.interactions.push({ x: pl.inside.x + 1.6, z: pl.inside.z + .6, r: 1.6, short: 'ФОРМА', label: () => jobs.duty === kind ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену: ' + jobs.JOBS[kind].title.toLowerCase(), use: () => jobs.duty === kind ? jobs.end() : jobs.start(kind) });
@@ -1096,7 +1096,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { get jobs() { return jobs; }, player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { clockShift = 0; const cur = (START_MIN + sharedTime()) % 1440; clockShift = ((h * 60 - cur) % 1440 + 1440) % 1440; time = sharedTime(); },
     get state() { return state; }, get promptCar() { return promptCar; } };
