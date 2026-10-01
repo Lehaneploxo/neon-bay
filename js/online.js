@@ -57,6 +57,12 @@
     if (busy) return;
     const n = $('acctNickIn').value.trim(), p = $('acctPass').value;
     if (!n || !p) return formError('Введите ник и пароль');
+    // a new account: the password twice, so a typo doesn't lock you out
+    if (kind === 'register') {
+      const p2 = $('acctPass2');
+      if (p2.hidden) { p2.hidden = false; $('acctPass').autocomplete = 'new-password'; p2.focus(); return formError('Повторите пароль и нажмите «Создать аккаунт» ещё раз'); }
+      if (p2.value !== p) { p2.focus(); return formError('Пароли не совпадают'); }
+    }
     busy = true; formError(kind === 'register' ? 'Создаю аккаунт…' : 'Вхожу…');
     call(kind, { nick: n, pass: p }).then(r => {
       signedIn(r.token, r.nick); formError('');
@@ -70,6 +76,12 @@
     $('acctOpen').addEventListener('click', () => { $('acctForm').hidden = false; $('acctOpen').hidden = true; $('acctNickIn').focus(); });
     $('acctForm').addEventListener('submit', e => { e.preventDefault(); submit('login'); });
     $('acctReg').addEventListener('click', () => submit('register'));
+    // the eye: show what you're typing (both password fields)
+    $('acctEye').addEventListener('click', () => {
+      const show = $('acctPass').type === 'password';
+      for (const id of ['acctPass', 'acctPass2']) $(id).type = show ? 'text' : 'password';
+      $('acctEye').classList.toggle('on', show); $('acctEye').setAttribute('aria-label', show ? 'Скрыть пароль' : 'Показать пароль');
+    });
     $('acctLogout').addEventListener('click', signOut);
     render();
   }

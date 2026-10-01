@@ -7,7 +7,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20261001h';
+  var BUILD = '20261001i';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -171,6 +171,10 @@ h2{font-size:clamp(44px,8vw,76px);color:#ffe3f0;text-shadow:0 0 6px var(--pink),
 .acctForm input{-webkit-user-select:text;user-select:text;font:500 16px/1.2 Rubik,sans-serif;color:var(--ink);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:10px 14px;max-width:320px;}
 .acctBtns{display:flex;gap:8px;flex-wrap:wrap;}
 .acctErr{margin:0;min-height:1.2em;color:#ffd0dc;font-size:13px;}
+.passRow{display:flex;gap:8px;align-items:stretch;max-width:320px;}
+.passRow input{flex:1;min-width:0;}
+.eye{flex:none;width:46px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--ink);font-size:18px;cursor:pointer;}
+.eye.on{background:rgba(255,79,163,.25);border-color:var(--pink);}
 .linkBtn{font:inherit;color:inherit;background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;}
 .ghost{align-self:flex-start;font:600 14px/1 Rubik,sans-serif;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:11px 18px;cursor:pointer;touch-action:manipulation;}
 .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 22px;font-size:15px;}
@@ -326,7 +330,8 @@ body.touch .fsOnly{display:inline-block;}
         <p class="acctNote">С аккаунтом прогресс хранится на сервере и не пропадёт — играйте с любого телефона или компьютера. Без аккаунта всё сохраняется только в этом браузере.</p>
         <form id="acctForm" class="acctForm" hidden autocomplete="on">
           <input id="acctNickIn" name="username" type="text" placeholder="Ник" maxlength="16" autocomplete="username" autocapitalize="off" spellcheck="false">
-          <input id="acctPass" name="password" type="password" placeholder="Пароль (от 6 символов)" maxlength="64" autocomplete="current-password">
+          <div class="passRow"><input id="acctPass" name="password" type="password" placeholder="Пароль (от 6 символов)" maxlength="64" autocomplete="current-password"><button id="acctEye" class="eye" type="button" aria-label="Показать пароль">👁</button></div>
+          <input id="acctPass2" name="password2" type="password" placeholder="Повторите пароль" maxlength="64" autocomplete="new-password" hidden>
           <div class="acctBtns"><button class="ghost" type="submit">Войти</button><button id="acctReg" class="ghost" type="button">Создать аккаунт</button></div>
           <p id="acctErr" class="acctErr" role="status"></p>
         </form>
@@ -432,44 +437,44 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261001h"></script>
-<script src="js/online.js?v=20261001h"></script>
-<script src="js/club.js?v=20261001h"></script>
-<script src="js/places.js?v=20261001h"></script>
-<script src="js/spray.js?v=20261001h"></script>
-<script src="js/street.js?v=20261001h"></script>
-<script src="js/northside.js?v=20261001h"></script>
-<script src="js/bayview.js?v=20261001h"></script>
-<script src="js/tropic.js?v=20261001h"></script>
-<script src="js/hideaway.js?v=20261001h"></script>
-<script src="js/military.js?v=20261001h"></script>
-<script src="js/island.js?v=20261001h"></script>
-<script src="js/brand.js?v=20261001h"></script>
-<script src="js/world.js?v=20261001h"></script>
-<script src="js/faces.js?v=20261001h"></script>
-<script src="js/player.js?v=20261001h"></script>
-<script src="js/wardrobe.js?v=20261001h"></script>
-<script src="js/npc.js?v=20261001h"></script>
-<script src="js/animals.js?v=20261001h"></script>
-<script src="js/wildlife.js?v=20261001h"></script>
-<script src="js/cars.js?v=20261001h"></script>
-<script src="js/vehicles.js?v=20261001h"></script>
-<script src="js/audio.js?v=20261001h"></script>
-<script src="js/radio.js?v=20261001h"></script>
-<script src="js/guards.js?v=20261001h"></script>
-<script src="js/combat.js?v=20261001h"></script>
-<script src="js/police.js?v=20261001h"></script>
-<script src="js/weather.js?v=20261001h"></script>
-<script src="js/sealife.js?v=20261001h"></script>
-<script src="js/plane.js?v=20261001h"></script>
-<script src="js/fire.js?v=20261001h"></script>
-<script src="js/ems.js?v=20261001h"></script>
-<script src="js/daynight.js?v=20261001h"></script>
-<script src="js/taxi.js?v=20261001h"></script>
-<script src="js/shop.js?v=20261001h"></script>
-<script src="js/entrances.js?v=20261001h"></script>
-<script src="js/shops.js?v=20261001h"></script>
-<script src="js/jobs.js?v=20261001h"></script>
-<script src="js/ui.js?v=20261001h"></script>
-<script src="js/input.js?v=20261001h"></script>
-<script src="js/main.js?v=20261001h"></script>
+<script src="js/engine.js?v=20261001i"></script>
+<script src="js/online.js?v=20261001i"></script>
+<script src="js/club.js?v=20261001i"></script>
+<script src="js/places.js?v=20261001i"></script>
+<script src="js/spray.js?v=20261001i"></script>
+<script src="js/street.js?v=20261001i"></script>
+<script src="js/northside.js?v=20261001i"></script>
+<script src="js/bayview.js?v=20261001i"></script>
+<script src="js/tropic.js?v=20261001i"></script>
+<script src="js/hideaway.js?v=20261001i"></script>
+<script src="js/military.js?v=20261001i"></script>
+<script src="js/island.js?v=20261001i"></script>
+<script src="js/brand.js?v=20261001i"></script>
+<script src="js/world.js?v=20261001i"></script>
+<script src="js/faces.js?v=20261001i"></script>
+<script src="js/player.js?v=20261001i"></script>
+<script src="js/wardrobe.js?v=20261001i"></script>
+<script src="js/npc.js?v=20261001i"></script>
+<script src="js/animals.js?v=20261001i"></script>
+<script src="js/wildlife.js?v=20261001i"></script>
+<script src="js/cars.js?v=20261001i"></script>
+<script src="js/vehicles.js?v=20261001i"></script>
+<script src="js/audio.js?v=20261001i"></script>
+<script src="js/radio.js?v=20261001i"></script>
+<script src="js/guards.js?v=20261001i"></script>
+<script src="js/combat.js?v=20261001i"></script>
+<script src="js/police.js?v=20261001i"></script>
+<script src="js/weather.js?v=20261001i"></script>
+<script src="js/sealife.js?v=20261001i"></script>
+<script src="js/plane.js?v=20261001i"></script>
+<script src="js/fire.js?v=20261001i"></script>
+<script src="js/ems.js?v=20261001i"></script>
+<script src="js/daynight.js?v=20261001i"></script>
+<script src="js/taxi.js?v=20261001i"></script>
+<script src="js/shop.js?v=20261001i"></script>
+<script src="js/entrances.js?v=20261001i"></script>
+<script src="js/shops.js?v=20261001i"></script>
+<script src="js/jobs.js?v=20261001i"></script>
+<script src="js/ui.js?v=20261001i"></script>
+<script src="js/input.js?v=20261001i"></script>
+<script src="js/main.js?v=20261001i"></script>
