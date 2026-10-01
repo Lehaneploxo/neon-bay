@@ -444,10 +444,12 @@
       const lockers = K.pt(-15.4, 0);
       let warnT = 0;
       pl.attach = () => {
-        pl.interactions = [{ ...lockers, r: 2, short: 'ФОРМА', label: () => G.progress.outfit === 'cop' ? 'Снять полицейскую форму' : 'Надеть полицейскую форму',
+        pl.interactions = [{ ...lockers, r: 2, short: 'ФОРМА', label: () => G.jobs && G.jobs.duty === 'police' ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену',
           use: () => {
+            if (G.jobs && G.jobs.duty === 'police') { G.jobs.end(); return; }
+            if (G.jobs) { G.jobs.start('police'); return; }
             if (G.progress.outfit === 'cop') { G.setOutfit(G.progress.prevOutfit || 'hawaii'); G.flash('Вы снова в своей одежде', 2); }
-            else { G.progress.prevOutfit = G.progress.outfit; G.setOutfit('cop'); G.flash('Форма надета: копы не замечают мелкие нарушения. Стрельба и убийства — замечают.', 4); }
+            else { G.progress.prevOutfit = G.progress.outfit; G.setOutfit('cop'); }
           } }];
       };
       // walking around the station with a gun out gets you in trouble

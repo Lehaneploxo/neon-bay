@@ -20,6 +20,8 @@
       task: 'Тушите горящие машины (подойдите и нажмите «ТУШИТЬ»)' }
   };
   const CALL_R = 300;   // how far away calls are shown
+  // seconds between street crimes near the hero, by district
+  const crimeGap = name => /^(Район 21|Доки|Мост 21)/.test(name || '') ? [20, 40] : /^(Рынок|Гавань)/.test(name || '') ? [45, 75] : [60, 100];
   const NOT_BRAWLERS = new Set(['escort', 'soldier', 'prisoner', 'security', 'cop', 'medic', 'firefighter', 'waitress', 'cook', 'croupier', 'bellboy', 'bouncer', 'elderly']);
 
   NB.createJobs = function (o) {
@@ -88,15 +90,16 @@
         !p.look.female && !NOT_BRAWLERS.has(p.look.type) && p.x < 1000 && !(p.fightT > 0) && !(p.fleeT > 0);
     }
     function startBrawl() {
-      const max = duty === 'police' || duty === 'ems' ? 160 : 90;
+      const max = duty === 'police' || duty === 'ems' ? 160 : 100;
       const pool = o.crowd.people.filter(p => brawler(p) && !near(p, 20) && near(p, max));
       for (let k = 0; k < 6 && pool.length > 1; k++) {
         const a = pick(pool);
         let b = null, bd = 10;
         for (const q of pool) { if (q === a) continue; const d = Math.hypot(q.x - a.x, q.z - a.z); if (d < bd) { bd = d; b = q; } }
         if (!b) continue;
-        o.crowd.brawl(a, b);
-        if (duty === 'police') o.flash('Вызов: драка на улице! Зачинщик отмечен на карте', 3);
+        const mug = Math.random() < .4;   // a mugging: the robber beats his victim, takes the wallet and runs
+        o.crowd.brawl(a, b, mug ? 'mug' : 'fight');
+        if (duty === 'police') o.flash(mug ? 'Вызов: ограбление на улице! Грабитель отмечен на карте' : 'Вызов: драка на улице! Зачинщик отмечен на карте', 3);
         return true;
       }
       return false;
@@ -105,7 +108,14 @@
     return {
       JOBS,
       get duty() { return duty; },
-      desk, end,
+      desk, end, start,
+      // the line on the screen while on shift: how many calls, how far the nearest
+      get hud() {
+        if (!duty) return null;
+        const J = JOBS[duty], cs = calls();
+        let best = Infinity; for (const c of cs) best = Math.min(best, Math.hypot(c.x - P().x, c.z - P().z));
+        return { tag: 'СМЕНА', text: J.title + (cs.length ? ' · вызовов: ' + cs.length + ' · ближайший ' + Math.round(best) + ' м' : ' · вызовов нет, патрулируйте'), time: fmt(J.pay) + '/мин', warn: cs.length > 0 };
+      },
       // the city's own services wait a little for a player on shift nearby
       holdEMS: p => duty === 'ems' && near(p, CALL_R),
       holdFire: c => duty === 'fire' && near(c, CALL_R),
@@ -113,7 +123,7 @@
         // the wage, every minute on shift
         if (duty) { payT += dt; if (payT >= 60) { payT -= 60; const J = JOBS[duty]; o.money.add(J.pay, 'Зарплата: ' + J.title.toLowerCase()); } }
         // a brawl somewhere around every couple of minutes (more often when there's someone on shift to see to it)
-        if (!o.inside() && (brawlT -= dt) <= 0) brawlT = startBrawl() ? (duty ? rand(70, 120) : rand(120, 200)) : 15;
+        if (!o.inside() && (brawlT -= dt) <= 0) { const g = crimeGap(o.district()); brawlT = startBrawl() ? rand(g[0], g[1]) : 5; }
         // suspects are wanted for three minutes, then it's forgotten
         for (const p of o.crowd.people) if (p.suspect && !p.brawl && (p.suspectT = (p.suspectT || 0) + dt) > 180) p.suspect = false;
         // a new call: tell the player

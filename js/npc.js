@@ -1287,10 +1287,11 @@
       despawnPerson(p) { if (people.includes(p)) despawn(p); },
       // paramedics got them back on their feet
       // two passers-by come to blows: a, the one who starts it, is a suspect for the police afterwards
-      brawl(a, b) {
+      brawl(a, b, kind) {
         for (const [p, q] of [[a, b], [b, a]]) { detachSpot(p); p.foe = q; p.fightT = 30; p.punchCD = rand(.3, 1); p.brawl = true; p.fleeT = 0; p.dodge = null; }
-        a.suspect = true; a.suspectT = 0;
-        bumpCallback(a, pick(FIGHT_PHRASES)); bumpCallback(b, pick(['Ты кто такой?!', 'Отвали от меня!', 'Сам напросился!']));
+        a.suspect = true; a.suspectT = 0; a.crime = kind || 'fight';
+        if (kind === 'mug') { bumpCallback(a, pick(['Гони бабки!', 'Кошелёк сюда!', 'Тихо, это ограбление!'])); bumpCallback(b, pick(['Помогите! Грабят!', 'Полиция!', 'Отстань!'])); }
+        else { bumpCallback(a, pick(FIGHT_PHRASES)); bumpCallback(b, pick(['Ты кто такой?!', 'Отвали от меня!', 'Сам напросился!'])); }
       },
       revive(p, hp) {
         if (!people.includes(p)) return;

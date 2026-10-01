@@ -364,9 +364,11 @@
   fronts.finish();
   // city jobs: sign on at the police station, the hospital or the fire station
   jobs = NB.createJobs({ crowd, vehicles, player, police, ui, audio, world, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t),
-    inside: () => !!places.current,
+    inside: () => !!places.current, district: () => world.districtAt(player.x, player.z),
     // the uniform: the police one is the station's (the police take you for one of theirs), the others are just worn
     wear: id => { if (id === 'cop') setOutfit('cop'); else if (id) { if (progress.outfit === 'cop') setOutfit('own'); player.setOutfit(id); } else setOutfit('own'); } });
+  placeCtx.jobs = jobs;   // the station lockers sign you on
+  if (progress.outfit === 'cop') jobs.start('police');   // came back in the police uniform: still on shift
   for (const [id, kind] of [['police', 'police'], ['hospital', 'ems']]) {
     const pl = places.byId(id); if (!pl) continue;
     pl.interactions.push({ x: pl.inside.x + 1.6, z: pl.inside.z + .6, r: 1.6, short: 'РАБОТА', label: () => jobs.duty === kind ? 'Закончить смену' : 'Работа: ' + jobs.JOBS[kind].title.toLowerCase(), use: () => jobs.desk(kind) });
@@ -934,7 +936,7 @@
     $('armor').classList.toggle('mega', progress.armor > 100);
     const wi = weather.info, wt = wi.icon + ' ' + wi.name; if ($('weather').textContent !== wt) $('weather').textContent = wt;
     const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;
-    const job = places.hud || taxi.hud;
+    const job = places.hud || taxi.hud || jobs.hud;
     $('job').hidden = !job;
     if (job) {
       const tag = job.tag || 'ТАКСИ'; if ($('jobTag').textContent !== tag) $('jobTag').textContent = tag;
