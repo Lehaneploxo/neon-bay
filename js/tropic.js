@@ -176,7 +176,7 @@
 
     /* ---------- the game side ---------- */
     let G = null, lastT = null;
-    const CHEST_CASH = 750, TREASURE = 1000000, REFILL = 24 * 60, MEGA = 1000000;   // the first time it holds the pirates' hidden million
+    const CHEST_CASH = 10000, REFILL = 24 * 60, MEGA = 500;   // refills once a game day (24 minutes)
     return {
       center: { x: CX, z: CZ }, R0, radius, heightAt, inside, shoreDist, pointAt, palmSpots, sunRocks,
       boat: { id: 'speedboat', x: JX - 13, z: JZ + 3.2, h: -Math.PI / 2 },
@@ -187,14 +187,12 @@
         return [{ x: chest.x, z: chest.z, y: chest.y, r: 1.8, short: 'СУНДУК', label: () => chest.emptyT > 0 ? 'Сундук пуст — загляните завтра' : 'Пиратский сундук', use: () => {
           if (chest.emptyT > 0) { G.flash('Пусто. Сундук наполнится через ' + Math.ceil(chest.emptyT / 60) + ' мин', 2.4); return; }
           chest.want = 1; chest.emptyT = REFILL;
-          const rec = G.progress && G.progress.records;
-          if (rec && !rec.treasure) { rec.treasure = 1; G.addMoney(TREASURE, 'Клад'); G.flash('Спрятанный клад пиратов! +$1 000 000!', 4); }
-          else { G.addMoney(CHEST_CASH, 'Клад'); G.flash('Пиратский клад! +$' + CHEST_CASH, 3); }
-        } }, { x: megaVest.x, z: megaVest.z, y: megaVest.y, r: 1.4, short: 'БРОНЯ', label: () => megaVest.takenT > 0 ? 'Стойка пуста — золотой жилет вернётся завтра' : 'Золотой бронежилет · 1 000 000 брони', use: () => {
+          G.addMoney(CHEST_CASH, 'Клад'); G.flash('Пиратский клад! +$10 000', 3);
+        } }, { x: megaVest.x, z: megaVest.z, y: megaVest.y, r: 1.4, short: 'БРОНЯ', label: () => megaVest.takenT > 0 ? 'Стойка пуста — золотой жилет вернётся завтра' : 'Золотой бронежилет · 500 брони', use: () => {
           if (megaVest.takenT > 0) { G.flash('Пусто. Новый золотой жилет появится через ' + Math.ceil(megaVest.takenT / 60) + ' мин', 2.4); return; }
           if (!G.setArmor) return;
           if (G.armor() >= MEGA) { G.flash('На вас уже золотой бронежилет', 2); return; }
-          megaVest.takenT = REFILL; G.setArmor(MEGA); if (G.pickup) G.pickup(); G.flash('Золотой бронежилет! Броня: 1 000 000', 3.5);
+          megaVest.takenT = REFILL; G.setArmor(MEGA); if (G.pickup) G.pickup(); G.flash('Золотой бронежилет! Броня: 500', 3.5);
         } }];
       },
       update(t) {

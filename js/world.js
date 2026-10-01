@@ -468,14 +468,14 @@
     col.add(W.x0 - 6, -10, W.z0 - 6, W.x0, 320, W.z1 + 6); col.add(W.x1, -10, W.z0 - 6, W.x1 + 6, 320, W.z1 + 6);
     col.add(W.x0, -10, W.z0 - 6, W.x1, 320, W.z0); col.add(W.x0, -10, W.z1, W.x1, 320, W.z1 + 6);
     const rectDist = (x, z, r) => Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1));
-    let tropic = null, military = null;   // Turtle Island, built further down: its beach shelves into the sea like the others
+    let tropic = null, military = null, hideaway = null;   // Turtle Island, built further down: its beach shelves into the sea like the others
     NB.water.vols.length = 0; NB.water.holes.length = 0;
     NB.water.add({ name: 'sea', surface: () => .05,
       test: (x, z) => x > W.x0 && x < W.x1 && z > W.z0 && z < W.z1 && !(x > LAND.x0 && x < SHORE - .6 && z > LAND.z0 && z < LAND.z1) && !NB.water.dry(x, z),
       // off a sandy beach the bed slopes gently; off the embankment it's deep straight away
       floor: (x, z) => {
         const dc = rectDist(x, z, LAND), sandy = U.clamp(x, LAND.x0, LAND.x1) > CITY;
-        return .02 - U.clamp(Math.min(sandy ? dc * .3 : 2 + dc * .5, rectDist(x, z, ISL) * .3, 2 + rectDist(x, z, NORTH) * .5, 2 + rectDist(x, z, BAY) * .5, tropic ? tropic.shoreDist(x, z) * .25 : 99, military ? military.shoreDist(x, z) * .25 : 99), 0, 3.4);
+        return .02 - U.clamp(Math.min(sandy ? dc * .3 : 2 + dc * .5, rectDist(x, z, ISL) * .3, 2 + rectDist(x, z, NORTH) * .5, 2 + rectDist(x, z, BAY) * .5, tropic ? tropic.shoreDist(x, z) * .25 : 99, hideaway ? hideaway.shoreDist(x, z) * .25 : 99, military ? military.shoreDist(x, z) * .25 : 99), 0, 3.4);
       } });
 
     /* ---------- the embankment: a paved promenade on the sea wall round the rest of the city ---------- */
@@ -507,6 +507,7 @@
 
     /* ---------- Turtle Island: uninhabited, far out in the open sea, no bridge ---------- */
     tropic = NB.buildTropic({ C, U, col, scene, bPlain, mapShapes, palms });
+    hideaway = NB.buildHideaway({ C, U, col, scene, bPlain, palms });   // the secret islet in the far corner (not on the map)
 
     /* ---------- Omega Island and its secret military base, far out to the south-west ---------- */
     military = NB.buildMilitary({ C, U, col, scene, bPlain, bNeon, mapShapes, palms, lamps });   // the terminal's front door (places.js builds the inside)
@@ -699,7 +700,7 @@
     }
 
     return {
-      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, security, strip, club, places, island, north, bay, tropic, military, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
+      col, districtAt, bounds: WORLD, layout: { ROADS, RH, CITY, SHORE, blocks }, benches, loungers, station, hospital, gunShop, fashion, security, strip, club, places, island, north, bay, tropic, hideaway, military, spray, street, fireStation, reserved: RESERVED, map: { canvas: mc, x0: MAP.x0, z0: MAP.z0, s: MAP.s },
       spawn: { x: CITY + 1.8, z: 4.5, heading: Math.PI / 2 },
       // env comes from the day/night cycle: how bright the neon glows, which windows and lamps are on, the sea colours
       update(t, env) {
@@ -708,7 +709,7 @@
         glowMat.opacity = glow + Math.sin(t * 2.3) * .02 + (Math.sin(t * 17) > .97 ? -.06 : 0);
         if (!env) return;
         if (club) club.update(t, env, env.px, env.pz);
-        places.render(t, env); island.update(t, env); north.update(t, env); bay.update(t, env); tropic.update(t); military.update(t, env); spray.render(t);
+        places.render(t, env); island.update(t, env); north.update(t, env); bay.update(t, env); tropic.update(t); hideaway.update(t); military.update(t, env); spray.render(t);
         u.uSun.value.copy(env.specDir); u.uSpec.value.copy(env.spec); u.uShallow.value.copy(env.seaA); u.uDeep.value.copy(env.seaB); u.uRim.value.copy(env.rim); u.uFoam.value = env.foam;
         facadeMat.emissiveIntensity = env.windows;
         headMat.color.copy(LAMP_OFF).lerp(LAMP_ON, env.lamps);

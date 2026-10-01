@@ -306,6 +306,7 @@
   // Base Omega: the patrol jeep, the trespass alarm, the armoury crate, a boat at the jetty
   if (world.military) { world.military.attach({ player, vehicles, crowd, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t), give: (id, n) => combat.give(id, n), setArmor: n => { progress.armor = Math.max(progress.armor, n); } }); const b = world.military.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
   if (world.tropic) { world.tropic.attach({ progress, addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s), armor: () => progress.armor, setArmor: n => { progress.armor = n; saveProgress(); }, pickup: () => audio.pickup() }); const b = world.tropic.boat; vehicles.spawnParked(b.id, b.x, b.z, b.h); }
+  if (world.hideaway) world.hideaway.attach({ progress, addMoney: (n, why) => addMoney(n, why), flash: (t, s) => flashTip(t, s), armor: () => progress.armor, setArmor: n => { progress.armor = n; saveProgress(); }, pickup: () => audio.pickup() });
   { const room = places.byId('motel'), m = world.street.motel; if (room && m) { room.door = m.room; room.after = m.door; } }
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
     room: girl => { const pl = places.byId('motel'); pl.guest = girl; enterPlace(pl); },   // in through the door upstairs, she's already inside
@@ -383,7 +384,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.military ? world.military.interactions() : [], fireDesk, jobs.interactions());
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.hideaway ? world.hideaway.interactions() : [], world.military ? world.military.interactions() : [], fireDesk, jobs.interactions());
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
