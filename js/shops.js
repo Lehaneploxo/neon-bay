@@ -1,5 +1,6 @@
 // Shops and homes all over the city. Every big district gets places to walk into: boutiques with their own
-// lines of clothes, cafés with their own menus, 24/7 stores, and flats, houses and a mansion to buy.
+// lines of clothes, cafés with their own menus, 24/7 stores, and homes to buy: blocks of cheap flats
+// (one door, many flats behind it), flats, houses and a mansion with doors of their own.
 // Each one is a door with a bright storefront (entrances.js) leading into one of the shared rooms built in
 // places.js; this file says which building, what it's called, what it sells and what it costs.
 //
@@ -80,25 +81,58 @@
     { id: 'view_247', kind: 'market', name: 'Bayview 24/7', sub: 'продукты · аптечки · лотерея', icon: '🛒', tag: '24/7', hex: '#5fd38a', b: [474.8, -214, 491, -199], face: '+x' },
     { id: 'east_cafe', kind: 'food', menu: 'cafe', name: 'East Side Café', sub: 'кофе · выпечка · сэндвичи', icon: '☕', tag: 'КАФЕ', hex: '#ffcf3f', b: [690, -310, 730, -300], face: '-x' }
   ];
-  // homes, cheapest first. rent: per real day
-  const HOMES = [
-    { id: 'h_cobra', tier: 'flat', name: 'Студия у Кобр', where: 'Район 21', price: 25000, rent: 200, b: [-74, -264, -59, -249], face: '+z' },
-    { id: 'h_factory', tier: 'flat', name: 'Лофт у фабрики', where: 'Район 21, земля Черепов', price: 35000, rent: 280, b: [209, -264, 224, -249], face: '-x' },
-    { id: 'h_market', tier: 'flat', name: 'Квартира над рынком', where: 'Рынок «Неплохо»', price: 55000, rent: 450, b: [-22.1, -72.3, -9, -59], face: '+x' },
-    { id: 'h_view', tier: 'flat', name: 'Квартира в Лёха-Вью', where: 'Бэйвью', price: 60000, rent: 480, b: [570, -210, 610, -200], face: '-x' },
-    { id: 'h_east', tier: 'flat', name: 'Квартира в Ист-Сайде', where: 'Бэйвью', price: 70000, rent: 560, b: [630, -260, 670, -250], face: '-x' },
-    { id: 'h_harbor', tier: 'flat', name: 'Квартира в Гавани', where: 'Гавань Лёхи', price: 80000, rent: 650, b: [-72.9, -72.9, -59, -59], face: '+z' },
-    { id: 'h_q21', tier: 'flat', name: 'Апартаменты Квартал 21', where: 'Квартал 21', price: 120000, rent: 950, b: [-41, 77.7, -26.7, 91], face: '-x' },
-    { id: 'h_west', tier: 'house', name: 'Дом в Уэст-Энде', where: 'Бэйвью', price: 120000, rent: 900, b: [357.1, -212.5, 366.3, -205], face: '-x' },
-    { id: 'h_loft', tier: 'flat', name: 'Лофт в Даунтауне', where: 'Даунтаун NEPLOXO', price: 150000, rent: 1200, b: [-40.5, 27, -9.5, 40.5], face: '-x' },
-    { id: 'h_viewhouse', tier: 'house', name: 'Дом в Лёха-Вью', where: 'Бэйвью', price: 150000, rent: 1100, b: [510, -212.5, 519.2, -205], face: '-x' },
-    { id: 'h_easthouse', tier: 'house', name: 'Дом в Ист-Сайде', where: 'Бэйвью', price: 180000, rent: 1300, b: [629.6, -212.5, 638.8, -205], face: '-x' },
-    { id: 'h_sea', tier: 'flat', name: 'Апартаменты у моря', where: 'Бульвар Not Bad', price: 220000, rent: 1800, b: [71, 59, 91, 74], face: '-z' },
-    { id: 'h_pointbeach', tier: 'flat', name: 'Апарт-отель Point Beach', where: 'Пляж Пойнт 21', price: 300000, rent: 2400, b: [410, -92, 440, -70], face: '+z' },
-    { id: 'h_townhouse', tier: 'house', name: 'Таунхаус в Лёха-Хайтс', where: 'Лёха-Хайтс', price: 350000, rent: 2800, b: [-91, 84, -75, 91], face: '+z' },
-    { id: 'h_mansion', tier: 'mansion', name: 'Особняк Хайтс Not Bad', where: 'Хайтс Not Bad, остров Палм', price: 750000, rent: 6000, b: [387, 8, 411, 8.3], face: '-z', gate: true }   // the walled estate: in through the gate
+  /* ---------- homes ----------
+     One ladder: the better the home, the higher both the price and the rent. Rent per real day comes from the
+     price by one rule (rentFor), so it always grows with it: ~0.7% of the price for a dorm room, up to ~0.85%
+     for the mansion. Most homes are cheap flats in blocks — one door, many flats behind it, enough for a
+     hundred players and more. */
+  const rentFor = price => Math.round(price * (.007 + .0015 * Math.min(1, price / 1e6)) / 5) * 5;
+  // blocks of flats: units = floors × perFloor; the price goes up a step with every floor
+  const BLOCKS = [
+    // economy studios (one small room) — Район 21
+    { id: 'b_dorm', tier: 'studio', name: 'Общежитие «Район 21»', where: 'Район 21', floors: 4, perFloor: 4, price: 6000, step: 0, b: [76, -281, 91, -266], face: '+x' },
+    { id: 'b_cobra1', tier: 'studio', name: 'ЖК «Кобра»', where: 'Район 21, земля Кобр', floors: 6, perFloor: 2, price: 9000, step: 500, b: [9, -264, 24, -249], face: '-x' },
+    { id: 'b_cobra2', tier: 'studio', name: 'ЖК «Кобра-2»', where: 'Район 21, земля Кобр', floors: 6, perFloor: 2, price: 9000, step: 500, b: [9, -314, 24, -299], face: '-x' },
+    { id: 'b_cobra3', tier: 'studio', name: 'Дом на Кобра-стрит', where: 'Район 21, земля Кобр', floors: 6, perFloor: 2, price: 9000, step: 500, b: [-74, -281, -59, -266], face: '+x' },
+    { id: 'b_cobra4', tier: 'studio', name: 'Кирпичный дом у порта', where: 'Район 21, земля Кобр', floors: 6, perFloor: 2, price: 9000, step: 500, b: [-91, -331, -59, -305], face: '-x' },
+    { id: 'b_skull1', tier: 'studio', name: 'ЖК «Череп»', where: 'Район 21, земля Черепов', floors: 6, perFloor: 2, price: 10000, step: 500, b: [109, -264, 124, -249], face: '-x' },
+    { id: 'b_skull2', tier: 'studio', name: 'Фабричный дом', where: 'Район 21, земля Черепов', floors: 6, perFloor: 2, price: 10000, step: 500, b: [176, -214, 191, -199], face: '+x' },
+    { id: 'b_skull3', tier: 'studio', name: 'Дом у трубы', where: 'Район 21, земля Черепов', floors: 6, perFloor: 2, price: 10000, step: 500, b: [226, -281, 241, -266], face: '+x' },
+    { id: 'b_skull4', tier: 'studio', name: 'ЖК «Восток-21»', where: 'Район 21, земля Черепов', floors: 6, perFloor: 2, price: 10000, step: 500, b: [159, -214, 174, -199], face: '-x' },
+    // ordinary flats (sofa, kitchen, bedroom) — the market, the harbour, Bayview
+    { id: 'b_market', tier: 'flat', name: 'Дом над лавками', where: 'Рынок «Неплохо»', floors: 5, perFloor: 2, price: 20000, step: 1000, b: [-41, -73.2, -27.6, -59], face: '-x' },
+    { id: 'b_harbor1', tier: 'flat', name: 'ЖК «Причал»', where: 'Гавань Лёхи', floors: 5, perFloor: 2, price: 28000, step: 1500, b: [-91, -73.2, -76.9, -59], face: '-x' },
+    { id: 'b_harbor2', tier: 'flat', name: 'ЖК «Маяк»', where: 'Гавань Лёхи', floors: 5, perFloor: 2, price: 28000, step: 1500, b: [-73.6, -91, -59, -78], face: '+x' },
+    { id: 'b_west', tier: 'flat', name: 'Bayview Residence', where: 'Бэйвью: Уэст-Энд', floors: 5, perFloor: 2, price: 38000, step: 2000, b: [355, -330, 387.5, -320], face: '-x' },
+    { id: 'b_west2', tier: 'flat', name: 'Уэст-Энд Апартаменты', where: 'Бэйвью: Уэст-Энд', floors: 5, perFloor: 2, price: 38000, step: 2000, b: [407.5, -360, 437.5, -350], face: '-x' },
+    { id: 'b_view', tier: 'flat', name: 'ЖК «Лёха-Вью»', where: 'Бэйвью: Лёха-Вью', floors: 5, perFloor: 2, price: 38000, step: 2000, b: [570, -230, 610, -220], face: '-z' },
+    { id: 'b_east', tier: 'flat', name: 'ЖК «Ист-Сайд»', where: 'Бэйвью: Ист-Сайд', floors: 5, perFloor: 2, price: 38000, step: 2000, b: [690, -330, 730, -320], face: '-x' }
   ];
-  const TIER = { flat: { room: 'home_flat', word: 'Квартира', icon: '🏢', hex: '#3fe6e0' }, house: { room: 'home_house', word: 'Дом', icon: '🏡', hex: '#ffb347' }, mansion: { room: 'home_mansion', word: 'Особняк', icon: '🏰', hex: '#ffd84f' } };
+  // homes with a door of their own, cheapest first (the beach villa from places.js sits on the same ladder)
+  const HOMES = [
+    { id: 'h_cobra', tier: 'flat', name: 'Квартира у Кобр', where: 'Район 21', price: 16000, b: [-74, -264, -59, -249], face: '+z' },
+    { id: 'h_factory', tier: 'flat', name: 'Лофт у фабрики', where: 'Район 21, земля Черепов', price: 19000, b: [209, -264, 224, -249], face: '-x' },
+    { id: 'h_market', tier: 'flat', name: 'Квартира над рынком', where: 'Рынок «Неплохо»', price: 26000, b: [-22.1, -72.3, -9, -59], face: '+x' },
+    { id: 'h_harbor', tier: 'flat', name: 'Квартира в Гавани', where: 'Гавань Лёхи', price: 34000, b: [-72.9, -72.9, -59, -59], face: '+z' },
+    { id: 'h_view', tier: 'flat', name: 'Квартира в Лёха-Вью', where: 'Бэйвью', price: 48000, b: [570, -210, 610, -200], face: '-x' },
+    { id: 'h_east', tier: 'flat', name: 'Квартира в Ист-Сайде', where: 'Бэйвью', price: 52000, b: [630, -260, 670, -250], face: '-x' },
+    { id: 'h_q21', tier: 'flat', name: 'Апартаменты Квартал 21', where: 'Квартал 21', price: 85000, b: [-41, 77.7, -26.7, 91], face: '-x' },
+    { id: 'h_west', tier: 'house', name: 'Дом в Уэст-Энде', where: 'Бэйвью', price: 110000, b: [357.1, -212.5, 366.3, -205], face: '-x' },
+    { id: 'h_viewhouse', tier: 'house', name: 'Дом в Лёха-Вью', where: 'Бэйвью', price: 125000, b: [510, -212.5, 519.2, -205], face: '-x' },
+    { id: 'h_loft', tier: 'flat', name: 'Лофт в Даунтауне', where: 'Даунтаун NEPLOXO', price: 130000, b: [-40.5, 27, -9.5, 40.5], face: '-x' },
+    { id: 'h_easthouse', tier: 'house', name: 'Дом в Ист-Сайде', where: 'Бэйвью', price: 140000, b: [629.6, -212.5, 638.8, -205], face: '-x' },
+    { id: 'h_sea', tier: 'flat', name: 'Апартаменты у моря', where: 'Бульвар Not Bad', price: 190000, b: [71, 59, 91, 74], face: '-z' },
+    { id: 'h_pointbeach', tier: 'flat', name: 'Апарт-отель Point Beach', where: 'Пляж Пойнт 21', price: 240000, b: [410, -92, 440, -70], face: '+z' },
+    { id: 'h_townhouse', tier: 'house', name: 'Таунхаус в Лёха-Хайтс', where: 'Лёха-Хайтс', price: 300000, b: [-91, 84, -75, 91], face: '+z' },
+    { id: 'h_mansion', tier: 'mansion', name: 'Особняк Хайтс Not Bad', where: 'Хайтс Not Bad, остров Палм', price: 900000, b: [387, 8, 411, 8.3], face: '-z', gate: true }   // the walled estate: in through the gate
+  ];
+  for (const h of HOMES) h.rent = rentFor(h.price);
+  const TIER = {
+    studio: { room: 'home_studio', word: 'Студия', icon: '🏘', hex: '#8cff6b', inside: 'Маленькая комната: кровать, раковина, плитка, старый телевизор' },
+    flat: { room: 'home_flat', word: 'Квартира', icon: '🏢', hex: '#3fe6e0', inside: 'Комната с диваном и ТВ, кухня, спальня' },
+    house: { room: 'home_house', word: 'Дом', icon: '🏡', hex: '#ffb347', inside: 'Гостиная с камином, кухня, столовая, спальня' },
+    mansion: { room: 'home_mansion', word: 'Особняк', icon: '🏰', hex: '#ffd84f', inside: 'Мраморный зал, бар, рояль, аквариум, спальня с круглой кроватью' }
+  };
   const ROOM = { clothes: 'shop_clothes', food: 'shop_food', market: 'shop_market' };
 
   // the spot on the pavement in front of the middle of a building's side
@@ -111,48 +145,65 @@
   }
 
   NB.createShops = function (o) {
-    // o: places, fronts, ui, player, progress, money { get, spend, add }, flash, save, sleep, drunk, audio
+    // o: places, fronts, ui, player, progress, money { get, spend, add }, flash, save, sleep, drunk, audio, leave, villa { price, door }
     const P = o.progress;
     if (!P.homes || typeof P.homes !== 'object') P.homes = {};
     const now = () => (NB.online && NB.online.now ? NB.online.now() : Date.now());
     const G = { player: o.player, money: o.money, drunk: o.drunk };
-    const homes = {};
 
     /* ---------- shops ---------- */
     for (const s of SHOPS) {
       const d = doorOf(s, o.fronts); d.hex = s.hex; s.door = d;
-      const e = o.fronts.add(Object.assign({}, d, { hex: s.hex, title: s.name, sub: s.sub, icon: s.icon, tag: s.tag }));
+      s.entrance = o.fronts.add(Object.assign({}, d, { hex: s.hex, title: s.name, sub: s.sub, icon: s.icon, tag: s.tag }));
       const info = { name: s.name, title: s.name, sub: s.sub, hex: s.hex, use: what => {
         if (s.kind === 'clothes') { if (what === 'buy') o.ui.boutique(s.name, STOCK[s.stock]); return; }
         const list = s.kind === 'market' ? MENUS.market : MENUS[s.menu];
         o.ui.menu({ eyebrow: s.name, title: s.kind === 'market' ? 'Касса' : 'Меню', items: () => list.map(([name, price, f]) => Object.assign({ name, price }, f(G))) });
       } };
       o.places.addDoor(ROOM[s.kind], d, info);
-      s.entrance = e;
     }
 
     /* ---------- homes ---------- */
+    const ALL = {};   // every home by id: the single ones, every flat in every block, the villa
     const rec = id => P.homes[id];
-    const owned = id => !!rec(id);
-    const due = h => { const r = rec(h.id); return r ? Math.max(0, Math.ceil((now() - r.paid) / DAY)) * h.rent : 0; };
-    function tagFor(h) { const r = rec(h.id); return !r ? 'ПРОДАЁТСЯ · ' + fmt(h.price) : now() > r.paid ? 'ДОЛГ · ' + fmt(due(h)) : 'ВАШ ДОМ'; }
-    function refresh(h) { const e = h.entrance; const t = tagFor(h); if (e.hint !== t) { e.hint = t; e.sub = (!owned(h.id) ? fmt(h.price) + ' · ' : '') + fmt(h.rent) + ' в день'; e.redraw(); } }
+    const owned = h => h.id === 'villa' ? !!P.villa : !!rec(h.id);
+    const ok = h => { const r = rec(h.id); return owned(h) && (!r || now() <= r.paid); };
+    const due = h => { const r = rec(h.id); return r ? Math.max(1, Math.ceil((now() - r.paid) / DAY)) * h.rent : 0; };
+    const paidPrice = h => { const r = rec(h.id); return (r && r.price) || h.price; };
+    function refresh(h) {
+      if (h.block) return refreshBlock(h.block);
+      const e = h.entrance; if (!e) return;
+      const r = rec(h.id), t = !owned(h) ? 'ПРОДАЁТСЯ · ' + fmt(h.price) : r && now() > r.paid ? 'ДОЛГ · ' + fmt(due(h)) : 'ВАШ ДОМ';
+      if (e.hint !== t) { e.hint = t; e.sub = (!owned(h) ? fmt(h.price) + ' · ' : '') + fmt(h.rent) + ' в день'; e.redraw(); }
+    }
+    const mineIn = B => B.units.find(u => owned(u));
+    function refreshBlock(B) {
+      const u = mineIn(B), r = u && rec(u.id), free = B.units.filter(x => !owned(x)).length;
+      const t = u ? (r && now() > r.paid ? 'ДОЛГ · ' + fmt(due(u)) : 'ВАША ' + (B.tier === 'studio' ? 'СТУДИЯ' : 'КВАРТИРА') + ' · №' + u.n) : 'КВАРТИРЫ ОТ ' + fmt(B.units[0].price);
+      if (B.entrance.hint !== t) { B.entrance.hint = t; B.entrance.sub = B.units.length + ' квартир · свободно ' + free + ' · от ' + fmt(B.units[0].rent) + ' в день'; B.entrance.redraw(); }
+    }
+    function buy(h) {
+      P.homes[h.id] = { paid: now() + DAY, t: now(), price: h.price }; o.save(); refresh(h); o.audio.fare();
+      return 'Поздравляем! Теперь это ваше жильё: ' + h.name + '. Заходите в дверь';
+    }
+    const about = h => [
+      { name: 'Что внутри', desc: TIER[h.tier].inside, price: 0, disabled: 'Кровать · гардероб', buy: () => '' },
+      { name: 'Как платить', desc: 'Аренда ' + fmt(h.rent) + ' в сутки списывается с наличных сама. Без денег дверь закрыта до оплаты; 14 дней без оплаты — жильё уходит в продажу, половина цены вернётся', price: 0, disabled: 'Понятно', buy: () => '' }
+    ];
     function buyMenu(h) {
       const T = TIER[h.tier];
-      o.ui.menu({ eyebrow: T.word + ' · ' + h.where, title: h.name, items: () => owned(h.id) ? [{ name: 'Это ваше жильё', desc: 'Заходите', price: 0, disabled: 'Ваше', buy: () => '' }] : [
-        { name: 'Купить ' + T.word.toLowerCase(), desc: 'Цена ' + fmt(h.price) + ' · аренда ' + fmt(h.rent) + ' в сутки (первые сутки включены)', price: h.price, label: 'Купить', buy: () => {
-          P.homes[h.id] = { paid: now() + DAY, t: now() }; o.save(); refresh(h); o.audio.fare();
-          return 'Поздравляем! «' + h.name + '» теперь ваше жильё. Заходите в дверь';
-        } },
-        { name: 'Что внутри', desc: T.word === 'Особняк' ? 'Мраморный зал, бар, рояль, аквариум, спальня с круглой кроватью' : T.word === 'Дом' ? 'Гостиная с камином, кухня, столовая, спальня' : 'Комната с диваном и ТВ, кухня, спальня', price: 0, disabled: 'Кровать · гардероб', buy: () => '' },
-        { name: 'Как платить', desc: 'Аренда списывается с наличных сама раз в сутки. Без денег — дверь закрыта до оплаты; 14 дней без оплаты — жильё уходит в продажу, половина цены вернётся', price: 0, disabled: 'Понятно', buy: () => '' }
-      ] });
+      o.ui.menu({ eyebrow: T.word + ' · ' + h.where, title: h.name, items: () => owned(h) ? [{ name: 'Это ваше жильё', desc: 'Заходите', price: 0, disabled: 'Ваше', buy: () => '' }] :
+        [{ name: 'Купить: ' + T.word.toLowerCase(), desc: 'Цена ' + fmt(h.price) + ' · аренда ' + fmt(h.rent) + ' в сутки (первые сутки включены)', price: h.price, label: 'Купить', buy: () => buy(h) }].concat(about(h)) });
     }
-    function payDebt(h) {
-      const r = rec(h.id); if (!r) return 'Не ваше';
-      const n = Math.max(1, Math.ceil((now() - r.paid) / DAY));
-      r.paid += n * DAY; o.save(); refresh(h); return 'Оплачено: ' + n + ' сут.';
+    // the door of a block: pick a flat (one per block for each player)
+    function blockMenu(B) {
+      o.ui.menu({ eyebrow: B.where + ' · ' + B.units.length + ' квартир', title: B.name, items: () => {
+        const mine = mineIn(B);
+        return B.units.map(u => ({ name: (B.tier === 'studio' ? 'Студия' : 'Квартира') + ' №' + u.n + ' · ' + u.floor + ' этаж', desc: 'Аренда ' + fmt(u.rent) + ' в сутки', price: owned(u) ? 0 : u.price, label: 'Купить',
+          current: owned(u), disabled: owned(u) ? 'Ваша' : mine ? 'У вас уже есть квартира здесь' : '', buy: () => buy(u) })).concat(about(B.units[0]));
+      } });
     }
+    function payDebt(h) { const r = rec(h.id); if (!r) return 'Не ваше'; const n = Math.max(1, Math.ceil((now() - r.paid) / DAY)); r.paid += n * DAY; o.save(); refresh(h); return 'Оплачено: ' + n + ' сут.'; }
     function debtMenu(h) {
       o.ui.menu({ eyebrow: 'Долг за жильё', title: h.name, items: () => {
         const r = rec(h.id); if (!r || now() <= r.paid) return [{ name: 'Долга нет', price: 0, disabled: 'Заходите', buy: () => '' }];
@@ -162,59 +213,89 @@
     function homeMenu(h) {
       o.ui.menu({ eyebrow: h.where, title: h.name, items: () => {
         const r = rec(h.id); if (!r) return [];
-        const left = Math.max(0, r.paid - now()), d = Math.floor(left / DAY), hh = Math.floor(left % DAY / 3600000);
+        const left = Math.max(0, r.paid - now()), d = Math.floor(left / DAY), hh = Math.floor(left % DAY / 3600000), back = Math.round(paidPrice(h) / 2);
         return [
           { name: 'Оплачено ещё ' + d + ' сут. ' + hh + ' ч', desc: 'Аренда ' + fmt(h.rent) + ' в сутки, списывается сама', price: 0, disabled: 'Ок', buy: () => '' },
           { name: 'Оплатить вперёд на 7 суток', desc: 'Чтобы точно не остаться без дома', price: h.rent * 7, label: 'Оплатить', buy: () => { r.paid += 7 * DAY; o.save(); return 'Оплачено на неделю вперёд'; } },
           { name: P.homeSpawn === h.id ? 'Вы просыпаетесь здесь' : 'Просыпаться здесь', desc: 'При входе в игру вы появитесь у этой двери', price: 0, label: 'Выбрать', disabled: P.homeSpawn === h.id ? 'Выбрано' : '', buy: () => { P.homeSpawn = h.id; o.save(); return 'Теперь вы просыпаетесь здесь'; } },
-          { name: 'Продать', desc: 'Вернётся половина цены: ' + fmt(h.price / 2), price: -Math.round(h.price / 2), buy: () => { delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null; o.save(); refresh(h); setTimeout(() => { o.ui.close(); o.leave(h); }, 600); return 'Продано'; } }
+          { name: 'Продать', desc: 'Вернётся половина цены: ' + fmt(back), price: -back, buy: () => { delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null; o.save(); refresh(h); setTimeout(() => { o.ui.close(); o.leave(); }, 600); return 'Продано'; } }
         ];
       } });
     }
+    const inside = h => ({
+      sleep: () => { P.homeSpawn = h.id; o.sleep('Вы выспались. Игра сохранена. Теперь вы просыпаетесь здесь'); },
+      home: () => homeMenu(h)
+    });
+
+    // homes with their own door
     for (const h of HOMES) {
-      const T = TIER[h.tier], d = doorOf(h, o.fronts); d.hex = T.hex; h.door = d; homes[h.id] = h;
+      const T = TIER[h.tier], d = doorOf(h, o.fronts); d.hex = T.hex; h.door = d; ALL[h.id] = h;
       h.entrance = o.fronts.add(Object.assign({}, d, { hex: T.hex, title: h.name, sub: '', icon: T.icon, tag: T.word.toUpperCase(), hint: '', boardW: h.tier === 'house' ? 4.4 : 5.6, pillars: !!h.gate, canopy: !h.gate }));
       refresh(h);
-      const info = { name: h.name, title: h.name, sub: h.where, hex: T.hex,
-        enabled: () => { const r = rec(h.id); return !!r && now() <= r.paid; },
-        locked: () => { if (!owned(h.id)) buyMenu(h); else debtMenu(h); },
-        use: what => {
-          if (what === 'sleep') { P.homeSpawn = h.id; o.sleep('Вы выспались. Игра сохранена. Теперь вы просыпаетесь здесь'); }
-          else if (what === 'home') homeMenu(h);
-        } };
+      o.places.addDoor(T.room, d, { name: h.name, title: h.name, sub: h.where, hex: T.hex, enabled: () => ok(h), locked: () => (owned(h) ? debtMenu : buyMenu)(h), use: what => { const f = inside(h)[what]; if (f) f(); } });
+    }
+    // blocks of flats: one door, the flat you own behind it
+    for (const B of BLOCKS) {
+      const T = TIER[B.tier], d = doorOf(B, o.fronts); d.hex = T.hex; B.door = d;
+      B.units = [];
+      for (let i = 0; i < B.floors * B.perFloor; i++) {
+        const floor = 1 + ((i / B.perFloor) | 0), price = B.price + (floor - 1) * B.step;
+        const u = { id: B.id + '_' + (i + 1), n: i + 1, floor, block: B, tier: B.tier, where: B.where, name: B.name + ', кв. ' + (i + 1), price, rent: rentFor(price), door: d };
+        B.units.push(u); ALL[u.id] = u;
+      }
+      B.entrance = o.fronts.add(Object.assign({}, d, { hex: T.hex, title: B.name, sub: '', icon: T.icon, tag: 'КВАРТИРЫ', hint: '' }));
+      refreshBlock(B);
+      const info = { name: B.name, title: B.name, sub: B.where, hex: T.hex,
+        enabled: () => { const u = mineIn(B); if (!u || !ok(u)) return false; info.name = u.name; return true; },   // in you go, to your own flat
+        locked: () => { const u = mineIn(B); if (u) debtMenu(u); else blockMenu(B); },
+        use: what => { const u = mineIn(B); if (u) { const f = inside(u)[what]; if (f) f(); } } };
       o.places.addDoor(T.room, d, info);
     }
+    // the beach villa (built in places.js, bought at its gate): it pays rent like every other home
+    const villa = o.villa ? { id: 'villa', tier: 'mansion', name: 'Вилла на пляже', where: 'Пляж Not Bad', price: o.villa.price, rent: rentFor(o.villa.price) } : null;
+    if (villa) { ALL.villa = villa; if (P.villa && !rec('villa')) P.homes.villa = { paid: now() + DAY, t: now(), price: 4000 }; }   // bought before rent existed: rent starts today
 
     // rent: taken from cash once a real day; with no cash the door locks; 14 days unpaid and the home is gone
     let tickT = 0;
     function tick(dt) {
       if ((tickT -= dt) > 0) return; tickT = 15;
       const t = now();
-      for (const h of HOMES) {
-        const r = rec(h.id); if (!r) { refresh(h); continue; }
+      if (villa && P.villa && !rec('villa')) P.homes.villa = { paid: t + DAY, t, price: villa.price };   // just bought at the gate
+      for (const id in P.homes) {
+        const h = ALL[id], r = P.homes[id];
+        if (!h) continue;
+        if (id === 'villa' && !P.villa) { delete P.homes.villa; continue; }
         while (t > r.paid && o.money.get() >= h.rent && t - r.paid < GRACE_DAYS * DAY) { o.money.spend(h.rent, 'Аренда: ' + h.name); r.paid += DAY; o.save(); }
         if (t - r.paid >= GRACE_DAYS * DAY) {
-          delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null;
-          o.money.add(Math.round(h.price / 2), 'Жильё продано за долги');
-          o.flash(h.name + ': 14 дней без оплаты — жильё ушло в продажу, вернули ' + fmt(h.price / 2), 5); o.save();
-        } else if (t > r.paid && !r.warned) { r.warned = true; o.flash('Не хватает на аренду: ' + h.name + ' закрыт до оплаты долга', 4); }
+          const back = Math.round(paidPrice(h) / 2);
+          delete P.homes[id]; if (id === 'villa') P.villa = false; if (P.homeSpawn === id) P.homeSpawn = null;
+          o.money.add(back, 'Жильё продано за долги');
+          o.flash(h.name + ': 14 дней без оплаты — жильё ушло в продажу, вернули ' + fmt(back), 5); o.save();
+        } else if (t > r.paid && !r.warned) { r.warned = true; o.flash('Не хватает на аренду: ' + h.name + ' закрыто до оплаты', 4); }
         else if (t <= r.paid) r.warned = false;
-        refresh(h);
       }
+      for (const h of HOMES) refresh(h);
+      for (const B of BLOCKS) refreshBlock(B);
     }
 
+    const units = BLOCKS.reduce((n, B) => n + B.units.length, 0);
     return {
-      shops: SHOPS, homes: HOMES, tick,
+      shops: SHOPS, homes: HOMES, blocks: BLOCKS, tick, rentFor,
+      count: { blocks: BLOCKS.length, units, singles: HOMES.length, total: units + HOMES.length + (villa ? 1 : 0) },
+      // a home's door opens only while its rent is paid (the villa asks this)
+      ok: id => { const h = ALL[id]; return !h || ok(h); },
+      villaRent: () => villa ? villa.rent : 0,
       // where to wake up: the door of the home you last slept in, if it's still yours
-      spawn() { const h = homes[P.homeSpawn]; if (!h || !owned(h.id)) return null; const d = h.door; return { x: d.x + d.nx * 2.2, z: d.z + d.nz * 2.2, heading: d.heading, y: d.y }; },
+      spawn() { const h = ALL[P.homeSpawn]; if (!h || !h.door || !owned(h)) return null; const d = h.door; return { x: d.x + d.nx * 2.2, z: d.z + d.nz * 2.2, heading: d.heading, y: d.y }; },
       // for the maps
       icons() {
         const out = [];
         for (const s of SHOPS) out.push({ x: s.door.cx, z: s.door.cz, bg: s.hex, fg: '#141018', ch: s.icon, label: s.name + ': ' + s.sub });
-        for (const h of HOMES) { const mine = owned(h.id), T = TIER[h.tier]; out.push({ x: h.door.cx, z: h.door.cz, bg: mine ? '#ffffff' : T.hex, fg: '#141018', ch: mine ? '⌂' : T.icon, label: mine ? 'Ваше жильё: ' + h.name : T.word + ' «' + h.name + '» · ' + fmt(h.price) + ' · ' + fmt(h.rent) + '/сутки', home: true, mine }); }
+        for (const h of HOMES) { const mine = owned(h), T = TIER[h.tier]; out.push({ x: h.door.cx, z: h.door.cz, bg: mine ? '#ffffff' : T.hex, fg: '#141018', ch: mine ? '⌂' : T.icon, label: mine ? 'Ваше жильё: ' + h.name : T.word + ' «' + h.name + '» · ' + fmt(h.price) + ' · ' + fmt(h.rent) + '/сутки', mine }); }
+        for (const B of BLOCKS) { const mine = !!mineIn(B), T = TIER[B.tier]; out.push({ x: B.door.cx, z: B.door.cz, bg: mine ? '#ffffff' : T.hex, fg: '#141018', ch: mine ? '⌂' : T.icon, label: mine ? 'Ваша квартира: ' + mineIn(B).name : B.name + ': ' + B.units.length + ' квартир от ' + fmt(B.units[0].price) + ' · ' + fmt(B.units[0].rent) + '/сутки', mine }); }
         return out;
       }
     };
   };
-  NB.SHOP_LIST = SHOPS; NB.HOME_LIST = HOMES;
+  NB.SHOP_LIST = SHOPS; NB.HOME_LIST = HOMES; NB.HOME_BLOCKS = BLOCKS;
 })(window.NB);

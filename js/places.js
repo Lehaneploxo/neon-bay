@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640], home_studio: [2200, 1780] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -948,7 +948,7 @@
        9. THE VILLA: bought on the beach, with a garage for two cars and a pool;
           inside a living room with a TV and a bedroom with a round bed and a wardrobe
        --------------------------------------------------------------- */
-    const VILLA_PRICE = 4000;
+    const VILLA_PRICE = 500000;   // the beach villa with a pool and a garage: luxury, on the same ladder as the homes in shops.js (rent there)
     let villaDoor = null, garage = null;
     {
       K.at(0, 0);
@@ -1008,8 +1008,8 @@
       for (const z of [89.8, 91.4]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.08, 1.4, .08).translate(0, .7, 0), new THREE.MeshLambertMaterial({ color: 0xffffff })); post.position.set(110.15, 0, z); sale.add(post); }
       scene.add(sale);
       const pl = interior('villa', 'Вилла', villaDoor, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-8, -6, 8, 14], light: lit('#fff6f0', '#806a70', 1.0) });
-      pl.enabled = () => !!G && G.progress.villa;
-      pl.locked = () => 'Вилла продаётся — купите её у ворот за $' + VILLA_PRICE.toLocaleString('ru-RU');
+      pl.enabled = () => !!G && G.progress.villa && (!G.homeOk || G.homeOk('villa'));
+      pl.locked = () => G && G.progress.villa ? 'Аренда виллы не оплачена — как только будут наличные, она спишется сама' : 'Вилла продаётся — купите её у ворот за $' + VILLA_PRICE.toLocaleString('ru-RU');
       K.at(pl.ox, pl.oz);
       K.room(-8, -6, 8, 6, 3.4, { wall: '#f8f4f0', ceil: '#f0ebe4', trim: '#d8cfc4', neon: '#ff7eb6', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }], '+z': [{ c: 4, w: 1.4, h: 2.5 }] } });
       K.floor(-8, -6, 8, 6, T.whiteTile, 1.2); K.floor(-5.5, -3.5, 1.5, 2, T.carpetPink, 1.5, .01);
@@ -2048,6 +2048,24 @@
       K.box(.3, 0, 12, 1.1, 2.8, 17, '#e8dce4', true);
       windowView('+x', 11.83, 2, 14, 4, 1.8, true);
       homeInteractions(pl, [6, 13.1], [1.8, 14.5], [-2.2, -4.4]);
+    }
+
+    // an economy studio in a block of flats: one small room — a single bed, a sink and a hotplate, an old TV
+    {
+      const pl = shared('home_studio', 'Студия', { inside: [0, -2.4, 0], exit: [0, -3.3], bounds: [-3.5, -4, 3.5, 4], light: lit('#f6f0e6', '#6a6058', .9) });
+      K.at(pl.ox, pl.oz);
+      K.room(-3.5, -4, 3.5, 4, 2.7, { wall: '#d8d0c0', ceil: '#e8e4dc', trim: '#5a4a3a', neon: '#8cff6b', gaps: { '-z': [{ c: 0, w: 1.4, h: 2.3 }] } });
+      K.floor(-3.5, -4, 3.5, 4, T.darkTile, 1);
+      windowView('-z', 1.6, 1.6, 3.83, 1.6, 1.1, true);
+      // a single bed along the right wall, a rug
+      K.box(2.4, 0, .6, 3.45, .4, 3.9, '#5a4a3a', true); K.box(2.45, .4, .65, 3.4, .52, 3.85, '#e8e2d6'); K.box(2.45, .52, .65, 3.4, .56, 2.8, '#6a7ab8');
+      K.box(-.9, 0, .4, .9, .01, 1.8, '#8a3a3a');
+      // the kitchen corner: a sink, a hotplate, a little fridge
+      K.box(-3.45, 0, 1.5, -2.6, .9, 3.9, '#c8c8c8', true); K.box(-3.4, .9, 2.0, -2.8, .93, 2.6, '#8a9aa8'); K.box(-3.4, .9, 3.0, -2.8, .95, 3.6, '#18181c');
+      K.box(-3.45, 0, -1.2, -2.7, 1.4, -.3, '#e8e8ec', true);
+      // an old TV on a crate
+      K.box(-1.2, 0, 3.3, -.2, .5, 3.9, '#8a6a4a', true); K.box(-1.1, .5, 3.4, -.3, 1.15, 3.85, '#2a2a30'); K.screen('-z', -.7, .82, 3.38, .6, .45, 2);
+      homeInteractions(pl, [2.0, 2.2], [-2.0, -.8], [1.8, -2.6]);
     }
 
     K.finish();

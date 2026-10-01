@@ -302,14 +302,15 @@
   world.street.attach({ rain: () => weather.rain, police, hour: () => ((START_MIN + time) / 60) % 24,
     room: girl => { const pl = places.byId('motel'); pl.guest = girl; enterPlace(pl); },   // in through the door upstairs, she's already inside
     crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
-  places.attach({
+  const placeCtx = {
     player, combat, crowd, police, audio, vehicles, progress, ui,
     money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
     flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport, drunk: s => { drunkT = s; },
     say: (p, t) => say(p, t), get input() { return input; }, day: () => Math.floor((START_MIN + time) / 1440), view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     openShop: () => { if (shop.canServe()) openShop(); }
-  });
+  };
+  places.attach(placeCtx);
   // Neon Fashion, the clothes shop
   // Shield Security: bodyguards for hire, $1000 a head, up to five
   guards = NB.createGuards({ crowd, vehicles, player, progress, flash: (t, sec) => flashTip(t, sec), say: (p, t) => say(p, t) });
@@ -340,7 +341,7 @@
       const p = places.byId(id); if (!p || !p.door) continue;
       const [title, sub, icon, tag, opt] = ENT[id], d = p.door;
       const e = fronts.add(Object.assign({ x: d.x, z: d.z, y: d.y, nx: d.nx, nz: d.nz, hex: d.hex || '#ffd84f', title, sub, icon, tag }, opt));
-      if (id === 'villa') { e.hintFn = () => progress.villa ? 'ВАШ ДОМ' : 'ПРОДАЁТСЯ · $' + places.VILLA_PRICE.toLocaleString('ru-RU'); }
+      if (id === 'villa') { e.hintFn = () => progress.villa ? (shops.ok('villa') ? 'ВАШ ДОМ' : 'ДОЛГ ЗА АРЕНДУ') : 'ПРОДАЁТСЯ · $' + places.VILLA_PRICE.toLocaleString('ru-RU') + ' · $' + shops.villaRent().toLocaleString('ru-RU') + ' в день'; }
     }
     if (world.security) { const s = world.security; fronts.add({ x: s.x, z: s.z, ...doorDir(s), hex: '#3fe6e0', title: 'SHIELD SECURITY', sub: 'телохранители · $1 000', icon: '🛡', tag: 'ОХРАНА', hint: 'ОХРАНА · подойдите к двери', canopy: false, ring: true }); }
     if (world.club) fronts.add({ x: world.club.door.out[0], z: world.club.door.z, nx: 1, nz: 0, wall: world.club.door.out[0] - world.club.door.x, hex: '#ff4fa3', title: 'NEPLOXO 21', sub: 'диско-клуб', icon: '🪩', tag: 'КЛУБ', canopy: false, board: false });
@@ -349,7 +350,8 @@
   function doorDir(d) { const dx = d.x - d.cx, dz = d.z - d.cz; return Math.abs(dx) > Math.abs(dz) ? { nx: Math.sign(dx), nz: 0 } : { nx: 0, nz: Math.sign(dz) }; }
   // shops, cafés, 24/7 stores and homes for sale all over the city (shops.js)
   const shops = NB.createShops({ places, fronts, ui, player, progress, money: wallet, audio, drunk: s => { drunkT = s; },
-    flash: (t, s) => flashTip(t, s), save: saveProgress, sleep, leave: () => { if (places.current) exitPlace(places.current); } });
+    flash: (t, s) => flashTip(t, s), save: saveProgress, sleep, leave: () => { if (places.current) exitPlace(places.current); }, villa: { price: places.VILLA_PRICE } });
+  placeCtx.homeOk = id => shops.ok(id);   // the villa's door opens only while its rent is paid
   fronts.finish();
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
