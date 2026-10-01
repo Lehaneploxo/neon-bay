@@ -16,7 +16,7 @@ const scrypt = promisify(crypto.scrypt);
 const PORT = process.env.PORT || 3100;
 const ORIGINS = [/^https:\/\/(www\.)?gameleha\.xyz$/, /^https:\/\/lehaneploxo\.github\.io$/, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/];
 const NICK_RE = /^[A-Za-zА-Яа-яЁёІіЇїЄєҐґ0-9_]{3,16}$/;
-const RESERVED = ['admin', 'administrator', 'moderator', 'support', 'system', 'bot', 'gm', 'leha', 'leha_neploxo', 'lehaneploxo', 'админ', 'модератор', 'поддержка', 'бот'];
+const RESERVED = ['admin', 'administrator', 'moderator', 'support', 'system', 'bot', 'gm', 'leha', 'админ', 'модератор', 'поддержка', 'бот'];
 const TOKEN_TTL_MS = 180 * 24 * 3600 * 1000;   // stay signed in for half a year
 const SAVE_MAX = 96 * 1024;                     // a save is a few KB; anything this big is junk
 
