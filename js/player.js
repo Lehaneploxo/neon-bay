@@ -3,6 +3,8 @@
   'use strict';
   const { U } = NB;
   const STEP = .42, RADIUS = .34, HEIGHT = 1.8;
+  // falls: a drop of up to about two storeys is walked away from; higher, it hurts, ~17 m kills
+  const SAFE_DROP = 7, DROP_HURT = 10;
   const JOG = 4.6, SPRINT = 7.6, GRAVITY = 20, JUMP = 7.2;
 
   function flowerShirt(base, leaf, petals) {
@@ -181,7 +183,7 @@
       this.onSplash = null; this.onStroke = null;
       this.fx = makeWaterFx(scene);
     }
-    place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; this.swim = false; }
+    place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; this.swim = false; this.fallTop = this.y; this.standCar = null; }
     get speed() { return Math.hypot(this.vx, this.vz); }
     // the police uniform from the station lockers; everything else is worn piece by piece (setLook)
     setOutfit(id) {
@@ -202,6 +204,7 @@
 
     floorAt(x, z, fromY) {
       let f = NB.water.floorAt(x, z); const r = RADIUS * .6;   // the sea bed slopes below 0
+      this.lastCar = null;
       for (const b of this.col.query(x - 1, z - 1, x + 1, z + 1, this.tmp)) {
         if (b.terrain) {   // island ground: follow the smooth slope, not the 2.5 m steps of its colliders
           if (x >= b.minX && x < b.maxX && z >= b.minZ && z < b.maxZ) { const h = b.terrain(x, z); if (h <= fromY + STEP && h > f) f = h; }
@@ -210,6 +213,8 @@
         if (b.maxY > fromY + STEP) continue;
         if (x + r > b.minX && x - r < b.maxX && z + r > b.minZ && z - r < b.maxZ && b.maxY > f) f = b.maxY;
       }
+      // the top of a car (bonnet, roof, boot) is a floor too
+      if (this.carFloor) { const c = this.carFloor(x, z, fromY + STEP); if (c && c.y > f) { f = c.y; this.lastCar = c.car; } }
       return f;
     }
     // Push the body circle out of any box that is too tall to step onto.
@@ -261,14 +266,14 @@
       const px = this.x, pz = this.z;
       this.x += this.vx * dt; this.z += this.vz * dt;
       this.collide();
-      const floor = this.floorAt(this.x, this.z, this.y);
+      const floor = this.floorAt(this.x, this.z, this.y), floorCar = this.lastCar;
       const W = NB.water.at(this.x, this.z), surf = W ? W.surface() : 0, t = performance.now() / 1000;
       if (W && surf - floor > 1.3 && (this.swim || this.y <= surf - 1.0)) {
         // afloat: shoulders at the surface, bobbing on the swell
         if (!this.swim) { this.swim = true; this.fx.splash(this.x, surf, this.z, Math.min(1, -this.vy / 9) + .25); if (this.onSplash) this.onSplash(this.vy < -5); this.setWeapon(this.weapon); }
         this.tilt = U.damp(this.tilt, this.speed > .7 ? 1 : .25, 3, dt);
         const want = surf - 1.5 * Math.cos(this.tilt) + Math.sin(t * 2.1 + this.x * .3) * .04;
-        this.y = U.damp(this.y, want, 5, dt); this.vy = 0; this.onGround = false; this.air = 0; this.wade = 0;
+        this.y = U.damp(this.y, want, 5, dt); this.vy = 0; this.onGround = false; this.air = 0; this.wade = 0; this.fallTop = this.y; this.standCar = null;
         // swim against the edge of a pool and you climb out onto it
         const moved = Math.hypot(this.x - px, this.z - pz), wantMove = Math.hypot(wx, wz) * dt;
         if (wantMove > .02 && moved < wantMove * .35) {
@@ -286,8 +291,12 @@
         const was = this.onGround;
         if (this.y <= floor || (was && this.vy <= 0 && this.y - floor < .25)) {
           if (!was && W && this.vy < -4 && surf > floor) { this.fx.splash(this.x, surf, this.z, .6); if (this.onSplash) this.onSplash(false); }
+          // a hard landing: the higher the fall, the more it hurts (into deep water it never does)
+          if (!was && this.fallTop != null && this.fallTop - floor > SAFE_DROP && this.onFall) this.onFall((this.fallTop - floor - SAFE_DROP) * DROP_HURT, this.fallTop - floor);
           this.y = floor; this.vy = 0; this.onGround = true;
         } else this.onGround = false;
+        this.fallTop = this.onGround ? this.y : Math.max(this.fallTop == null ? this.y : this.fallTop, this.y);
+        this.standCar = this.onGround ? floorCar : null;
         this.air = this.onGround ? 0 : this.air + dt;
         this.wade = W ? Math.max(0, surf - this.y) : 0;
       }

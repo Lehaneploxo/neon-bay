@@ -92,6 +92,7 @@
     const car = vehicles.driving;
     if (car) {
       if (vehicles.exit(player)) {
+        player.fallTop = player.y;   // a fall is counted from where you step out, not from where you got in
         player.inCar = false; player.m.root.visible = true; player.blob.visible = true;
         document.body.classList.remove('driving'); rig.snap(player);
       } else flashTip(car.model.heli ? 'Сначала приземлитесь' : 'Сначала остановитесь', 1.5);
@@ -401,6 +402,21 @@
       }
     }
   }
+  // a fall from high up: the vest doesn't help, training does a little
+  function fallDamage(d, h) {
+    if (player.dead || respawnT > 0) return;
+    d *= 1 - ((progress.stats && progress.stats.tough) || 0) / 400;
+    player.hp = Math.max(0, player.hp - d); vignette = Math.min(1, vignette + .6); audio.hurt();
+    if (player.hp <= 0) endLife('wasted'); else flashTip('Жёсткое приземление: ' + Math.round(h) + ' м, −' + Math.round(d) + ' здоровья', 2.2);
+  }
+  // standing on a car that moves or turns: the hero goes with it
+  function rideCar(c) {
+    if (c.px == null) return;
+    const dh = c.h - c.ph, ox = player.x - c.px, oz = player.z - c.pz, cs = Math.cos(dh), sn = Math.sin(dh);
+    player.x = c.x + ox * cs + oz * sn; player.z = c.z + oz * cs - ox * sn; player.y += c.y - c.py; player.heading += dh;
+  }
+  player.carFloor = (x, z, maxY) => vehicles.topAt(x, z, maxY);   // jump onto a car and stand on it
+  player.onFall = (d, h) => fallDamage(d, h);
   function heroDamage(d) {
     if (player.dead || respawnT > 0) return;
     d *= 1 - ((progress.stats && progress.stats.tough) || 0) / 400;   // trained toughness: up to a quarter less
@@ -416,7 +432,7 @@
   }
   function leaveCar() {
     if (!vehicles.driving) return;
-    vehicles.exit(player, true);
+    vehicles.exit(player, true); player.fallTop = player.y;
     player.inCar = false; player.m.root.visible = true; document.body.classList.remove('driving');
   }
   let bill = 0;
@@ -962,6 +978,7 @@
       rig.aimBlend = U.damp(rig.aimBlend, input.aim && !combat.isMelee() && !vehicles.driving && !player.dead ? 1 : 0, 10, dt);
       if (!vehicles.driving) player.update(dt, input, rig.yaw); else input.jump = false;
       vehicles.update(dt, { player, input, people: crowd.people, camYaw: rig.yaw, limits: carLimits, police, target: places.current && places.current.door ? { x: places.current.door.x, z: places.current.door.z, vx: 0, vz: 0, onFoot: true } : { x: player.x, z: player.z, vx: player.vx, vz: player.vz, onFoot: !vehicles.driving } });
+      if (!vehicles.driving && player.standCar && player.onGround && !player.dead) rideCar(player.standCar);
       combat.update(dt, input, aim, !!vehicles.driving || player.swim);
       shellsStep(dt);   // no fighting while swimming
       police.update(dt, player, rig.yaw);

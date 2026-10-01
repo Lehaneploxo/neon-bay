@@ -116,6 +116,32 @@
     }
     const speedOf = car => car.vx * Math.sin(car.h) + car.vz * Math.cos(car.h);
 
+    /* ---------- standing on cars ----------
+       Each model's top surface, sampled once from its body: a grid of heights over the footprint (the bonnet,
+       the roof, the boot). The hero can jump onto a car and stand on it, and rides along when it moves. */
+    const tops = new Map(), RC = new THREE.Raycaster(), DOWNV = new THREE.Vector3(0, -1, 0), RO = new THREE.Vector3();
+    const NA = 12, NC = 5;
+    function topMap(model) {
+      let m = tops.get(model.id); if (m) return m;
+      const mesh = new THREE.Mesh(model.geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })); mesh.updateMatrixWorld(true);
+      m = new Float32Array(NA * NC);
+      for (let i = 0; i < NA; i++) for (let j = 0; j < NC; j++) {
+        RO.set((j + .5) / NC * model.w - model.w / 2, 20, (i + .5) / NA * model.l - model.l / 2);
+        RC.set(RO, DOWNV); const hit = RC.intersectObject(mesh, false)[0];
+        m[i * NC + j] = hit ? hit.point.y : 0;
+      }
+      mesh.material.dispose(); tops.set(model.id, m); return m;
+    }
+    const standable = c => !c.model.boat && !c.model.heli && !c.model.jet && !c.flooded;
+    // the height of a car's top over a world point, or null if the point isn't over the car
+    function carTop(c, x, z) {
+      const [fx, fz] = fwd(c), [rx, rz] = right(c), dx = x - c.x, dz = z - c.z, L = c.model.l, Wd = c.model.w;
+      const t = dx * fx + dz * fz, s = -(dx * rx + dz * rz);   // along the car, and across it (model x is to the car's left)
+      if (Math.abs(t) > L / 2 || Math.abs(s) > Wd / 2) return null;
+      const i = Math.min(NA - 1, ((t + L / 2) / L * NA) | 0), j = Math.min(NC - 1, ((s + Wd / 2) / Wd * NC) | 0);
+      return c.y + topMap(c.model)[i * NC + j];
+    }
+
     /* ---------- dents ---------- */
     function dent(car, wx, wz, nx, nz, amount) {
       const c = Math.cos(car.h), s = Math.sin(car.h);
@@ -802,6 +828,16 @@
     let popT = 0, first = true, driving = null;
     const api = {
       cars,
+      // the highest car top under a point that's no higher than maxY: { y, car } or null
+      topAt(x, z, maxY) {
+        let best = null;
+        for (const c of cars) {
+          if (!standable(c) || Math.abs(c.x - x) > 4 || Math.abs(c.z - z) > 4) continue;
+          const y = carTop(c, x, z);
+          if (y != null && y - c.y > .25 && y <= maxY && (!best || y > best.y)) best = { y, car: c };
+        }
+        return best;
+      },
       get driving() { return driving; },
       station: HQ,
       get heli() { return copHeli; },
@@ -887,6 +923,7 @@
       },
       update(dt, ctx) {
         const { player, input, people, camYaw, limits } = ctx;
+        for (const c of cars) { c.px = c.x; c.pz = c.z; c.ph = c.h; c.py = c.y; }   // where each car was: the hero standing on one rides along
         // population: keep traffic around the hero, drop far away cars
         popT -= dt;
         if (popT <= 0) {
@@ -1018,6 +1055,7 @@
           for (const [cx, cz, r] of circles(c)) {
             const dx = player.x - cx, dz = player.z - cz, d = Math.hypot(dx, dz), min = r + .34;
             if (d < min && d > 1e-4) {
+              if (standable(c)) { const k = Math.min(d, r * .8) / d, top = carTop(c, cx + dx * k, cz + dz * k); if (top != null && player.y >= top - .3) continue; }
               player.x += dx / d * (min - d); player.z += dz / d * (min - d);
               const v = c.ai ? c.ai.v : Math.hypot(c.vx, c.vz);
               if (v > 5 && opts.onHeroHit && (c.heroHitT || 0) <= 0) { c.heroHitT = 1; opts.onHeroHit(v, c); }
