@@ -35,11 +35,22 @@ class PgStore {
       account_id INTEGER PRIMARY KEY REFERENCES gta_accounts(id) ON DELETE CASCADE,
       data JSONB NOT NULL, t BIGINT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
     await q(`CREATE TABLE IF NOT EXISTS gta_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+    // the shared city: who owns which home and which business (one owner each), and what a business earned while its owner was away
+    await q(`CREATE TABLE IF NOT EXISTS gta_owners (
+      kind TEXT NOT NULL, item TEXT NOT NULL, account_id INTEGER NOT NULL REFERENCES gta_accounts(id) ON DELETE CASCADE, nick TEXT NOT NULL,
+      pending BIGINT NOT NULL DEFAULT 0, earned BIGINT NOT NULL DEFAULT 0, t BIGINT NOT NULL, PRIMARY KEY (kind, item))`);
   }
   async meta(key, fallback) {
     await this.pool.query('INSERT INTO gta_meta(key,value) VALUES($1,$2) ON CONFLICT (key) DO NOTHING', [key, fallback]);
     return (await this.pool.query('SELECT value FROM gta_meta WHERE key=$1', [key])).rows[0].value;
   }
+  async setMeta(key, value) { await this.pool.query('INSERT INTO gta_meta(key,value) VALUES($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2', [key, value]); }
+  async owners(kind) { return (await this.pool.query('SELECT item, account_id, nick, pending, earned FROM gta_owners WHERE kind=$1', [kind])).rows.map(r => ({ item: r.item, accountId: r.account_id, nick: r.nick, pending: +r.pending, earned: +r.earned })); }
+  // true if it was free and is now this account's
+  async claim(kind, item, accountId, nick) { return (await this.pool.query('INSERT INTO gta_owners(kind,item,account_id,nick,t) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING item', [kind, item, accountId, nick, Date.now()])).rowCount === 1; }
+  async release(kind, item, accountId) { return (await this.pool.query('DELETE FROM gta_owners WHERE kind=$1 AND item=$2 AND account_id=$3', [kind, item, accountId])).rowCount === 1; }
+  async addPending(kind, item, n) { await this.pool.query('UPDATE gta_owners SET pending=pending+$3, earned=earned+$3 WHERE kind=$1 AND item=$2', [kind, item, n]); }
+  async takePending(kind, accountId) { return (await this.pool.query('WITH p AS (SELECT item, pending FROM gta_owners WHERE kind=$1 AND account_id=$2 AND pending>0 FOR UPDATE) UPDATE gta_owners o SET pending=0 FROM p WHERE o.kind=$1 AND o.item=p.item RETURNING o.item, p.pending', [kind, accountId])).rows.map(r => ({ item: r.item, n: +r.pending })); }
   async createAccount(nick, hash) {
     try { return (await this.pool.query('INSERT INTO gta_accounts(nick,nick_lower,pass_hash) VALUES($1,$2,$3) RETURNING id', [nick, nick.toLowerCase(), hash])).rows[0].id; }
     catch (e) { if (e.code === '23505') throw new Error('taken'); throw e; }
@@ -62,6 +73,13 @@ class FileStore {
   async init() { try { this.db = JSON.parse(fs.readFileSync(this.file, 'utf8')); } catch (e) {} }
   flush() { fs.writeFileSync(this.file, JSON.stringify(this.db)); }
   async meta(key, fallback) { if (!(key in this.db.meta)) { this.db.meta[key] = fallback; this.flush(); } return this.db.meta[key]; }
+  async setMeta(key, value) { this.db.meta[key] = value; this.flush(); }
+  own() { return this.db.owners || (this.db.owners = {}); }
+  async owners(kind) { return Object.entries(this.own()).filter(([k]) => k.startsWith(kind + ':')).map(([k, r]) => ({ item: k.slice(kind.length + 1), ...r })); }
+  async claim(kind, item, accountId, nick) { const k = kind + ':' + item; if (this.own()[k]) return false; this.own()[k] = { accountId, nick, pending: 0, earned: 0 }; this.flush(); return true; }
+  async release(kind, item, accountId) { const k = kind + ':' + item, r = this.own()[k]; if (!r || r.accountId !== accountId) return false; delete this.own()[k]; this.flush(); return true; }
+  async addPending(kind, item, n) { const r = this.own()[kind + ':' + item]; if (r) { r.pending += n; r.earned += n; this.flush(); } }
+  async takePending(kind, accountId) { const out = []; for (const [k, r] of Object.entries(this.own())) if (k.startsWith(kind + ':') && r.accountId === accountId && r.pending > 0) { out.push({ item: k.slice(kind.length + 1), n: r.pending }); r.pending = 0; } this.flush(); return out; }
   async createAccount(nick, hash) {
     if (this.db.accounts.some(a => a.nick_lower === nick.toLowerCase())) throw new Error('taken');
     const id = this.db.accounts.length + 1;

@@ -125,7 +125,9 @@
   let guards = null;
   const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'), records: () => progress.records, save: () => saveProgress(),
     power: () => 1 + ((progress.stats && progress.stats.str) || 0) / 100,   // trained strength: up to twice as hard
-    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) });
+    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()),
+    // other players (net.js): the hero's shots and punches can land on them
+    remoteHit: (...a) => (net ? net.remoteHit(...a) : null), remoteNear: (...a) => (net ? net.remoteNear(...a) : null), hitRemote: (id, d, k) => { if (net) net.hitRemote(id, d, k); } });
 
   /* ---------- money, armour and the saved game ---------- */
   const MEGA_VEST = 1000000;   // the golden vest on Turtle Island; an ordinary one is 100
@@ -161,8 +163,8 @@
     const online = NB.online;
     if (online && online.replacing) return;   // the server's copy is being loaded in: don't write over it
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job } = progress, guardsN = guards ? guards.list : progress.guards;
-    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, guards: guardsN, _t: online ? online.now() : Date.now() };
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz } = progress, guardsN = guards ? guards.list : progress.guards;
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, guards: guardsN, _t: online ? online.now() : Date.now() };
     try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
     if (online) online.push(data, urgent === true);
     saveT = 0;
@@ -189,7 +191,7 @@
     if (type && Math.random() < chance) combat.dropWeapon(p.x, p.z, type);
   }
   function addMoney(n, sub) { if (n <= 0) return; progress.money += n; audio.cash(n >= 100); moneyPop('+$' + n, sub); saveProgress(); }
-  function spend(n, sub) { n = Math.min(n, progress.money); if (n <= 0) return 0; progress.money -= n; moneyPop('−$' + n, sub, true); saveProgress(); return n; }
+  function spend(n, sub) { n = Math.min(n, progress.money); if (n <= 0) return 0; progress.money -= n; moneyPop('−$' + n, sub, true); saveProgress(); if (business) business.spent(n, sub); return n; }
 
   Object.assign(crowdOpts, {
     onKill: (p, src) => {
@@ -220,7 +222,7 @@
   const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
-  let jobs = null, net = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
+  let jobs = null, net = null, business = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
   const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
     hold: p => !!jobs && jobs.holdEMS(p),
@@ -326,7 +328,7 @@
   const securityDoor = world.security ? [{ x: world.security.x, z: world.security.z, r: 2, short: 'ОХРАНА', label: () => 'Охранное агентство Shield Security', use: () => ui.security(guards) }] : [];
   const fashionDoor = [];   // Neon Fashion is a boutique you walk into (places.js)
   // every way in gets a storefront you can't miss: neon frame, lit door, signs, an arrow and a name tag
-  const fronts = NB.buildEntrances(scene, world.col);
+  const fronts = NB.buildEntrances(scene, world.col), entFront = {};   // entFront: the storefront of each place, by id
   {
     const ENT = {
       ammo: ['AMMO BAY', 'оружие · патроны · тир', '🔫', 'ОРУЖИЕ', { canopy: false, board: false }],
@@ -350,8 +352,8 @@
     for (const id in ENT) {
       const p = places.byId(id); if (!p || !p.door) continue;
       const [title, sub, icon, tag, opt] = ENT[id], d = p.door;
-      const e = fronts.add(Object.assign({ x: d.x, z: d.z, y: d.y, nx: d.nx, nz: d.nz, hex: d.hex || '#ffd84f', title, sub, icon, tag }, opt));
-      if (id === 'villa') { e.hintFn = () => progress.villa ? (shops.ok('villa') ? 'ВАШ ДОМ' : 'ДОЛГ ЗА АРЕНДУ') : 'ПРОДАЁТСЯ · $' + places.VILLA_PRICE.toLocaleString('ru-RU') + ' · $' + shops.villaRent().toLocaleString('ru-RU') + ' в день'; }
+      const e = entFront[id] = fronts.add(Object.assign({ x: d.x, z: d.z, y: d.y, nx: d.nx, nz: d.nz, hex: d.hex || '#ffd84f', title, sub, icon, tag }, opt));
+      if (id === 'villa') { e.hintFn = () => progress.villa ? (shops.ok('villa') ? 'ВАШ ДОМ' : 'ДОЛГ ЗА АРЕНДУ') : shops.villaOwner() ? 'ВЛАДЕЛЕЦ: ' + shops.villaOwner() : 'ПРОДАЁТСЯ · $' + places.VILLA_PRICE.toLocaleString('ru-RU') + ' · $' + shops.villaRent().toLocaleString('ru-RU') + ' в день'; }
     }
     if (world.security) { const s = world.security; fronts.add({ x: s.x, z: s.z, ...doorDir(s), hex: '#3fe6e0', title: 'SHIELD SECURITY', sub: 'телохранители · $1 000', icon: '🛡', tag: 'ОХРАНА', hint: 'ОХРАНА · подойдите к двери', canopy: false, ring: true }); }
     if (world.club) fronts.add({ x: world.club.door.out[0], z: world.club.door.z, nx: 1, nz: 0, wall: world.club.door.out[0] - world.club.door.x, hex: '#ff4fa3', title: 'NEPLOXO 21', sub: 'диско-клуб', icon: '🪩', tag: 'КЛУБ', canopy: false, board: false });
@@ -370,9 +372,15 @@
     // the uniform: the police one is the station's (the police take you for one of theirs), the others are just worn
     wear: id => { if (id === 'cop') setOutfit('cop'); else if (id) { if (progress.outfit === 'cop') setOutfit('own'); player.setOutfit(id); } else setOutfit('own'); } });
   placeCtx.jobs = jobs;   // the bosses' offices and the locker rooms inside the stations
-  setTimeout(() => jobs.resume(), 0);
+  setTimeout(() => jobs.resume(), 0);   // came back in the middle of a shift: still on it (once the whole game is set up)
   // the live world: the other players and the chat (net.js)
-  net = NB.createNet({ scene, col: world.col, camera, player, vehicles, places, progress, get input() { return input; }, audio, flash: (t, s) => flashTip(t, s), playing: () => state === 'playing', lock: () => lock() });   // came back in the middle of a shift: still on it (once the whole game is set up)
+  net = NB.createNet({ scene, col: world.col, camera, player, vehicles, places, progress, get input() { return input; }, audio, flash: (t, s) => flashTip(t, s), playing: () => state === 'playing', lock: () => lock(),
+    hurt: d => heroDamage(d), star: () => police.star(), loseCash: n => spend(n, 'Выронили при нокауте'), addCash: n => addMoney(n, 'Подобрано'),
+    // safe places for knockouts: the spawn beach, round the hospital, inside a home
+    safe: () => { const pl = places.current; if (pl) return /^home_|^villa$/.test(pl.id); const h = world.hospital, sp = world.spawn; return (h && Math.hypot(player.x - h.x, player.z - h.z) < 45) || Math.hypot(player.x - sp.x, player.z - sp.z) < 60; } });
+  // player businesses: bought at the desk in NEPLOXO TOWER, half of what others spend inside goes to the owner
+  business = NB.createBusiness({ places, shops, fronts: entFront, progress, money: wallet, ui, audio, flash: (t, s) => flashTip(t, s), save: saveProgress });
+  net.on('timer', m => { if (m.key === 'bank' && m.by && m.by !== net.nick) flashTip('🚨 ' + m.by + ' грабит банк Неплохо Сити!', 4); });   // news for everybody
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
   let interact = null;
@@ -456,7 +464,7 @@
     // the hospital charges for treatment, the police fine you more the more stars you had
     bill = kind === 'wasted' ? 100 : 100 * Math.max(1, police.wanted);
     input.reset(); leaveCar();
-    if (kind === 'wasted') { player.dead = true; player.deadT = 0; }
+    if (kind === 'wasted') { player.dead = true; player.deadT = 0; if (net) net.died(); }
     audio.sting(kind);
     $('bigmsg').textContent = kind === 'wasted' ? 'Потрачено' : 'Арестован'; $('bigmsg').className = 'on ' + kind;
   }
@@ -472,6 +480,7 @@
     const shiftOff = !!jobs.duty;
     if (shiftOff) jobs.end(true); else if (progress.outfit === 'cop') setOutfit('own');
     police.clear(); rig.snap(player);
+    if (net) net.respawned();
     $('bigmsg').className = '';
     const paid = spend(bill, busted ? 'Штраф' : 'Лечение');
     flashTip((busted ? 'Вас отпустили из участка' + (paid ? ', штраф $' + paid : '') + '. Оружие изъято.'
@@ -1005,7 +1014,7 @@
       fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
-      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt);
+      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); business.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       // the edge of the world: open ocean

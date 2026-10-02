@@ -36,6 +36,8 @@
       get searching() { return S.wanted > 0 && !S.seen; },
       // a bank robbery: the alarm goes straight to the station
       robbery() { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, 3)); },
+      // knocked out another player: one star more
+      star() { S.searchT = 0; S.seen = true; raise(S.wanted + 1); },
       reportCrime(kind, x, z) {
         // in a police uniform the officers take you for one of their own and let small things slide
         if (o.disguised && o.disguised() && (kind === 'punch' || kind === 'carjack' || kind === 'copcar')) return;

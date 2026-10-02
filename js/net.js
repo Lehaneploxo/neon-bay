@@ -20,9 +20,23 @@
 
   NB.createNet = function (o) {
     // o: scene, col, camera, player, vehicles, places, progress, input, audio, flash, playing() -> bool, lock()
+    let shotPending = false, prevRecoil = 0;
     let ws = null, me = null, retry = 1000, sendT = 0, lookKey = '', pc = 0, prevPunch = 0, online = 0, clockOff = null;
     const others = new Map();   // id -> remote player
     const proj = new THREE.Vector3();
+    // the shared city (server/world.js): who owns which home and business, and when the shared loot is ready again
+    const owners = { home: {}, biz: {} }, timers = {}, listeners = {}, waiting = new Map();
+    let rid = 0;
+    const emit = (type, m) => { for (const f of listeners[type] || []) try { f(m); } catch (e) { console.error(e); } };
+    const srvNow = () => (NB.online && NB.online.now ? NB.online.now() : Date.now());
+    // a question to the server, answered by a message with the same rid (null: no connection / no answer)
+    function request(m, ms) {
+      return new Promise(res => {
+        if (!ws || ws.readyState !== 1 || !me) return res(null);
+        m.rid = ++rid; waiting.set(m.rid, res); send(m);
+        setTimeout(() => { if (waiting.delete(m.rid)) res(null); }, ms || 6000);
+      });
+    }
     if (!get('nb_guest')) put('nb_guest', String(1000 + Math.floor(Math.random() * 9000)));
 
     /* ---------- the connection ---------- */
@@ -44,7 +58,18 @@
 
     function onMessage(m) {
       switch (m.t) {
-        case 'welcome': me = m; online = m.online; renderOnline(); break;
+        case 'welcome': me = m; online = m.online; renderOnline(); emit('welcome', m); break;
+        case 'owners': owners.home = m.home || {}; owners.biz = m.biz || {}; Object.assign(timers, m.timers || {}); emit('owners', m); break;
+        case 'own': if (m.nick) owners[m.kind][m.id] = m.nick; else delete owners[m.kind][m.id]; emit('own', m); break;
+        case 'timer': timers[m.key] = m.readyAt; emit('timer', m); break;
+        case 'own_sync': emit('own_sync', m); break;
+        case 'biz_income': emit('biz_income', m); break;
+        case 'hit': onHit(m); break;
+        case 'ko_you': if (o.star) o.star(); o.flash('Вы вырубили игрока ' + m.nick + '! Полиция это видела', 3); break;
+        case 'ko_drop': if (o.loseCash) o.loseCash(m.n); setTimeout(() => o.flash('Вас вырубил ' + m.nick + ' — из кармана выпало ' + fmtM(m.n), 4), 3800); break;
+        case 'ko_safe': setTimeout(() => o.flash('Вас вырубил ' + m.nick + (m.why === 'safe' ? '. Здесь безопасное место — деньги не выпали' : m.why === 'newbie' ? '. Вы новичок — деньги не выпали' : '. Деньги не выпали: он уже обирал вас недавно'), 4), 3800); break;
+        case 'cash': addCash(m); break;
+        case 'cash_gone': dropCashPile(m); break;
         case 'pi': { const r = others.get(m.id) || add(m.id); r.nick = m.nick; r.guest = m.guest; dress(r, m.look, m.outfit); r.tag.firstChild.textContent = m.nick; r.tag.classList.toggle('guest', !!m.guest); break; }
         case 'ps': {
           const now = performance.now();
@@ -62,7 +87,62 @@
         case 'chat': onChat(m); break;
         case 'chat_denied': note('Писать в чат могут только игроки с аккаунтом — войдите в главном меню'); break;
         case 'kicked': break;
-        default: if (api.onMessage) api.onMessage(m);
+        default: if (m.rid && waiting.has(m.rid)) { const f = waiting.get(m.rid); waiting.delete(m.rid); f(m); } else if (api.onMessage) api.onMessage(m);
+      }
+    }
+
+    /* ---------- fights between players ---------- */
+    const fmtM = n => '$' + Math.round(n).toLocaleString('ru-RU');
+    let lastHit = null, invulnT = 0;
+    function onHit(m) {
+      if (invulnT > 0 || o.player.dead) return;
+      lastHit = { id: m.from, nick: m.nick, t: performance.now() };
+      if (o.hurt) o.hurt(m.d, m.x, m.z);
+    }
+    // a bullet from the hero: the first other player along the ray (a standing cylinder each), not in a car, not down
+    function remoteHit(ox, oy, oz, dx, dy, dz, maxT) {
+      let best = null;
+      for (const r of others.values()) {
+        const s = r.snaps[r.snaps.length - 1]; if (!s || s.car || (s.f & 8)) continue;
+        const av = r.av, fx = ox - av.x, fz = oz - av.z, a = dx * dx + dz * dz, b = 2 * (fx * dx + fz * dz), c = fx * fx + fz * fz - .14;
+        const disc = b * b - 4 * a * c; if (a < 1e-8 || disc < 0) continue;
+        const tp = (-b - Math.sqrt(disc)) / (2 * a), y = oy + dy * tp;
+        if (tp > 0 && tp < maxT && y > av.y && y < av.y + 1.85 && (!best || tp < best.t)) best = { t: tp, id: r.id, head: y > av.y + 1.55 };
+      }
+      return best;
+    }
+    // a punch: the nearest other player in front of the hero within reach
+    function remoteNear(px, pz, fx, fz, reach) {
+      let best = null, bd = reach;
+      for (const r of others.values()) {
+        const s = r.snaps[r.snaps.length - 1]; if (!s || s.car || (s.f & 8)) continue;
+        const av = r.av, dx = av.x - px, dz = av.z - pz, d = Math.hypot(dx, dz);
+        if (d < bd && Math.abs(av.y - o.player.y) < 1.5 && (dx * fx + dz * fz) / (d || 1) > .25) { bd = d; best = { id: r.id, x: av.x, y: av.y, z: av.z }; }
+      }
+      return best;
+    }
+    // shared piles of cash (a knocked-out player's): walk over one to grab it, the server says who was first
+    const piles = new Map(), pileGeo = new THREE.BoxGeometry(.36, .1, .2), pileMat = new THREE.MeshBasicMaterial({ color: 0x6bff8a }),
+      beamGeo = new THREE.CylinderGeometry(.35, .35, 2.6, 12, 1, true), beamMat = new THREE.MeshBasicMaterial({ color: 0x6bff8a, transparent: true, opacity: .18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    function addCash(m) {
+      if (piles.has(m.id)) return;
+      const g = new THREE.Group();
+      for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(pileGeo, pileMat); b.position.set((k - 1) * .12, .1 + k * .1, (k % 2) * .05); b.rotation.y = k * .5; g.add(b); }
+      const beam = new THREE.Mesh(beamGeo, beamMat); beam.position.y = 1.3; g.add(beam);
+      g.position.set(m.x, m.y + .05, m.z); o.scene.add(g);
+      piles.set(m.id, { id: m.id, x: m.x, y: m.y, z: m.z, n: m.n, room: m.room || '', g, asked: 0 });
+    }
+    function dropCashPile(m) {
+      const c = piles.get(m.id); if (!c) return;
+      o.scene.remove(c.g); piles.delete(m.id);
+      if (me && m.by === me.id) { if (o.addCash) o.addCash(m.n); o.flash('Подобрали ' + fmtM(m.n) + ' — выпало из кармана после драки', 2.6); }
+    }
+    function updatePiles(dt) {
+      const P = o.player, room = roomKey(), t = performance.now();
+      for (const c of piles.values()) {
+        c.g.rotation.y += dt * 2;
+        if (c.room !== room || P.dead || o.vehicles.driving) continue;
+        if (Math.hypot(P.x - c.x, P.z - c.z) < 1.3 && Math.abs(P.y - c.y) < 1.6 && t - c.asked > 1500) { c.asked = t; send({ t: 'pick', id: c.id }); }
       }
     }
 
@@ -128,6 +208,7 @@
           if (av.weapon !== s.w && NB.WEAPONS && NB.WEAPONS[s.w]) av.setWeapon(s.w);
           av.aimT = s.f & 1 ? .5 : 0; av.aimPitch = 0;
           if (r.pc >= 0 && s.pc > r.pc) av.punch();
+          if (s.f & 64 && (r.shotT = (r.shotT || 0) - dt) <= 0) { r.shotT = .12; av.fired(); if (o.audio && o.audio.shot) o.audio.shot(s.w, [s.x, s.y + 1.4, s.z]); }
           r.pc = s.pc;
           if (av.punchT > 0) av.punchT -= dt;
           av.speedEst = U.damp(av.speedEst || 0, sp, 8, dt);
@@ -162,6 +243,7 @@
       if (P.swim) f |= 2;
       if (!P.onGround && P.air > .08) f |= 4;
       if (P.dead) f |= 8;
+      if (shotPending) { f |= 64; shotPending = false; }   // fired since the last message
       const st = { t: 'st', x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), h: +P.heading.toFixed(3), f, w: P.weapon, pc, r: roomKey() };
       if (drv) st.c = { m: drv.model.id, c: drv.color, a: drv.accent, x: +drv.x.toFixed(2), y: +drv.y.toFixed(2), z: +drv.z.toFixed(2), h: +drv.h.toFixed(3), p: +drv.body.rotation.x.toFixed(3), b: +drv.body.rotation.z.toFixed(3),
         v: +(drv.vx * Math.sin(drv.h) + drv.vz * Math.cos(drv.h)).toFixed(1), s: drv.sirenOn ? 1 : 0 };
@@ -230,13 +312,48 @@
       others,
       send,
       onMessage: null,
+      request,
+      remoteHit, remoteNear,
+      hitRemote(id, d, k) { send({ t: 'hit', id, d: Math.round(d), k }); },
+      // the hero was knocked out: if another player did it (in the last few seconds), the server decides about the cash
+      died() {
+        if (lastHit && performance.now() - lastHit.t < 6000) send({ t: 'ko', by: lastHit.id, money: o.progress.money, safe: !!(o.safe && o.safe()) });
+        lastHit = null;
+      },
+      // back on your feet: half a minute nobody can hurt you
+      respawned() { invulnT = 30; lastHit = null; },
+      get invulnerable() { return invulnT > 0; },
+      on(type, f) { (listeners[type] || (listeners[type] = [])).push(f); },
+      get guest() { return !me || !!me.guest; },
+      // homes and businesses: whose is it (a nick), is it mine, can I buy it right now (a reason if not)
+      owner: (kind, id) => owners[kind][id] || null,
+      isMine: (kind, id) => !!me && !me.guest && owners[kind][id] === me.nick,
+      cantBuy(kind, id) {
+        if (!me) return 'Нет связи с сервером';
+        if (me.guest) return 'Нужен аккаунт: войдите в главном меню';
+        const n = owners[kind][id]; if (n && n !== me.nick) return 'Владелец: ' + n;
+        return '';
+      },
+      claim: (kind, id) => request({ t: 'own_claim', kind, id }).then(r => !!(r && r.ok)),
+      free(kind, id) { send({ t: 'own_free', kind, id }); if (me && owners[kind][id] === me.nick) delete owners[kind][id]; },
+      sync(kind, ids) { send({ t: 'own_sync', kind, ids }); },
+      // a purchase in a business: its owner gets half
+      spent(bizId, n) { if (bizId && n > 0) send({ t: 'biz_spend', id: bizId, n: Math.floor(n) }); },
+      // shared loot: how long until it's back (0: ready); claim it — true if it's yours, false if someone was first,
+      // null when the server can't be reached (the caller falls back to the old per-player rule)
+      lootLeft: key => Math.max(0, (timers[key] || 0) - srvNow()),
+      loot: key => (!me ? Promise.resolve(null) : request({ t: 'claim', key }).then(r => r ? (r.ok ? true : (r.readyAt && (timers[key] = r.readyAt), false)) : null)),
       update(dt) {
         if ((sendT += dt * 1000) >= SEND_MS) { sendT = 0; if (me) sendState(); }
-        updateOthers(dt);
+        if (invulnT > 0) invulnT -= dt;
+        if (o.player.recoil > prevRecoil + .3) shotPending = true;
+        prevRecoil = o.player.recoil;
+        updateOthers(dt); updatePiles(dt);
       },
       // the others on the minimap
       markers() { const out = []; for (const r of others.values()) if (r.snaps.length) { const s = r.snaps[r.snaps.length - 1]; out.push({ x: s.car ? s.car[3] : s.x, z: s.car ? s.car[5] : s.z }); } return out; }
     };
+    NB.net = api;
     connect();
     return api;
   };

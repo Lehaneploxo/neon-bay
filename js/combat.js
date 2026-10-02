@@ -136,6 +136,7 @@
       if (ph) { t = ph.t; kind = 'person'; hit = ph.p; head = ph.head; }
       const ch = vehicles.hitTest(ox, oy, oz, dx, dy, dz, t);
       if (ch) { t = ch.t; kind = 'car'; hit = ch.car; }
+      if (skip === FRIENDLY && o.remoteHit) { const rh = o.remoteHit(ox, oy, oz, dx, dy, dz, t); if (rh) { t = rh.t; kind = 'remote'; hit = rh; head = rh.head; } }   // other players (net.js)
       const tg = o.targets && o.targets();   // pop-up targets in the shooting range
       if (tg) { const h = tg.hitTest(ox, oy, oz, dx, dy, dz, t); if (h) { t = h.t; kind = 'target'; hit = h; } }
       if (withPlayer && !player.inCar && !player.dead) {
@@ -158,7 +159,8 @@
         if (r.kind === 'person') {
           crowd.damage(r.hit, w.dmg * (r.head ? 2.5 : 1), { byPlayer: true, kind: 'gun', x: player.x, z: player.z });
           burst(r.x, r.y, r.z, r.head ? 10 : 6, BLOOD, 2);
-        } else if (r.kind === 'car') { vehicles.bulletHit(r.hit, w.dmg, r.x, r.z, -dx, -dz); burst(r.x, r.y, r.z, 4, SPARK, 3); }
+        } else if (r.kind === 'remote') { o.hitRemote(r.hit.id, w.dmg * (r.head ? 2 : 1), 'gun'); burst(r.x, r.y, r.z, r.head ? 10 : 6, BLOOD, 2); }
+        else if (r.kind === 'car') { vehicles.bulletHit(r.hit, w.dmg, r.x, r.z, -dx, -dz); burst(r.x, r.y, r.z, 4, SPARK, 3); }
         else if (r.kind === 'target') { o.targets().onHit(r.hit); burst(r.x, r.y, r.z, 5, DUST, 1.5); }
         else if (r.kind === 'world') burst(r.x, r.y, r.z, 4, DUST, 2);
         if (k === 0 || Math.random() < .4) tracer(ox, oy, oz, r.x, r.y, r.z);
@@ -178,6 +180,14 @@
         if (p.dead || p.down || p.anim === 'lie' || p.bodyguard) continue;
         const dx = p.x - player.x, dz = p.z - player.z, d = Math.hypot(dx, dz);
         if (d < bd && (dx * fx + dz * fz) / (d || 1) > .25) { bd = d; best = p; }
+      }
+      // another player within reach, closer than anyone else: the punch is theirs
+      const rp = o.remoteNear && o.remoteNear(player.x, player.z, fx, fz, bd);
+      if (rp) {
+        player.heading = Math.atan2(rp.x - player.x, rp.z - player.z);
+        o.hitRemote(rp.id, w.dmg * (o.power ? o.power() : 1), 'melee');
+        audio.punch([rp.x, 1.5, rp.z], cur === 'bat'); burst(rp.x, rp.y + 1.5, rp.z, cur === 'bat' ? 6 : 3, BLOOD, 1.2);
+        return;
       }
       if (!best) return;
       player.heading = Math.atan2(best.x - player.x, best.z - player.z);

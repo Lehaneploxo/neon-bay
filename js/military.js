@@ -229,6 +229,8 @@
     soldier(-45, 1, -Math.PI / 2);
 
     /* ---------- fuel, ammunition, the armoury crate, the firing range ---------- */
+    const onlineCrate = () => !!(NB.net && NB.net.connected);
+    const crateLeft = () => onlineCrate() ? NB.net.lootLeft('crate') / 1000 : Math.max(0, crate.emptyT);   // seconds
     for (const [x, z] of [[18, -19], [24, -19]]) {
       const [wx, wz] = L(x, z), t = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 4.5, 18), new THREE.MeshLambertMaterial({ color: 0x5a6440 })); t.position.set(wx, Y + 2.25, wz); t.castShadow = true; scene.add(t);
       col.add(wx - 2.4, -4, wz - 2.4, wx + 2.4, Y + 4.5, wz + 2.4);
@@ -282,14 +284,21 @@
       inBase: (x, z) => inBase(x, z),
       districtAt(x, z) { if (inBase(x, z, 2)) return 'Секретная база «Омега-21»'; const [d, a] = polar(x, z); return d < radius(a) + 6 ? 'Остров Омега-21' : null; },
       // g: { player, vehicles, crowd, flash, say, give(id, n), setArmor(n), audio }
+      // (online the crate is shared by the whole server: emptied by whoever gets there first, refilled 15 minutes later)
       attach(g) { G = g; const p = g.vehicles.spawnParked('mjeep', PATROL[0][0], PATROL[0][1], Math.PI / 2); if (p) { patrolJeep.car = p; p.driverMesh.visible = true; } },
       interactions() {
         if (!G) return [];
-        return [{ x: crate.x, z: crate.z, y: Y, r: 1.7, short: 'ЯЩИК', label: () => crate.emptyT > 0 ? 'Ящик пуст' : 'Армейский ящик с оружием', use: () => {
-          if (crate.emptyT > 0) { G.flash('Пусто. Новую партию завезут через ' + Math.ceil(crate.emptyT / 60) + ' мин', 2.4); return; }
-          crate.emptyT = 24 * 60; crate.lid.visible = false;
-          G.give('rifle', 120); G.give('smg', 90); G.setArmor(100);
-          G.flash('Армейский ящик: винтовка, автомат, бронежилет!', 3);
+        return [{ x: crate.x, z: crate.z, y: Y, r: 1.7, short: 'ЯЩИК', label: () => crateLeft() > 0 ? 'Ящик пуст' : 'Армейский ящик с оружием', use: () => {
+          if (crateLeft() > 0) { G.flash('Пусто. Новую партию завезут через ' + Math.ceil(crateLeft() / 60) + ' мин', 2.4); return; }
+          if (crate.asking) return;
+          crate.asking = true;
+          (onlineCrate() ? NB.net.loot('crate') : Promise.resolve(null)).then(r => {
+            crate.asking = false;
+            if (r === false) { G.flash('Пусто — другой игрок успел раньше. Новая партия через ' + Math.ceil(crateLeft() / 60) + ' мин', 2.6); return; }
+            crate.emptyT = 15 * 60;
+            G.give('rifle', 120); G.give('smg', 90); G.setArmor(100);
+            G.flash('Армейский ящик: винтовка, автомат, бронежилет!', 3);
+          });
         } }];
       },
       get alarm() { return alarm && !!G && inBase(G.player.x, G.player.z, 120); },
@@ -299,7 +308,8 @@
         const night = env ? env.night : 0;
         for (const s of searchlights) { s.pivot.rotation.y = Math.sin(t * .35 + s.ph) * 1.6 + s.ph; s.cone.material.opacity = night * .16 + (alarm ? .05 : 0); s.cone.visible = night > .05 || alarm; }
         { const pos = flagGeo.attributes.position.array; for (let i = 0; i < pos.length; i += 3) { const u = (flagBase[i] + 1.5) / 3; pos[i + 2] = Math.sin(t * 5 - u * 5) * .25 * u; } flagGeo.attributes.position.needsUpdate = true; }
-        if (crate.emptyT > 0) { crate.emptyT -= dt; if (crate.emptyT <= 0) crate.lid.visible = true; }
+        if (crate.emptyT > 0) crate.emptyT -= dt;
+        crate.lid.visible = crateLeft() <= 0;
         if (!G) return;
         // the patrol jeep drives round the ring road until someone takes it or knocks it about
         const J = patrolJeep.car;

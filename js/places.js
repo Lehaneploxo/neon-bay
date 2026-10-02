@@ -374,24 +374,35 @@
       vaultPivot.add(vdoor, wheel, hub);
       const vaultCol = K.solid(-1.7, 0, 9.55, 1.7, 3.4, 10.1);
       const V = { robbing: false, alarmT: 0, drill: 0, open: 0, tellers: new Set(), spawned: false };
-      const ready = () => Date.now() - (G.progress.bankT || 0) > 15 * 60 * 1000;
-      function startRobbery() {
-        if (V.robbing) return true;
-        if (!ready()) { G.flash('Банк ещё не оправился после прошлого налёта', 2.4); return false; }
-        if (G.combat.isMelee()) { G.flash('Для ограбления нужен ствол в руках', 2.2); G.audio.deny(); return false; }
-        V.robbing = true; V.alarmT = 60; V.drill = 8; V.tellers.clear(); V.spawned = false;
-        G.progress.bankT = Date.now(); G.save();
-        G.police.robbery(); G.crowd.panic(pl.X(0), pl.Z(0), 40, true);
-        G.flash('Ограбление! Сработала сигнализация — полиция уже едет', 3);
-        return true;
+      // online the bank is robbed once for the whole server, and again 15 minutes later (server/world.js);
+      // without a connection the old rule: once per player every 15 minutes
+      const online = () => !!(NB.net && NB.net.connected);
+      const ready = () => online() ? NB.net.lootLeft('bank') <= 0 : Date.now() - (G.progress.bankT || 0) > 15 * 60 * 1000;
+      let asking = false;
+      function startRobbery(then) {
+        if (V.robbing) { then(); return; }
+        if (!ready()) { G.flash('Банк ещё не оправился после прошлого налёта', 2.4); return; }
+        if (G.combat.isMelee()) { G.flash('Для ограбления нужен ствол в руках', 2.2); G.audio.deny(); return; }
+        if (asking) return;
+        asking = true;
+        (online() ? NB.net.loot('bank') : Promise.resolve(null)).then(r => {
+          asking = false;
+          if (r === false) { G.flash('Банк только что ограбил другой игрок — касса и хранилище пустые', 3); G.audio.deny(); return; }
+          if (V.robbing) { then(); return; }
+          V.robbing = true; V.alarmT = 60; V.drill = 8; V.tellers.clear(); V.spawned = false;
+          G.progress.bankT = Date.now(); G.save();
+          G.police.robbery(); G.crowd.panic(pl.X(0), pl.Z(0), 40, true);
+          G.flash('Ограбление! Сработала сигнализация — полиция уже едет', 3);
+          then();
+        });
       }
       pl.attach = () => {
         pl.interactions = windows.map((x, i) => ({ ...pl.P(x, 3.3), r: 1.25, short: 'ГРАБИТЬ',
           label: () => (V.tellers.has(i) || (!V.robbing && !ready())) ? null : 'Ограбить кассу',
-          use: () => { if (!startRobbery()) return; V.tellers.add(i); G.money.add(Math.round(rand(250, 420)), 'Касса'); } }));
+          use: () => startRobbery(() => { if (V.tellers.has(i)) return; V.tellers.add(i); G.money.add(Math.round(rand(250, 420)), 'Касса'); }) }));
         pl.interactions.push({ ...pl.P(0, 8.9), r: 1.7, short: 'ВЗЛОМ',
           label: () => V.open > 0 || V.drilling ? null : !V.robbing && !ready() ? null : 'Взломать хранилище',
-          use: () => { if (startRobbery()) { V.drilling = true; G.flash('Взлом хранилища… держитесь рядом с дверью', 2.2); } } });
+          use: () => startRobbery(() => { if (V.drilling || V.open > 0) return; V.drilling = true; G.flash('Взлом хранилища… держитесь рядом с дверью', 2.2); }) });
       };
       pl.update = (dt) => {
         const p = G.player, nearVault = Math.hypot(p.x - pl.X(0), p.z - pl.Z(8.9)) < 2.6;
@@ -1341,8 +1352,20 @@
         ];
       };
       K.at(0, 0);
-      outdoor.push({ x: 109.3, z: 90.6, r: 1.8, short: 'КУПИТЬ', label: () => G.progress.villa ? null : 'Купить виллу · $' + VILLA_PRICE.toLocaleString('ru-RU'),
-        use: () => { if (!G.money.spend(VILLA_PRICE, 'Покупка виллы')) return; G.progress.villa = true; G.save(); G.flash('Вилла ваша! Дверь открыта, гараж на две машины — ваш', 4); G.audio.fare(); } });
+      // online the villa has one owner on the server, like every home (shops.js)
+      const villaOwner = () => !G.progress.villa && NB.net ? NB.net.owner('home', 'villa') : null;
+      outdoor.push({ x: 109.3, z: 90.6, r: 1.8, short: 'КУПИТЬ', label: () => G.progress.villa ? null : villaOwner() ? 'Вилла · владелец ' + villaOwner() : 'Купить виллу · $' + VILLA_PRICE.toLocaleString('ru-RU'),
+        use: () => {
+          const why = NB.net ? NB.net.cantBuy('home', 'villa') : 'Нет связи с сервером';
+          if (why) { G.flash(why, 2.6); G.audio.deny(); return; }
+          if (!G.money.spend(VILLA_PRICE, 'Покупка виллы')) return;
+          G.progress.villa = true; G.save(); G.flash('Вилла ваша! Дверь открыта, гараж на две машины — ваш', 4); G.audio.fare();
+          NB.net.claim('home', 'villa').then(ok => {
+            if (ok || !G.progress.villa) return;
+            G.progress.villa = false; G.money.add(VILLA_PRICE, 'Возврат: вилла'); G.save();
+            G.flash('Виллу купили чуть раньше вас — деньги вернули', 4);
+          });
+        } });
       pl.renderOutdoor = () => { sale.visible = !G || !G.progress.villa; };
     }
 

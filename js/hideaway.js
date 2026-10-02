@@ -87,7 +87,10 @@
     const CASH = 1000000, ARMOR = 1000000, REFILL = 24 * 3600 * 1000;   // a real day
     let G = null, lastT = null, open = 0;
     const clock = () => (NB.online && NB.online.now ? NB.online.now() : Date.now());
-    const left = () => { const r = G && G.progress && G.progress.records; return r ? Math.max(0, (r.hideawayT || 0) - clock()) : 0; };
+    // online the chest is the whole server's: one player takes it, it fills again a real day later (server/world.js)
+    const onlineChest = () => !!(NB.net && NB.net.connected);
+    const left = () => { if (onlineChest()) return NB.net.lootLeft('chest'); const r = G && G.progress && G.progress.records; return r ? Math.max(0, (r.hideawayT || 0) - clock()) : 0; };
+    let asking = false;
     return {
       center: { x: CX, z: CZ }, shoreDist, heightAt,
       attach(g) { G = g; },
@@ -97,11 +100,17 @@
         return [{ x: HX, z: HZ, y, r: 1.6, short: 'СУНДУК', label: () => left() > 0 ? 'Старый сундук. Пусто' : 'Старый сундук', use: () => {
           const l = left();
           if (l > 0) { G.flash('Пусто. Кто-то уже побывал здесь. Загляните через ' + Math.ceil(l / 3600000) + ' ч', 2.6); return; }
-          G.progress.records.hideawayT = clock() + REFILL;
-          G.addMoney(CASH, 'Тайный клад');
-          if (G.setArmor && G.armor() < ARMOR) G.setArmor(ARMOR);
-          if (G.pickup) G.pickup();
-          G.flash('Тайный клад! +$1 000 000 и бронежилет на 1 000 000 брони', 5);
+          if (asking) return;
+          asking = true;
+          (onlineChest() ? NB.net.loot('chest') : Promise.resolve(null)).then(r => {
+            asking = false;
+            if (r === false) { G.flash('Пусто. Другой игрок нашёл клад раньше. Загляните через ' + Math.ceil(left() / 3600000) + ' ч', 3); return; }
+            G.progress.records.hideawayT = clock() + REFILL;
+            G.addMoney(CASH, 'Тайный клад');
+            if (G.setArmor && G.armor() < ARMOR) G.setArmor(ARMOR);
+            if (G.pickup) G.pickup();
+            G.flash('Тайный клад! +$1 000 000 и бронежилет на 1 000 000 брони', 5);
+          });
         } }];
       },
       update(t) {
