@@ -326,6 +326,8 @@
       ok: id => { const h = ALL[id]; return !h || ok(h); },
       villaRent: () => villa ? villa.rent : 0,
       villaOwner: () => takenBy({ id: 'villa' }),
+      // the homes you own and can get into (for the garages, autos.js)
+      ownedHomes() { const out = []; for (const id in P.homes) { const h = ALL[id]; if (h && h.door && ok(h)) out.push(h); } return out; },
       // where to wake up: the door of the home you last slept in, if it's still yours
       spawn() { const h = ALL[P.homeSpawn]; if (!h || !h.door || !owned(h)) return null; const d = h.door; return { x: d.x + d.nx * 2.2, z: d.z + d.nz * 2.2, heading: d.heading, y: d.y }; },
       // for the maps

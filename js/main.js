@@ -91,8 +91,10 @@
   function toggleCar() {
     const car = vehicles.driving;
     if (car) {
-      if (vehicles.exit(player)) {
+      const out = vehicles.exit(player);
+      if (out) {
         player.fallTop = player.y;   // a fall is counted from where you step out, not from where you got in
+        if (out === 'bail') flashTip(player.hasChute ? (input.touch ? 'Прыжок! Нажмите ПРЫЖОК — раскрыть парашют' : 'Прыжок! Пробел — раскрыть парашют') : 'Прыжок… без парашюта!', 3.5);
         player.inCar = false; player.m.root.visible = true; player.blob.visible = true;
         document.body.classList.remove('driving'); rig.snap(player);
       } else flashTip(car.model.heli ? 'Сначала приземлитесь' : 'Сначала остановитесь', 1.5);
@@ -104,11 +106,12 @@
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
       document.body.classList.add('driving');
       showDistrict(promptCar.model.name);
+      if (promptCar.model.heli) player.hasChute = true;   // every helicopter and plane has a parachute on board
       if (promptCar.model.jet) flashTip(input.touch ? 'ГАЗ — форсаж, джойстик — крен и поворот, ВВЕРХ / ВНИЗ — нос. Разгонитесь до 140 км/ч и тяните ВВЕРХ'
         : 'W — форсаж · S — тормоз · A / D — поворот · Пробел — нос вверх · Shift — вниз. Разгонитесь до 140 км/ч и тяните вверх', 6);
       else if (promptCar.model.id === 'tank') flashTip(input.touch ? 'Танк: ОГОНЬ — выстрел из пушки' : 'Танк: левая кнопка мыши — выстрел из пушки', 4);
       else if (promptCar.model.heli) flashTip(input.touch ? 'ВПЕРЁД / НАЗАД, джойстик — поворот, ВВЕРХ / ВНИЗ — высота. Лопасти раскручиваются…'
-        : 'W / S — вперёд и назад · A / D — поворот · Пробел — вверх · Shift — вниз. Лопасти раскручиваются…', 5);
+        : 'W / S — вперёд и назад · A / D — поворот · Пробел — вверх · Shift — вниз. Лопасти раскручиваются… В воздухе F — прыгнуть с парашютом', 5);
       $('carName').textContent = promptCar.model.name;
     }
   }
@@ -163,8 +166,9 @@
     const online = NB.online;
     if (online && online.replacing) return;   // the server's copy is being loaded in: don't write over it
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz } = progress, guardsN = guards ? guards.list : progress.guards;
-    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, guards: guardsN, _t: online ? online.now() : Date.now() };
+    if (autos) autos.snapshot();
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages } = progress, guardsN = guards ? guards.list : progress.guards;
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, guards: guardsN, _t: online ? online.now() : Date.now() };
     try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
     if (online) online.push(data, urgent === true);
     saveT = 0;
@@ -173,7 +177,7 @@
   function garageCars() {
     const G = places.garage; if (!G || !progress.villa) return [];
     const r = G.rect;
-    return vehicles.cars.filter(c => !c.ai && c.driver !== 'player' && c.x > r.x0 && c.x < r.x1 && c.z > r.z0 && c.z < r.z1).slice(0, 2)
+    return vehicles.cars.filter(c => !c.ai && !c.owned && c.driver !== 'player' && c.x > r.x0 && c.x < r.x1 && c.z > r.z0 && c.z < r.z1).slice(0, 2)
       .map(c => ({ id: c.model.id, color: c.color, accent: c.accent, x: +c.x.toFixed(2), z: +c.z.toFixed(2), h: +c.h.toFixed(3) }));
   }
   if (progress.villa) for (const g of progress.garage) vehicles.spawnParked(g.id, g.x, g.z, g.h, g.color, g.accent);
@@ -222,7 +226,7 @@
   const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
-  let jobs = null, net = null, business = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
+  let jobs = null, net = null, business = null, autos = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
   const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
     hold: p => !!jobs && jobs.holdEMS(p),
@@ -334,6 +338,7 @@
       ammo: ['AMMO BAY', 'оружие · патроны · тир', '🔫', 'ОРУЖИЕ', { canopy: false, board: false }],
       bank: ['БАНК', 'Банк Неплохо Сити', '🏦', 'БАНК', { canopy: false }],
       police: ['ПОЛИЦИЯ', 'работа · камеры · оружейная', '🚓', 'ПОЛИЦИЯ', { canopy: false, board: false }],
+      dealer: ['NEPLOXO MOTORS', 'автосалон · эксклюзивные машины', '🚗', 'АВТОСАЛОН', { canopy: false, board: false }],
       firestation: ['ПОЖАРНАЯ ЧАСТЬ', 'работа пожарным', '🚒', 'РАБОТА', { canopy: false, board: false }],
       hospital: ['БОЛЬНИЦА', 'лечение · работа · вертолёт', '🏥', 'БОЛЬНИЦА', { canopy: false, board: false }],
       tower: ['NEPLOXO TOWER', 'лобби · лифт на крышу', '🏙', 'TOWER', { canopy: false, board: false }],
@@ -379,6 +384,8 @@
     // safe places for knockouts: the spawn beach, round the hospital, inside a home
     safe: () => { const pl = places.current; if (pl) return /^home_|^villa$/.test(pl.id); const h = world.hospital, sp = world.spawn; return (h && Math.hypot(player.x - h.x, player.z - h.z) < 45) || Math.hypot(player.x - sp.x, player.z - sp.z) < 60; } });
   // player businesses: bought at the desk in NEPLOXO TOWER, half of what others spend inside goes to the owner
+  // your own cars: NEPLOXO MOTORS, cars that stay where you leave them, home garages (autos.js)
+  autos = NB.createAutos({ vehicles, places, shops, player, progress, money: wallet, ui, audio, scene, flash: (t, s) => flashTip(t, s), save: saveProgress });
   business = NB.createBusiness({ places, shops, fronts: entFront, progress, money: wallet, ui, audio, flash: (t, s) => flashTip(t, s), save: saveProgress });
   net.on('timer', m => { if (m.key === 'bank' && m.by && m.by !== net.nick) flashTip('🚨 ' + m.by + ' грабит банк Неплохо Сити!', 4); });   // news for everybody
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
@@ -388,7 +395,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.hideaway ? world.hideaway.interactions() : [], world.military ? world.military.interactions() : [], jobs.interactions());
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.hideaway ? world.hideaway.interactions() : [], world.military ? world.military.interactions() : [], jobs.interactions(), autos.interactions());
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -734,6 +741,7 @@
     for (const pk of combat.pickups) if (pk.active) dot(toMap(pk.x, pk.z), W * .02, pk.type === 'health' ? '#ff4f6a' : '#ffd84f');
     if ((time * 3 | 0) % 2 === 0) for (const m of jobs.markers()) dot(toMap(m.x, m.z, true), W * .04, m.color);   // calls for the shift, blinking (at the edge when far)
     for (const c of combat.cashDrops) if (c.active) dot(toMap(c.x, c.z), W * .018, '#6bff8a');
+    if (autos && !places.current) for (const m of autos.markers()) { const q = toMap(m.x, m.z); if (q) { g.fillStyle = '#141018'; g.fillRect(q[0] - W * .03, q[1] - W * .022, W * .06, W * .044); g.fillStyle = '#3fe6e0'; g.fillRect(q[0] - W * .022, q[1] - W * .015, W * .044, W * .03); } }   // your own cars
     if (net && !places.current) for (const m of net.markers()) { const q = toMap(m.x, m.z); if (q) { dot(q, W * .036, '#141018'); dot(q, W * .026, '#ffe14f'); } }   // the other players
     if (police.wanted > 0) {
       for (const p of crowd.people) if (p.cop && !p.dead) dot(toMap(p.x, p.z), W * .025, '#4f8cff');
@@ -774,6 +782,7 @@
     if (world.military) icon(world.military.center.x - 17, world.military.center.z + 7, '#e8c020', '#141414', '⚠', false);
     icon(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', police.wanted > 0);
     if (world.fireStation) icon(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', false);
+    if (places.dealer) icon(25, -86, '#3fe6e0', '#141018', '🚗', false);
     if (world.north && world.north.sport) icon(world.north.sport.x, world.north.sport.z, '#c81e2a', '#fff', '🥊', false);
     if (world.strip) icon(world.strip.cx, world.strip.cz, '#ff2d7a', '#fff', '♀', false);
     if (world.north && world.north.prison) icon(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', false);
@@ -814,6 +823,7 @@
     if (world.north && world.north.prison) add(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', 'Тюрьма Района 21: можно зайти и посмотреть камеры');
     add(world.spray.center.x, world.spray.center.z, '#b06bff', '#fff', '✎', 'Покраска NEON SPRAY: снимает розыск');
     if (world.fireStation) add(world.fireStation.center.x, world.fireStation.center.z, '#e0483a', '#fff', '🔥', 'Пожарная часть');
+    if (places.dealer) add(25, -86, '#3fe6e0', '#141018', '🚗', 'NEPLOXO MOTORS: автосалон, эксклюзивные машины');
     if (world.street.motel) add(world.street.motel.center.x, world.street.motel.center.z, '#ff2d7a', '#fff', '♥', 'Мотель Pink Flamingo: девушки с 19:00 до 5:00');
     for (const c of world.street.carts) add(c.x, c.z, c.kind === 'hotdog' ? '#e8202a' : '#ff9fc3', '#fff', c.kind === 'hotdog' ? 'Х' : 'М', c.kind === 'hotdog' ? 'Хот-доги' : 'Мороженое');
     for (const b of world.street.buskers) add(b.x, b.z, '#2a2240', '#ffd84f', '♪', 'Уличный музыкант');
@@ -1014,7 +1024,7 @@
       fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
-      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); business.update(dt);
+      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); business.update(dt); autos.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       // the edge of the world: open ocean

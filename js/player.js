@@ -110,7 +110,13 @@
     const batWood = L({ color: 0xc9a06a }), grip = L({ color: 0x1e1e22 });
     // the bat hangs down from the fist and swings forward with the punch animation
     gun('bat', [[.045, .2, .045, grip, 0, -.04, .01], [.06, .38, .06, batWood, 0, -.32, .03], [.08, .3, .08, batWood, 0, -.64, .05]], [0, -.78, .05]);
-    return { root, hips, torso, head, aL, aR, lL, lR, guns, shirt, jeans, cap, skin, shoe, hairTop };
+    // the parachute: a curved canopy of coloured panels high over the head, lines down to the shoulders
+    const canopy = G(0, 0, 0, root); canopy.visible = false;
+    { const cols = [0xff4fa3, 0xf5f5f0, 0x3fe6e0, 0xf5f5f0, 0xff4fa3, 0xf5f5f0, 0x3fe6e0];
+      cols.forEach((c, i) => { const a = (i - 3) * .3, p = B(.95, .08, 2.4, L({ color: c, side: THREE.DoubleSide }), Math.sin(a) * 3.2, 1.3 + Math.cos(a) * 3.2, 0, canopy); p.rotation.z = -a; p.castShadow = true; });
+      const line = L({ color: 0xdddddd });
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const ln = B(.02, 3.4, .02, line, sx * 1.3, 2.85, sz * .9, canopy); ln.rotation.z = sx * .33; ln.rotation.x = -sz * .2; } }
+    return { root, hips, torso, head, aL, aR, lL, lR, guns, shirt, jeans, cap, skin, shoe, hairTop, canopy };
   }
 
   const MELEE = { fists: true, bat: true };
@@ -262,8 +268,14 @@
       if (wl > 1e-4) { wx = wx / wl * top * mag; wz = wz / wl * top * mag; }
       const k = this.swim ? 2.2 : this.onGround ? 10 : 2.5;
       this.vx = U.damp(this.vx, wx, k, dt); this.vz = U.damp(this.vz, wz, k, dt);
+      const jumpPressed = input.jump;
       if (input.jump && this.onGround && !this.swim && this.wade < .9) { this.vy = JUMP; this.onGround = false; }
       input.jump = false;
+      // the parachute (you get one in every helicopter and plane): JUMP in a long fall opens it
+      if (this.chute && wl > 1e-4) { const L2 = Math.hypot(wx, wz) || 1; wx = wx / L2 * 7 * mag; wz = wz / L2 * 7 * mag; }   // gliding under the canopy
+      if (jumpPressed && !this.chute && this.hasChute && !this.onGround && !this.swim && this.vy < 1 && this.y - this.floorAt(this.x, this.z, this.y) > 6) {   // high enough above the ground
+        this.chute = 1; this.hasChute = false; this.vy = Math.max(this.vy, -9); if (this.onChute) this.onChute(true);
+      }
 
       // horizontal move, then walls
       const px = this.x, pz = this.z;
@@ -273,6 +285,7 @@
       const W = NB.water.at(this.x, this.z), surf = W ? W.surface() : 0, t = performance.now() / 1000;
       if (W && surf - floor > 1.3 && (this.swim || this.y <= surf - 1.0)) {
         // afloat: shoulders at the surface, bobbing on the swell
+        if (this.chute) { this.chute = 0; if (this.onChute) this.onChute(false); }
         if (!this.swim) { this.swim = true; this.fx.splash(this.x, surf, this.z, Math.min(1, -this.vy / 9) + .25); if (this.onSplash) this.onSplash(this.vy < -5); this.setWeapon(this.weapon); }
         this.tilt = U.damp(this.tilt, this.speed > .7 ? 1 : .25, 3, dt);
         const want = surf - 1.5 * Math.cos(this.tilt) + Math.sin(t * 2.1 + this.x * .3) * .04;
@@ -289,14 +302,16 @@
         }
       } else {
         if (this.swim) { this.swim = false; this.setWeapon(this.weapon); }
-        // vertical: gravity, landing, stepping onto curbs
-        this.vy -= GRAVITY * dt; this.y += this.vy * dt;
+        // vertical: gravity (or the parachute's slow drop), landing, stepping onto curbs
+        if (this.chute) { this.vy = U.damp(this.vy, -3.6, 2.5, dt); this.fallTop = this.y; } else this.vy -= GRAVITY * dt;
+        this.y += this.vy * dt;
         const was = this.onGround;
         if (this.y <= floor || (was && this.vy <= 0 && this.y - floor < .25)) {
           if (!was && W && this.vy < -4 && surf > floor) { this.fx.splash(this.x, surf, this.z, .6); if (this.onSplash) this.onSplash(false); }
           // a hard landing: the higher the fall, the more it hurts (into deep water it never does)
           if (!was && this.fallTop != null && this.fallTop - floor > SAFE_DROP && this.onFall) this.onFall((this.fallTop - floor - SAFE_DROP) * DROP_HURT, this.fallTop - floor);
           this.y = floor; this.vy = 0; this.onGround = true;
+          if (this.chute) { this.chute = 0; if (this.onChute) this.onChute(false); }
         } else this.onGround = false;
         this.fallTop = this.onGround ? this.y : Math.max(this.fallTop == null ? this.y : this.fallTop, this.y);
         this.standCar = this.onGround ? floorCar : null;
@@ -356,6 +371,8 @@
       let arL = s * A * .9, arR = -s * A * .9, elb = -(.25 + this.run * 1.0) * moving - .12;
       let bob = Math.abs(s) * .045 * moving * (1 + this.run), lean = .06 * moving + .16 * this.run;
       if (!this.onGround && this.air > .08) { thL = -.7; thR = .15; knL = 1.0; knR = .5; arL = -.6; arR = .5; elb = -.8; bob = 0; lean = .05; }
+      if (this.chute) { thL = .25; thR = .15; knL = .35; knR = .3; arL = -2.75; arR = -2.75; elb = -.25; bob = 0; lean = 0; }
+      m.canopy.visible = !!this.chute;
       const t = performance.now() / 1000;
       const idle = (1 - moving) * Math.sin(t * 1.8) * .012;
       const L = (a, b) => a + (b - a) * Math.min(1, dt * 16);

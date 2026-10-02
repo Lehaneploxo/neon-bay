@@ -206,7 +206,7 @@
           av.x = s.x; av.y = s.y; av.z = s.z; av.heading = s.h;
           av.swim = !!(s.f & 2); av.onGround = !(s.f & 4); av.air = s.f & 4 ? .3 : 0;
           if (av.weapon !== s.w && NB.WEAPONS && NB.WEAPONS[s.w]) av.setWeapon(s.w);
-          av.aimT = s.f & 1 ? .5 : 0; av.aimPitch = 0;
+          av.aimT = s.f & 1 ? .5 : 0; av.aimPitch = 0; av.chute = s.f & 128 ? 1 : 0;
           if (r.pc >= 0 && s.pc > r.pc) av.punch();
           if (s.f & 64 && (r.shotT = (r.shotT || 0) - dt) <= 0) { r.shotT = .12; av.fired(); if (o.audio && o.audio.shot) o.audio.shot(s.w, [s.x, s.y + 1.4, s.z]); }
           r.pc = s.pc;
@@ -243,7 +243,8 @@
       if (P.swim) f |= 2;
       if (!P.onGround && P.air > .08) f |= 4;
       if (P.dead) f |= 8;
-      if (shotPending) { f |= 64; shotPending = false; }   // fired since the last message
+      if (shotPending) { f |= 64; shotPending = false; }
+      if (P.chute) f |= 128;   // fired since the last message
       const st = { t: 'st', x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), h: +P.heading.toFixed(3), f, w: P.weapon, pc, r: roomKey() };
       if (drv) st.c = { m: drv.model.id, c: drv.color, a: drv.accent, x: +drv.x.toFixed(2), y: +drv.y.toFixed(2), z: +drv.z.toFixed(2), h: +drv.h.toFixed(3), p: +drv.body.rotation.x.toFixed(3), b: +drv.body.rotation.z.toFixed(3),
         v: +(drv.vx * Math.sin(drv.h) + drv.vz * Math.cos(drv.h)).toFixed(1), s: drv.sirenOn ? 1 : 0 };

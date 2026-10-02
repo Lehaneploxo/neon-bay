@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [2400, 1500], hospital: [2550, 1500], firestation: [2700, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640], home_studio: [2200, 1780] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [2400, 1500], hospital: [2550, 1500], firestation: [2700, 1500], dealer: [2850, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640], home_studio: [2200, 1780] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -802,6 +802,64 @@
         ];
       };
     }
+    /* ---------------------------------------------------------------
+       NEPLOXO MOTORS: the car dealership on the south side of the car park by NEON SPRAY. Outside a glass
+       showroom facing the avenue; inside the exclusive cars turn slowly on round stands under spotlights.
+       Buying is in autos.js; the car is waiting on the lot behind the showroom.
+       --------------------------------------------------------------- */
+    let dealer = null;
+    {
+      // the building, right in the city: x 10..40, z -93..-79, the glass front and the door on the avenue side (-z)
+      const X0 = 10, X1 = 40, Z0 = -93, Z1 = -79, H = 6.5, Y = .16;
+      K.at(0, 0);
+      K.box(X0, Y, Z0 + .3, X1, H, Z1, '#e8e4ee', true);                                   // the body of the building
+      K.box(X0 - .2, H, Z0 - .2, X1 + .2, H + .4, Z1 + .2, '#141418', true);                 // the roof slab
+      K.box(X0, Y, Z0, X1, H - .2, Z0 + .3, '#6fa8c8');                                      // the glass front
+      for (let x = X0; x <= X1; x += 3) K.box(x - .06, Y, Z0 - .04, x + .06, H - .2, Z0 + .02, '#d9d9e2');
+      K.neon(X0, H - .35, Z0 - .1, X1, H - .25, Z0 - .04, '#3fe6e0');
+      K.neon(X0, Y + .05, Z0 - .1, X1, Y + .12, Z0 - .04, '#ff4fa3', false);
+      K.picture('-z', (X0 + X1) / 2, H + .95, Z0 - .25, 14, 1.6, T.sign('NEPLOXO MOTORS', 'эксклюзивные автомобили', '#3fe6e0', '#0e0a18'));
+      K.box((X0 + X1) / 2 - 7, H + .1, Z0 - .2, (X0 + X1) / 2 + 7, H + 1.8, Z0 - .15, '#0e0a18');
+      // what's inside shows through the glass: a few car shapes and the lights
+      for (const [x, hex] of [[15, '#c9a227'], [22, '#e8202a'], [29, '#141418'], [35, '#8cff6b']]) { K.box(x - 1, Y, Z0 + .5, x + 1, Y + 1.1, Z0 + 2.5, hex); K.neon(x - 1.4, H - .6, Z0 + .5, x + 1.4, H - .55, Z0 + 2.5, '#fff8e8', false); }
+      const door = { x: 25, z: Z0 - 1.3, y: Y, heading: Math.PI, nx: 0, nz: -1, hex: '#3fe6e0', cx: 25, cz: (Z0 + Z1) / 2 };
+      K.box(23.6, Y, Z0 - .08, 26.4, 3, Z0 - .02, '#1d1426'); K.neon(23.4, 3, Z0 - .1, 26.6, 3.12, Z0 - .02, '#3fe6e0');
+      mapShapes.push({ x0: X0, z0: Z0, x1: X1, z1: Z1, c: '#3fe6e0', k: 'b' });
+      // the lot behind it, where bought cars wait: painted bays
+      const bays = [];
+      for (let x = 13; x <= 37; x += 4) { K.box(x - .05, Y, -78.2, x + .05, Y + .01, -73.2, '#f5f5f0'); bays.push({ x: x + 2, z: -75.6, h: Math.PI / 2 }); }
+      bays.pop();
+      K.picture('+z', 12, 2.2, -78.95, 3, .7, T.sign('ВЫДАЧА АВТО', null, '#3fe6e0', '#0e0a18'));
+
+      // inside: one big hall
+      const pl = interior('dealer', 'NEPLOXO MOTORS', door, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-21, -6, 21, 24], light: lit('#fff6f0', '#5a5060', 1.05), music: 'lounge' });
+      K.at(pl.ox, pl.oz);
+      K.room(-21, -6, 21, 24, 7, { wall: '#efeaf2', ceil: '#141418', trim: '#3fe6e0', neon: '#3fe6e0', gaps: { '-z': [{ c: 0, w: 1.8, h: 2.8 }] } });
+      K.floor(-21, -6, 21, 24, T.marble, 3);
+      K.picture('-z', 0, 4.8, 23.83, 12, 2, T.sign('NEPLOXO MOTORS', 'только у нас · только для своих', '#3fe6e0', '#0e0a18'));
+      K.picture('-z', -14, 3.6, 23.83, 5, 1.2, T.sign('LEHA NEPLOXO', 'президент мира рекомендует', '#ffd84f', '#141018'));
+      // the sales desk
+      K.box(9, 0, -3.4, 15, 1.1, -2.4, '#141418', true); K.box(8.95, 1.1, -3.45, 15.05, 1.16, -2.35, '#c9a227'); K.neon(9, .25, -3.45, 15, .3, -3.4, '#3fe6e0', false);
+      spots.push(K.spot({ kind: 'idle', x: 12, z: -1.6, heading: Math.PI, type: 'business_f', home: true }), K.spot({ kind: 'idle', x: -12, z: -2, heading: Math.PI / 2, type: 'business_m', home: true }));
+      for (const x of [-18, -16]) { K.box(x - .5, 0, -4.8, x + .5, .45, -3.8, '#2a2a30', true); if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x, z: -4.3, y: .51, heading: 0, mix: 'downtown', home: true })); }
+      // eight stands in two rows, a car on each, turning
+      const stands = [];
+      const SLOTS = [[-15, 5], [-5, 5], [5, 5], [15, 5], [-15, 16], [-5, 16], [5, 16], [15, 16]];
+      SLOTS.forEach(([x, z], i) => {
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(3.1, 3.2, .3, 40), new THREE.MeshLambertMaterial({ color: 0x2a2a32 }));
+        disc.position.set(K.wx(x), .15, K.wz(z)); scene.add(disc);
+        K.solid(x - 2.2, 0, z - 2.2, x + 2.2, .3, z + 2.2);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(3.15, .05, 6, 48).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x3fe6e0 }));
+        ring.position.set(K.wx(x), .31, K.wz(z)); scene.add(ring);
+        K.neon(x - 2.5, 6.9, z - .1, x + 2.5, 6.95, z + .1, '#fff8e8', false);
+        stands.push({ i, x: K.wx(x), z: K.wz(z), lx: x, lz: z, group: null });
+      });
+      pl.stands = stands;
+      let spin = 0;
+      pl.update = dt => { spin += dt * .35; for (const s of stands) if (s.group) s.group.rotation.y = spin + s.i * .8; };
+      dealer = { place: pl, bays, door, keepClear: { x0: X0 - 1, x1: X1 + 1, z0: Z0 - 3, z1: -72.5 } };
+    }
+
     /* ---------------------------------------------------------------
        NEPLOXO TOWER: a black-and-gold lobby with a lift to the roof; up top a pool, sunbeds,
        a glass railing, a spire with a red light, and a helipad with a helicopter
@@ -2396,7 +2454,7 @@
        ===================================================================== */
     for (const pl of places) if (!pl.update) pl.update = () => {};
     const api = {
-      list: places, spots, VILLA_PRICE, garage, tiki, heliPad, towerRoof, yacht,
+      list: places, spots, VILLA_PRICE, garage, tiki, heliPad, towerRoof, yacht, dealer,
       current: null,
       byId: id => places.find(p => p.id === id),
       // which interior a point is in

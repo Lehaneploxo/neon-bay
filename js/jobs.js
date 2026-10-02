@@ -10,6 +10,9 @@
 // The city's own ambulances and fire engines hold back a little while a player is on shift, so the work
 // comes to the player first. Life in the street makes the work: now and then two passers-by come to blows;
 // the one who's knocked down needs an ambulance, the one who started it runs off and is wanted for a while.
+// Pickpockets (now and then the hero's own pocket: knock the thief down and the money falls out) and car
+// thieves who drive a parked car off — a call for the police: stop the car and pull the thief out.
+// All of it more often in the rough parts (District 21, the docks), less on the market and in the harbour.
 (function (NB) {
   'use strict';
   const { U } = NB;
@@ -140,7 +143,10 @@
     function calls() {
       if (!duty) return [];
       const out = [];
-      if (duty === 'police') { for (const p of o.crowd.people) if (p.suspect && !p.dead && near(p, CALL_R)) out.push({ kind: 'police', who: p, x: p.x, z: p.z }); }
+      if (duty === 'police') {
+        for (const p of o.crowd.people) if (p.suspect && !p.dead && near(p, CALL_R)) out.push({ kind: 'police', who: p, x: p.x, z: p.z });
+        for (const c of stolen) if (near(c, CALL_R)) out.push({ kind: 'police', who: c, car: true, x: c.x, z: c.z });
+      }
       else if (duty === 'ems') { for (const p of o.crowd.people) if ((p.dead || p.down) && !p.bodyguard && p.x < 1000 && near(p, CALL_R)) out.push({ kind: 'ems', who: p, x: p.x, z: p.z }); }
       else if (duty === 'fire') { for (const c of o.vehicles.fires()) if (near(c, CALL_R) && c !== o.vehicles.driving) out.push({ kind: 'fire', who: c, x: c.x, z: c.z }); }
       return out;
@@ -150,6 +156,7 @@
       if (!alive(p) || !p.suspect) return;
       p.suspect = false; o.say(p, pick(['Ладно, ладно, сдаюсь!', 'Это не я начал!', 'Без рук, начальник!']));
       setTimeout(() => o.crowd.despawnPerson(p), 900);
+      const th = thieves.find(t => t.p === p); if (th) { thieves.splice(thieves.indexOf(th), 1); o.money.add(th.cash, 'Вернули украденное'); }
       const bonus = rank('police').bonus; credit('police');
       pay(bonus, 'Задержание'); o.flash('Зачинщик задержан! +' + fmt(bonus), 2.6);
     }
@@ -164,6 +171,83 @@
       o.vehicles.extinguish(c);
       const bonus = rank('fire').bonus; credit('fire');
       pay(bonus, 'Пожар потушен'); o.flash('Пожар потушен! +' + fmt(bonus), 2.6);
+    }
+
+    /* ---------- pickpockets and car thieves ---------- */
+    let robbedT = 0;               // the hero's pocket is picked at most once in 5 minutes
+    const thieves = [];            // { p, cash }: a pickpocket running off with the hero's money
+    const stolen = [];             // cars driven off by thieves
+    function crimeKind(name) {
+      const r = Math.random(), rough = /^(Район 21|Доки|Мост 21)/.test(name || ''), mid = /^(Рынок|Гавань)/.test(name || '');
+      const pp = rough ? .25 : mid ? .2 : .12, cj = rough ? .15 : mid ? .1 : .06;
+      return r < pp ? 'pick' : r < pp + cj ? 'carjack' : 'brawl';
+    }
+    function flee(p, x, z, t) { p.suspect = true; p.suspectT = 0; p.fleeT = t || rand(14, 18); p.fleeX = x; p.fleeZ = z; }
+    function startPickpocket() {
+      const pool = o.crowd.people.filter(p => brawler(p) && near(p, 40) && !near(p, 2));
+      let thief = pool.length ? pick(pool) : null;
+      // the hero is the mark: on foot, not a policeman on shift, some cash on them, not robbed lately
+      if (!o.vehicles.driving && duty !== 'police' && o.money.get() >= 60 && robbedT <= 0 && Math.random() < .45) {
+        // the nearest passer-by, or someone who comes up from behind
+        thief = pool.filter(p => near(p, 20)).sort((a, b) => Math.hypot(a.x - P().x, a.z - P().z) - Math.hypot(b.x - P().x, b.z - P().z))[0] ||
+          o.crowd.dropOff(P().x - Math.sin(P().heading) * 3, P().z - Math.cos(P().heading) * 3, P().heading, null, null, false);
+        if (!thief) return false;
+        const n = Math.min(o.money.get(), Math.round(rand(30, 160)));
+        o.money.spend(n, 'Карманник'); robbedT = 300;
+        thieves.push({ p: thief, cash: n }); thief.crime = 'pick'; flee(thief, P().x, P().z);
+        o.say(thief, pick(['Хе-хе!', 'Спасибо за кошелёк!', 'Пока-пока!']));
+        o.flash('Карманник стащил у вас ' + fmt(n) + '! Догоните и вырубите его — деньги выпадут', 4);
+        return true;
+      }
+      if (!thief) return false;
+      const victim = pool.find(q => q !== thief && Math.hypot(q.x - thief.x, q.z - thief.z) < 9);
+      thief.crime = 'pick'; flee(thief, victim ? victim.x : thief.x, victim ? victim.z : thief.z);
+      if (victim) o.say(victim, pick(['Держи вора!', 'Мой кошелёк!', 'Полиция! Обокрали!']));
+      if (duty === 'police') o.flash('Вызов: карманник! Вор отмечен на карте', 3);
+      return true;
+    }
+    function startCarjack() {
+      const pool = o.vehicles.cars.filter(c => c.parked && !c.garage && !c.owned && !c.remote && !c.wreck && !c.stolen && !c.model.boat && !c.model.heli && !c.model.police && !c.model.ems && !c.model.fire && !c.model.tracks && !c.model.bike && !near(c, 25) && near(c, 140));
+      if (!pool.length) return false;
+      const c = pick(pool);
+      // off to a crossing far from the hero
+      const R = [-100, -50, 0, 50, 100], far = [];
+      for (const x of R) for (const z of R) if (Math.hypot(x - P().x, z - P().z) > 140 && Math.hypot(x - c.x, z - c.z) > 100) far.push([x, z]);
+      const t = far.length ? pick(far) : [c.x + rand(-150, 150), c.z + rand(-150, 150)];
+      c.parked = false; c.awake = true; c.driver = 'npc'; c.driverMesh.visible = true; c.stolen = { t: 0 };
+      o.vehicles.driveTo(c, t[0], t[1], 15);
+      stolen.push(c);
+      if (duty === 'police') o.flash('Вызов: угон машины! Она отмечена на карте — остановите угонщика', 3.5);
+      return true;
+    }
+    // the thief gets out: arrested (by the hero on shift) or runs off (the car is smashed, stuck, or got where it was going)
+    function thiefOut(c, arrested) {
+      stolen.splice(stolen.indexOf(c), 1);
+      c.stolen = null; c.goto = null; c.driver = null; c.driverMesh.visible = false; c.parked = true;
+      if (arrested) return;
+      const sx = -Math.cos(c.h), sz = Math.sin(c.h), p = o.crowd.dropOff(c.x + sx * (c.model.w / 2 + .9), c.z + sz * (c.model.w / 2 + .9), c.h, null, pick(['Валим!', 'Это не моя тачка!', 'Ноги в руки!']), false);
+      if (p) { p.crime = 'carjack'; flee(p, c.x, c.z, rand(10, 14)); }
+    }
+    function arrestCar(c) {
+      if (!stolen.includes(c)) return;
+      thiefOut(c, true);
+      const bonus = rank('police').bonus + 50; credit('police');
+      pay(bonus, 'Задержан угонщик'); o.flash('Угонщик задержан, машина возвращена! +' + fmt(bonus), 2.8);
+    }
+    function crimeStep(dt) {
+      if (robbedT > 0) robbedT -= dt;
+      // a pickpocket knocked down drops the hero's money; one that got away keeps it
+      for (const t of thieves.slice()) {
+        if (!alive(t.p)) { thieves.splice(thieves.indexOf(t), 1); continue; }
+        if (t.p.dead || t.p.down) { o.combat.dropCash(t.p.x, t.p.z, t.cash); thieves.splice(thieves.indexOf(t), 1); o.say(t.p, 'Ай! Забирай!'); }
+      }
+      for (const c of stolen.slice()) {
+        c.stolen.t += dt;
+        if (!o.vehicles.cars.includes(c) || o.vehicles.driving === c) { stolen.splice(stolen.indexOf(c), 1); c.stolen = null; continue; }
+        const sp = Math.hypot(c.vx, c.vz);
+        c.stolen.slowT = sp < 1 ? (c.stolen.slowT || 0) + dt : 0;
+        if (c.damage > 45 || c.wreck || c.flooded || (c.goto && c.goto.arrived) || c.stolen.t > 150 || (c.stolen.slowT > 6 && !(duty === 'police' && near(c, 8)))) thiefOut(c, false);
+      }
     }
 
     /* ---------- life in the street: a brawl now and then ---------- */
@@ -204,6 +288,7 @@
       get duty() { return duty; },
       get job() { return job.kind; },
       rank, boss, locker, armoury, end, start,
+      crimeNow: k => (k === 'pick' ? startPickpocket() : k === 'carjack' ? startCarjack() : startBrawl()),   // for testing
       // a game loaded in the middle of a shift: back in the uniform, on shift (once the whole game is set up)
       resume() { if (job.kind && job.duty && !duty) start(job.kind, true); },
       // the line on the screen while on shift: how many calls, how far the nearest
@@ -222,7 +307,8 @@
         // a brawl somewhere around every couple of minutes (more often when there's someone on shift to see to it)
         // a road accident every couple of minutes (more often with a firefighter or a paramedic on shift)
         if (!o.inside() && (crashT -= dt) <= 0) crashT = startCrash() ? (duty === 'fire' || duty === 'ems' ? rand(50, 90) : rand(120, 200)) : 10;
-        if (!o.inside() && (brawlT -= dt) <= 0) { const g = crimeGap(o.district()); brawlT = startBrawl() ? rand(g[0], g[1]) : 5; }
+        if (!o.inside() && (brawlT -= dt) <= 0) { const g = crimeGap(o.district()), k = crimeKind(o.district()); brawlT = (k === 'pick' ? startPickpocket() || startBrawl() : k === 'carjack' ? startCarjack() || startBrawl() : startBrawl()) ? rand(g[0], g[1]) : 5; }
+        crimeStep(dt);
         // suspects are wanted for three minutes, then it's forgotten
         for (const p of o.crowd.people) if (p.suspect && !p.brawl && (p.suspectT = (p.suspectT || 0) + dt) > 180) p.suspect = false;
         // a new call: tell the player
@@ -237,7 +323,8 @@
         if (!duty) return [];
         const out = [];
         for (const c of calls()) {
-          if (c.kind === 'police' && near(c.who, 6)) out.push({ x: c.x, z: c.z, y: c.who.y, r: 2.2, short: 'АРЕСТ', label: () => 'Задержать зачинщика драки', use: () => arrest(c.who) });
+          if (c.kind === 'police' && c.car) { if (near(c.who, 6) && Math.hypot(c.who.vx, c.who.vz) < 2) out.push({ x: c.x, z: c.z, y: c.who.y, r: 4, short: 'АРЕСТ', label: () => 'Вытащить угонщика из машины', use: () => arrestCar(c.who) }); }
+          else if (c.kind === 'police' && near(c.who, 6)) out.push({ x: c.x, z: c.z, y: c.who.y, r: 2.2, short: 'АРЕСТ', label: () => c.who.crime === 'pick' ? 'Задержать карманника' : c.who.crime === 'carjack' ? 'Задержать угонщика' : 'Задержать зачинщика драки', use: () => arrest(c.who) });
           if (c.kind === 'ems' && near(c.who, 6)) out.push({ x: c.x, z: c.z, y: c.who.y, r: 2.2, short: 'ПОМОЧЬ', label: () => c.who.dead ? 'Реанимировать' : 'Оказать помощь', use: () => help(c.who) });
           if (c.kind === 'fire' && near(c.who, 10)) out.push({ x: c.x, z: c.z, y: c.who.y, r: 7, short: 'ТУШИТЬ', label: () => 'Потушить машину', use: () => douse(c.who) });
         }

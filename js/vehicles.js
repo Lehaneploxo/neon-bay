@@ -546,7 +546,7 @@
 
     /* ---------- parked cars along the kerbs and in the car park ---------- */
     // nothing is parked in the way of the spray shop's door
-    const keep = [world.spray, world.fireStation].filter(Boolean).map(o => o.keepClear), clear = (x, z) => keep.every(r => x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1);
+    const keep = [world.spray, world.fireStation, world.places && world.places.dealer].filter(Boolean).map(o => o.keepClear), clear = (x, z) => keep.every(r => x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1);
     for (const L of ROADS) for (let s = 0; s < ROADS.length - 1; s++) {
       const a = ROADS[s] + 12, b = ROADS[s + 1] - 12;
       for (const side of [-1, 1]) for (let t = a; t < b; t += rand(6.5, 9)) {
@@ -877,10 +877,19 @@
       },
       exit(player, force) {
         const car = driving; if (!car) return false;
-        if (!force && Math.abs(speedOf(car)) > 4) return false;
+        if (!force && Math.abs(speedOf(car)) > 4 && !(car.model.heli && car.y > heliGround(car) + 6)) return false;   // (out of a flying helicopter or plane you jump)
         const [rx, rz] = right(car);
         if (car.model.heli) {
           // only once it's down; step out onto whatever it landed on
+          // high up: jump out (with the parachute you got on board); low over the ground: land first
+          if (car.y > heliGround(car) + 6 && !force) {
+            const s = car.model.w / 2 + 1.2;
+            player.place(car.x - rx * s, car.z - rz * s, car.h); player.y = car.y + .5; player.vy = 0; player.onGround = false; player.air = .5;
+            player.vx = car.vx * .6; player.vz = car.vz * .6; player.fallTop = player.y;
+            car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
+            audio.door(); if (audio.rotor) audio.rotor(0, 1); if (car.model.jet) audio.engineOn(false);
+            return 'bail';
+          }
           if (car.y > heliGround(car) + .6 && !force) return false;   // (a crash throws you out wherever it happens)
           let bx = 0, bz = 0, by = -Infinity;
           for (const side of [-1, 1]) { const x = car.x + rx * side * (car.model.w / 2 + .9), z = car.z + rz * side * (car.model.w / 2 + .9), f = player.floorAt(x, z, car.y + .6); if (f > by) { by = f; bx = x; bz = z; } }
@@ -932,7 +941,7 @@
           const lim = limits();
           for (const c of cars.slice()) {
             const d = Math.hypot(c.x - player.x, c.z - player.z);
-            if (c.remote) continue;
+            if (c.remote || c.owned) continue;   // other players' cars and the hero's own (autos.js) are never tidied away
             if (c.ai && d > 150) removeCar(c);
             else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && !c.autopilot && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
             else if (c.wreck && !c.visible && d > 110) removeCar(c);
