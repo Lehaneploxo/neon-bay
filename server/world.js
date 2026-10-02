@@ -4,10 +4,10 @@
 //  - a business pays its owner half of what other players spend in it, straight away if the owner is in
 //    the game, or kept until they come back;
 //  - once-for-everybody loot: the bank vault (again after 15 minutes), the army crate on Omega (15 minutes),
-//    the secret islet's chest (a real day). Whoever claims it first gets it; the timers live in the database.
+//    the secret islet's chest (a real day), the free first-aid kit by the hospital (15 minutes). Whoever claims it first gets it; the timers live in the database.
 const ID_RE = /^[a-z0-9_]{1,40}$/;
 const KINDS = ['home', 'biz'];
-const TIMERS = { bank: 15 * 60 * 1000, crate: 15 * 60 * 1000, chest: 24 * 3600 * 1000 };
+const TIMERS = { bank: 15 * 60 * 1000, crate: 15 * 60 * 1000, chest: 24 * 3600 * 1000, medkit: 15 * 60 * 1000 };
 const BIZ_SHARE = .5;              // the owner's half; the other half is the business's expenses
 const BIZ_MAX_SPEND = 2000000;     // one purchase can't be more than this (junk guard)
 

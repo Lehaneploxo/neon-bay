@@ -299,6 +299,21 @@
             pk.mesh.traverse(m => { if (m.geometry && m.geometry !== beamGeo) m.geometry.dispose(); if (m.material) m.material.dispose(); });
             continue;
           }
+          // online the hospital's kit is one for the whole server: whoever gets it first, the next in 15 minutes
+          if (pk.medkit && NB.net && NB.net.connected) {
+            const ready = NB.net.lootLeft('medkit') <= 0 && !pk.asking;
+            pk.mesh.visible = ready;
+            if (!ready) continue;
+            pk.mesh.icon.rotation.y = tt * 2; pk.mesh.icon.position.y = .9 + Math.sin(tt * 3 + pk.x) * .1;
+            if (driving || player.dead || player.hp >= 100 || Math.hypot(pk.x - player.x, pk.z - player.z) > 1.3) continue;
+            pk.asking = true; pk.mesh.visible = false;
+            NB.net.loot('medkit').then(r => {
+              pk.asking = false;
+              if (r === false) { o.flash('Аптечку только что забрал другой игрок. Следующая — через 15 минут', 3); return; }
+              player.hp = 100; audio.pickup(); o.flash('Аптечка скорой помощи: здоровье полное. Следующая будет здесь через 15 минут', 3);
+            });
+            continue;
+          }
           if (!pk.active) { pk.t -= dt; if (pk.t <= 0) { pk.active = true; pk.mesh.visible = true; } continue; }
           pk.mesh.icon.rotation.y = tt * 2; pk.mesh.icon.position.y = .9 + Math.sin(tt * 3 + pk.x) * .1;
           if (driving || player.dead || Math.hypot(pk.x - player.x, pk.z - player.z) > 1.3) continue;
