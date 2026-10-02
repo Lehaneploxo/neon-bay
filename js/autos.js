@@ -35,13 +35,14 @@
     const EXCL = NB.CAR_MODELS.filter(m => m.exclusive);
     const D = o.places.dealer;
     const live = new Map();   // uid -> car in the world
-    let lastCar = null, checkT = 0;
+    let lastCar = null, checkT = 0, hooked = false;
 
     /* ---------- cars you own, out in the city ---------- */
     function spawnOwned(r) {
       if (!byId[r.id]) return null;
       const c = V.spawnParked(r.id, r.x, r.z, r.h, r.c, r.a); if (!c) return null;
-      c.owned = r.u; live.set(r.u, c);
+      c.owned = r.u; c.sid = 'o' + r.u; live.set(r.u, c);
+      if (NB.net) NB.net.ownedHere(c);   // the other players see it standing here
       return c;
     }
     P.cars = P.cars.filter(r => byId[r.id] && r.u);
@@ -62,7 +63,7 @@
     // wrecked, sunk or lost: back at the dealership, repaired (once the hero isn't looking)
     function recover(r, c, why) {
       if (c && V.cars.includes(c)) V.dropRemote(c);
-      live.delete(r.u);
+      live.delete(r.u);   // (spawnOwned below tells the others where it is now)
       const b = freeBay(); r.x = b.x; r.z = b.z; r.h = b.h;
       spawnOwned(r);
       o.flash(why + ' Эвакуатор отвёз ' + nameOf(r.id) + ' на парковку NEPLOXO MOTORS — как новую', 4.5);
@@ -127,7 +128,8 @@
     function store(h, c) {
       const list = P.garages[h.id] || (P.garages[h.id] = []);
       const g = { id: c.model.id, c: c.color, a: c.accent, u: c.owned || null };
-      if (c.owned) { const r = P.cars.find(x => x.u === c.owned); if (r) P.cars.splice(P.cars.indexOf(r), 1); live.delete(c.owned); }
+      if (c.owned) { const r = P.cars.find(x => x.u === c.owned); if (r) P.cars.splice(P.cars.indexOf(r), 1); live.delete(c.owned); if (NB.net) NB.net.ownedGone(c.owned); }
+      else if (NB.net && (c.sid || c.pid)) NB.net.carEntered(c);   // a city car into the garage: gone from the street for everybody
       V.dropRemote(c); if (lastCar === c) lastCar = null;
       list.push(g); o.save();
       return nameOf(g.id) + ' в гараже';
@@ -138,7 +140,7 @@
       if (V.cars.some(c => Math.hypot(c.x - s.x, c.z - s.z) < 3)) return 'Перед дверью стоит машина — место занято';
       list.splice(i, 1);
       if (g.u) { const r = { u: g.u, id: g.id, c: g.c, a: g.a, x: s.x, z: s.z, h: s.h }; P.cars.push(r); lastCar = spawnOwned(r); }
-      else lastCar = V.spawnParked(g.id, s.x, s.z, s.h, g.c, g.a);
+      else { lastCar = V.spawnParked(g.id, s.x, s.z, s.h, g.c, g.a); if (NB.net && lastCar) NB.net.carLeft(lastCar); }
       o.save();
       return nameOf(g.id) + ' ждёт у двери';
     }
@@ -156,6 +158,7 @@
         return out;
       },
       update(dt) {
+        if (!hooked && NB.net) { hooked = true; NB.net.on('welcome', () => { for (const c of live.values()) if (V.cars.includes(c) && V.driving !== c) NB.net.ownedHere(c); }); }
         if (V.driving) lastCar = V.driving;
         if ((checkT -= dt) > 0) return; checkT = 2;
         const p = o.player;

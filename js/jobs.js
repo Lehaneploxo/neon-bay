@@ -216,7 +216,7 @@
       const t = far.length ? pick(far) : [c.x + rand(-150, 150), c.z + rand(-150, 150)];
       c.parked = false; c.awake = true; c.driver = 'npc'; c.driverMesh.visible = true; c.stolen = { t: 0 };
       o.vehicles.driveTo(c, t[0], t[1], 15);
-      stolen.push(c);
+      stolen.push(c); if (NB.net) NB.net.carEntered(c);
       if (duty === 'police') o.flash('Вызов: угон машины! Она отмечена на карте — остановите угонщика', 3.5);
       return true;
     }
@@ -224,6 +224,7 @@
     function thiefOut(c, arrested) {
       stolen.splice(stolen.indexOf(c), 1);
       c.stolen = null; c.goto = null; c.driver = null; c.driverMesh.visible = false; c.parked = true;
+      if (NB.net) NB.net.carLeft(c);
       if (arrested) return;
       const sx = -Math.cos(c.h), sz = Math.sin(c.h), p = o.crowd.dropOff(c.x + sx * (c.model.w / 2 + .9), c.z + sz * (c.model.w / 2 + .9), c.h, null, pick(['Валим!', 'Это не моя тачка!', 'Ноги в руки!']), false);
       if (p) { p.crime = 'carjack'; flee(p, c.x, c.z, rand(10, 14)); }

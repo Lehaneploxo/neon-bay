@@ -93,6 +93,7 @@
     if (car) {
       const out = vehicles.exit(player);
       if (out) {
+        if (net) net.carLeft(car);
         player.fallTop = player.y;   // a fall is counted from where you step out, not from where you got in
         if (out === 'bail') flashTip(player.hasChute ? (input.touch ? 'Прыжок! Нажмите ПРЫЖОК — раскрыть парашют' : 'Прыжок! Пробел — раскрыть парашют') : 'Прыжок… без парашюта!', 3.5);
         player.inCar = false; player.m.root.visible = true; player.blob.visible = true;
@@ -101,6 +102,7 @@
     } else if (promptCar) {
       const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto || !!promptCar.autopilot, isPolice = !!promptCar.police;
       const ej = vehicles.enter(promptCar, player);
+      if (net) net.carEntered(promptCar);
       if (ej) { if (ej.cop || isPolice) crowd.spawnCop(0, 0, 0, 0, 0, 0, ej.x, ej.z); else crowd.ejectDriver(ej.x, ej.z, ej.h); }
       if (isPolice && !(jobs && jobs.duty === 'police')) police.reportCrime('copcar', player.x, player.z); else if (wasDriven) police.reportCrime('carjack', player.x, player.z);
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
@@ -380,7 +382,7 @@
   setTimeout(() => jobs.resume(), 0);   // came back in the middle of a shift: still on it (once the whole game is set up)
   // the live world: the other players and the chat (net.js)
   net = NB.createNet({ scene, col: world.col, camera, player, vehicles, places, progress, get input() { return input; }, audio, flash: (t, s) => flashTip(t, s), playing: () => state === 'playing', lock: () => lock(),
-    hurt: d => heroDamage(d), star: () => police.star(), loseCash: n => spend(n, 'Выронили при нокауте'), addCash: n => addMoney(n, 'Подобрано'),
+    hurt: d => heroDamage(d), star: () => police.star(), kickOut: () => leaveCar(), loseCash: n => spend(n, 'Выронили при нокауте'), addCash: n => addMoney(n, 'Подобрано'),
     // safe places for knockouts: the spawn beach, round the hospital, inside a home
     safe: () => { const pl = places.current; if (pl) return /^home_|^villa$/.test(pl.id); const h = world.hospital, sp = world.spawn; return (h && Math.hypot(player.x - h.x, player.z - h.z) < 45) || Math.hypot(player.x - sp.x, player.z - sp.z) < 60; } });
   // player businesses: bought at the desk in NEPLOXO TOWER, half of what others spend inside goes to the owner
@@ -488,7 +490,8 @@
   }
   function leaveCar() {
     if (!vehicles.driving) return;
-    vehicles.exit(player, true); player.fallTop = player.y;
+    const car = vehicles.driving;
+    vehicles.exit(player, true); if (net) net.carLeft(car); player.fallTop = player.y;
     player.inCar = false; player.m.root.visible = true; document.body.classList.remove('driving');
   }
   let bill = 0;

@@ -69,6 +69,10 @@
         case 'ko_drop': if (o.loseCash) o.loseCash(m.n); setTimeout(() => o.flash('Вас вырубил ' + m.nick + ' — из кармана выпало ' + fmtM(m.n), 4), 3800); break;
         case 'ko_safe': setTimeout(() => o.flash('Вас вырубил ' + m.nick + (m.why === 'safe' ? '. Здесь безопасное место — деньги не выпали' : m.why === 'newbie' ? '. Вы новичок — деньги не выпали' : '. Деньги не выпали: он уже обирал вас недавно'), 4), 3800); break;
         case 'cash': addCash(m); break;
+        case 'cars': for (const c of m.list) applyCar(c.id, c); break;
+        case 'car_take': if (!me || m.by !== me.id) applyCar(m.id, { gone: true }); break;
+        case 'car_drop': if (!me || m.by !== me.id) applyCar(m.id, m); break;
+        case 'car_busy': { const c = findCar(m.id); if (c && o.vehicles.driving === c && o.kickOut) { o.kickOut(); o.flash('Эту машину уже забрал другой игрок', 2.6); } if (c) o.vehicles.dropRemote(c); break; }
         case 'cash_gone': dropCashPile(m); break;
         case 'pi': { const r = others.get(m.id) || add(m.id); r.nick = m.nick; r.guest = m.guest; dress(r, m.look, m.outfit); r.tag.firstChild.textContent = m.nick; r.tag.classList.toggle('guest', !!m.guest); break; }
         case 'ps': {
@@ -90,6 +94,25 @@
         default: if (m.rid && waiting.has(m.rid)) { const f = waiting.get(m.rid); waiting.delete(m.rid); f(m); } else if (api.onMessage) api.onMessage(m);
       }
     }
+
+    /* ---------- the city's cars, the same for everybody ----------
+       Parked cars are the same in every game (vehicles.js: pid). Whoever gets into one tells the server, and it's
+       gone from its place for everybody else (they see it driving under that player); left somewhere, it stands
+       there for everybody. A player's own bought cars are shown to the others where they stand, locked. */
+    let carN = 0;
+    const findCar = id => o.vehicles.cars.find(c => c.sid === id || (!c.sid && c.pid === id));
+    function applyCar(id, e) {
+      const c = findCar(id);
+      if (e.gone) { if (c && o.vehicles.driving !== c && !c.owned) o.vehicles.dropRemote(c); return; }
+      if (e.owner && me && e.owner === me.nick) return;   // my own cars: autos.js keeps them
+      if (c && o.vehicles.driving === c) return;
+      if (c && c.model.id === e.m) { c.x = e.x; c.z = e.z; c.h = e.h; if (e.y != null) c.y = e.y; c.vx = c.vz = 0; c.color = e.c || c.color; c.parked = true; c.lockedBy = e.owner || null; return; }
+      if (c) o.vehicles.dropRemote(c);
+      const n = o.vehicles.spawnParked(e.m, e.x, e.z, e.h, e.c, e.a);
+      if (n) { n.sid = id; n.lockedBy = e.owner || null; if (e.y != null && n.model.heli) n.y = e.y; }
+    }
+    const carId = car => car.sid || car.pid || (car.sid = 'c' + (me ? me.id : 0) + '_' + Date.now().toString(36) + (++carN));
+    function carMsg(car, owner) { return { id: carId(car), m: car.model.id, c: car.color, a: car.accent, x: +car.x.toFixed(2), y: +car.y.toFixed(2), z: +car.z.toFixed(2), h: +car.h.toFixed(3), owner: owner || '' }; }
 
     /* ---------- fights between players ---------- */
     const fmtM = n => '$' + Math.round(n).toLocaleString('ru-RU');
@@ -315,6 +338,12 @@
       onMessage: null,
       request,
       remoteHit, remoteNear,
+      // a shared car: someone (me, or a thief in my game) took it from where it stood / left it here
+      carEntered(car) { if (car.owned) { car.sid = 'o' + car.owned; } if (car.sid || car.pid) send({ t: 'car_take', id: carId(car) }); else carId(car); },
+      carLeft(car) { if (car.owned) car.sid = 'o' + car.owned; send(Object.assign({ t: 'car_drop' }, carMsg(car, car.owned && me ? me.nick : ''))); },
+      // my own bought car: where it stands (on connect, after buying, out of the garage) / gone into the garage
+      ownedHere(car) { car.sid = 'o' + car.owned; send(Object.assign({ t: 'car_drop' }, carMsg(car, me ? me.nick : ''))); },
+      ownedGone(uid) { send({ t: 'car_take', id: 'o' + uid }); },
       hitRemote(id, d, k) { send({ t: 'hit', id, d: Math.round(d), k }); },
       // the hero was knocked out: if another player did it (in the last few seconds), the server decides about the cash
       died() {

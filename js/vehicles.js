@@ -544,7 +544,10 @@
       car.yawRate = 0; car.slip = 0; car.accel = 0;
     }
 
-    /* ---------- parked cars along the kerbs and in the car park ---------- */
+    /* ---------- parked cars along the kerbs and in the car park ----------
+       The same in every player's game: drawn from one fixed sequence of random numbers, each with its id (pid), so
+       the server can say which of them someone drove off and where it was left (net.js) */
+    const realRandom = Math.random; Math.random = U.rng(2121);
     // nothing is parked in the way of the spray shop's door
     const keep = [world.spray, world.fireStation, world.places && world.places.dealer].filter(Boolean).map(o => o.keepClear), clear = (x, z) => keep.every(r => x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1);
     for (const L of ROADS) for (let s = 0; s < ROADS.length - 1; s++) {
@@ -576,6 +579,8 @@
       makeCar(byId[id], x, z, h);
     }
     for (const c of cars) c.parked = true;
+    Math.random = realRandom;
+    cars.forEach((c, i) => { c.pid = 'p' + i; });
 
     /* ---------- police pursuit ---------- */
 
@@ -845,7 +850,7 @@
       nearest(player) {
         let best = null, bd = Infinity;
         for (const c of cars) {
-          if (c.wreck || c.remote) continue;
+          if (c.wreck || c.remote || c.lockedBy) continue;   // (another player's own car stands locked)
           const dx = player.x - c.x, dz = player.z - c.z, [fx, fz] = fwd(c);
           const a = Math.abs(dx * fx + dz * fz), b = Math.abs(dx * fz - dz * fx);
           if (a < c.model.l / 2 + .6 && b < c.model.w / 2 + 1.4) { const d = Math.hypot(dx, dz); if (d < bd) { bd = d; best = c; } }

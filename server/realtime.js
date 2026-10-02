@@ -23,6 +23,9 @@ function attach(httpServer, o) {
   const chat = [];
   let nextId = 1, cashId = 0;
   const koPairs = new Map(), cash = new Map();
+  // the city's cars that moved: id -> { gone } (taken from its place, being driven) or { m, c, a, x, y, z, h, owner, at } (left here)
+  const cars = new Map();
+  const CARS_MAX = 300, CAR_LEFT_MS = 40 * 60 * 1000;
 
   const send = (p, m) => { if (p.ws.readyState === 1) p.ws.send(typeof m === 'string' ? m : JSON.stringify(m)); };
   const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : 0);
@@ -65,6 +68,7 @@ function attach(httpServer, o) {
       send(p, { t: 'welcome', id: p.id, nick: p.nick, guest: p.guest, online: players.size });
       send(p, { t: 'chat_history', list: chat });
       for (const [id, c] of cash) send(p, { t: 'cash', id, x: c.x, y: c.y, z: c.z, n: c.n, room: c.room });
+      send(p, { t: 'cars', list: [...cars].map(([id, c]) => Object.assign({ id }, c)) });
       if (o.world) o.world.joined(p, send).catch(e => console.error('[world] join', e.message));
       console.log('[ws] +' + p.nick + ' (online ' + players.size + ')');
       return;
@@ -121,6 +125,22 @@ function attach(httpServer, o) {
         broadcast({ t: 'cash', id, x: c.x, y: c.y, z: c.z, n, room: c.room });
         break;
       }
+      case 'car_take': {   // I got into a shared car: it's no longer where it stood
+        const id = str(m.id, 40); if (!id) break;
+        const cur = cars.get(id);
+        if (cur && cur.by && cur.by !== p.id && players.has(cur.by)) { send(p, { t: 'car_busy', id }); break; }
+        cars.set(id, { gone: true, by: p.id, at: Date.now() }); p.carId = id;
+        broadcast({ t: 'car_take', id, by: p.id });
+        break;
+      }
+      case 'car_drop': {   // I left it here
+        const id = str(m.id, 40); if (!id) break;
+        const c = { m: str(m.m, 16), c: str(m.c, 16), a: str(m.a, 16), x: num(m.x, -5000, 5000), y: num(m.y, -50, 500), z: num(m.z, -5000, 5000), h: num(m.h, -10, 10), owner: str(m.owner, 20) || '', at: Date.now() };
+        cars.delete(id); cars.set(id, c); if (p.carId === id) p.carId = null;
+        while (cars.size > CARS_MAX) { const old = [...cars].find(([, v]) => !v.owner && !v.gone); if (!old) break; cars.delete(old[0]); broadcast({ t: 'car_take', id: old[0] }); }
+        broadcast(Object.assign({ t: 'car_drop', id, by: p.id }, c));
+        break;
+      }
       case 'pick': {  // grabbing a pile of cash: whoever asks first
         const c = cash.get(m.id);
         if (!c || !p.s || p.room !== c.room || Math.hypot(p.s.x - c.x, p.s.z - c.z) > 4) break;
@@ -137,6 +157,9 @@ function attach(httpServer, o) {
     if (!players.has(p.id) || players.get(p.id) !== p) return;
     players.delete(p.id);
     for (const q of players.values()) if (q.known.delete(p.id)) send(q, { t: 'gone', id: p.id });
+    // gone while driving a shared car: it stays where they last were
+    if (p.carId && p.s && p.s.car) { const c = p.s.car, e = { m: c.m, c: c.c, a: c.a, x: c.x, y: c.y, z: c.z, h: c.h, owner: '', at: Date.now() }; cars.set(p.carId, e); broadcast(Object.assign({ t: 'car_drop', id: p.carId }, e)); }
+    for (const [id, c] of cars) if (c.by === p.id && c.gone) c.by = 0;
     if (o.world) o.world.left(p);
     console.log('[ws] -' + p.nick + ' (online ' + players.size + ')');
   }
@@ -160,6 +183,7 @@ function attach(httpServer, o) {
     }
     for (const [id, c] of cash) if (c.until < t) { cash.delete(id); broadcast({ t: 'cash_gone', id, by: 0 }); }
     for (const [k, until] of koPairs) if (until < t) koPairs.delete(k);
+    for (const [id, c] of cars) if (!c.gone && !c.owner && t - c.at > CAR_LEFT_MS && id[0] !== 'p') { cars.delete(id); broadcast({ t: 'car_take', id }); }   // a car someone brought and left, after a while
   }, TICK_MS).unref();
   // dead connections (a phone that lost the network) are dropped after half a minute
   setInterval(() => {
