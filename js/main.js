@@ -220,7 +220,7 @@
   const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
-  let jobs = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
+  let jobs = null, net = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
   const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
     hold: p => !!jobs && jobs.holdEMS(p),
@@ -370,7 +370,9 @@
     // the uniform: the police one is the station's (the police take you for one of theirs), the others are just worn
     wear: id => { if (id === 'cop') setOutfit('cop'); else if (id) { if (progress.outfit === 'cop') setOutfit('own'); player.setOutfit(id); } else setOutfit('own'); } });
   placeCtx.jobs = jobs;   // the bosses' offices and the locker rooms inside the stations
-  setTimeout(() => jobs.resume(), 0);   // came back in the middle of a shift: still on it (once the whole game is set up)
+  setTimeout(() => jobs.resume(), 0);
+  // the live world: the other players and the chat (net.js)
+  net = NB.createNet({ scene, col: world.col, camera, player, vehicles, places, progress, get input() { return input; }, audio, flash: (t, s) => flashTip(t, s), playing: () => state === 'playing', lock: () => lock() });   // came back in the middle of a shift: still on it (once the whole game is set up)
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
   let interact = null;
@@ -563,7 +565,7 @@
   const sharedTime = () => ((((NB.online ? NB.online.now() : Date.now()) / 1000 - START_MIN + clockShift) % CLOCK_SPAN) + CLOCK_SPAN) % CLOCK_SPAN;
   let state = 'menu', locked = false, everLocked = false, noLock = false, time = sharedTime();
   const input = NB.createInput(canvas, {
-    active: () => state === 'playing',
+    active: () => state === 'playing' && !(net && net.chatting),
     locked: () => locked,
     requestLock: lock,
     onEscape: () => { if (!locked) pause(); },
@@ -723,6 +725,7 @@
     for (const pk of combat.pickups) if (pk.active) dot(toMap(pk.x, pk.z), W * .02, pk.type === 'health' ? '#ff4f6a' : '#ffd84f');
     if ((time * 3 | 0) % 2 === 0) for (const m of jobs.markers()) dot(toMap(m.x, m.z, true), W * .04, m.color);   // calls for the shift, blinking (at the edge when far)
     for (const c of combat.cashDrops) if (c.active) dot(toMap(c.x, c.z), W * .018, '#6bff8a');
+    if (net && !places.current) for (const m of net.markers()) { const q = toMap(m.x, m.z); if (q) { dot(q, W * .036, '#141018'); dot(q, W * .026, '#ffe14f'); } }   // the other players
     if (police.wanted > 0) {
       for (const p of crowd.people) if (p.cop && !p.dead) dot(toMap(p.x, p.z), W * .025, '#4f8cff');
       for (const c of vehicles.cars) if (c.pursuit) { const q = toMap(c.x, c.z); if (q) { g.fillStyle = (time * 4 | 0) % 2 ? '#ff3355' : '#4f8cff'; g.fillRect(q[0] - W * .03, q[1] - W * .03, W * .06, W * .06); } }
@@ -1002,7 +1005,7 @@
       fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
-      places.update(dt); shops.tick(dt); jobs.update(dt);
+      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       // the edge of the world: open ocean
@@ -1091,7 +1094,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { get jobs() { return jobs; }, player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { get jobs() { return jobs; }, get net() { return net; }, player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { clockShift = 0; const cur = (START_MIN + sharedTime()) % 1440; clockShift = ((h * 60 - cur) % 1440 + 1440) % 1440; time = sharedTime(); },
     get state() { return state; }, get promptCar() { return promptCar; } };

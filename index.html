@@ -20,7 +20,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20261002a';
+  var BUILD = '20261002b';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -242,6 +242,27 @@ body.touch .forDesk{display:none;}
 .pad:active{background:rgba(255,79,163,.6);}
 /* the full-screen map */
 #map{pointer-events:auto;cursor:pointer;}
+/* the other players: nick over the head, what they just said above it; the chat */
+#names{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.ntag{position:absolute;left:0;top:0;display:flex;flex-direction:column-reverse;align-items:center;gap:3px;will-change:transform;}
+.ntag b{font:700 13px/1.2 Rubik,sans-serif;color:#fff;text-shadow:0 0 3px #000,0 1px 2px #000;white-space:nowrap;}
+.ntag.guest b{color:#d8d0e8;font-weight:500;}
+.ntag i{font-style:normal;max-width:220px;padding:5px 10px;background:#fff6fb;color:#2a0c1c;border-radius:10px;font:600 13px/1.3 Rubik,sans-serif;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.3);}
+#btnChat{display:flex;top:calc(62px + var(--safe-t));right:calc(74px + var(--safe-r));width:46px;height:46px;border-radius:12px;padding:0;font-size:20px;}
+body.touch #btnChat{right:calc(130px + var(--safe-r));}
+#chatBadge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#ff3b5c;color:#fff;font:800 12px/20px Rubik,sans-serif;text-align:center;}
+#chatFeed{position:absolute;top:calc(118px + var(--safe-t));right:calc(18px + var(--safe-r));width:min(360px,44vw);display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none;}
+#chatFeed .cf{max-width:100%;padding:6px 11px;background:rgba(21,15,38,.72);border-radius:10px;font:500 13px/1.35 Rubik,sans-serif;color:#efe6ff;word-break:break-word;transition:opacity .9s;}
+#chatFeed .cf b{color:#ffd84f;}
+#chatFeed .cf.out{opacity:0;}
+#chat{z-index:30;background:rgba(10,6,22,.72);}
+#chatLog{height:min(46vh,340px);overflow-y:auto;background:#0c0a18;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.5;color:#dfe6ff;}
+#chatLog .cm{margin-bottom:5px;word-break:break-word;}
+#chatLog .cm b{color:#ffd84f;}
+.chatRow{display:flex;gap:8px;}
+.chatRow input{flex:1;min-width:0;font:500 16px Rubik,sans-serif;color:var(--ink);background:#0c0a18;border:1px solid var(--line);border-radius:999px;padding:12px 16px;}
+.chatRow .btn{padding:12px 20px;font-size:14px;}
+#chatNote{min-height:1em;font-size:13px;color:#ffb3c6;}
 #bigmap{position:fixed;inset:0;background:#123a58;touch-action:none;}
 #bigmapCv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;}
 #bigmapCv:active{cursor:grabbing;}
@@ -307,6 +328,9 @@ body.touch .fsOnly{display:inline-block;}
   <div id="bigmsg" class="script"></div>
   <div id="tip"></div>
   <div class="bubble" hidden></div><div class="bubble" hidden></div><div class="bubble" hidden></div>
+  <div id="names"></div>
+  <div id="chatFeed"></div>
+  <button id="btnChat" class="tbtn" type="button" aria-label="Чат" title="Чат (T)">💬<b id="chatBadge" hidden>0</b></button>
   <div id="portrait" hidden>Поверните телефон горизонтально — так удобнее играть.</div>
   <div id="stick" class="tc"><div id="stickKnob"></div></div>
   <div id="stickHint" class="tc">Джойстик<br>здесь</div>
@@ -328,6 +352,17 @@ body.touch .fsOnly{display:inline-block;}
     <svg class="on" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/></svg>
     <svg class="off" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/></svg>
   </button>
+</div>
+
+<div id="chat" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow">Неплохо Сити · <span id="chatOnline">онлайн</span></div>
+    <h2 class="script">Общий чат</h2>
+    <div id="chatLog"></div>
+    <form id="chatForm" class="chatRow"><input id="chatInput" maxlength="200" autocomplete="off" spellcheck="false" placeholder="Написать сообщение…" enterkeyhint="send" aria-label="Сообщение"><button class="btn" type="submit">Отправить</button></form>
+    <div id="chatNote"></div>
+    <button id="chatClose" class="ghost" type="button">Закрыть · Esc</button>
+  </div>
 </div>
 
 <div id="menu" class="screen">
@@ -451,44 +486,45 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261002a"></script>
-<script src="js/online.js?v=20261002a"></script>
-<script src="js/club.js?v=20261002a"></script>
-<script src="js/places.js?v=20261002a"></script>
-<script src="js/spray.js?v=20261002a"></script>
-<script src="js/street.js?v=20261002a"></script>
-<script src="js/northside.js?v=20261002a"></script>
-<script src="js/bayview.js?v=20261002a"></script>
-<script src="js/tropic.js?v=20261002a"></script>
-<script src="js/hideaway.js?v=20261002a"></script>
-<script src="js/military.js?v=20261002a"></script>
-<script src="js/island.js?v=20261002a"></script>
-<script src="js/brand.js?v=20261002a"></script>
-<script src="js/world.js?v=20261002a"></script>
-<script src="js/faces.js?v=20261002a"></script>
-<script src="js/player.js?v=20261002a"></script>
-<script src="js/wardrobe.js?v=20261002a"></script>
-<script src="js/npc.js?v=20261002a"></script>
-<script src="js/animals.js?v=20261002a"></script>
-<script src="js/wildlife.js?v=20261002a"></script>
-<script src="js/cars.js?v=20261002a"></script>
-<script src="js/vehicles.js?v=20261002a"></script>
-<script src="js/audio.js?v=20261002a"></script>
-<script src="js/radio.js?v=20261002a"></script>
-<script src="js/guards.js?v=20261002a"></script>
-<script src="js/combat.js?v=20261002a"></script>
-<script src="js/police.js?v=20261002a"></script>
-<script src="js/weather.js?v=20261002a"></script>
-<script src="js/sealife.js?v=20261002a"></script>
-<script src="js/plane.js?v=20261002a"></script>
-<script src="js/fire.js?v=20261002a"></script>
-<script src="js/ems.js?v=20261002a"></script>
-<script src="js/daynight.js?v=20261002a"></script>
-<script src="js/taxi.js?v=20261002a"></script>
-<script src="js/shop.js?v=20261002a"></script>
-<script src="js/entrances.js?v=20261002a"></script>
-<script src="js/shops.js?v=20261002a"></script>
-<script src="js/jobs.js?v=20261002a"></script>
-<script src="js/ui.js?v=20261002a"></script>
-<script src="js/input.js?v=20261002a"></script>
-<script src="js/main.js?v=20261002a"></script>
+<script src="js/engine.js?v=20261002b"></script>
+<script src="js/online.js?v=20261002b"></script>
+<script src="js/net.js?v=20261002b"></script>
+<script src="js/club.js?v=20261002b"></script>
+<script src="js/places.js?v=20261002b"></script>
+<script src="js/spray.js?v=20261002b"></script>
+<script src="js/street.js?v=20261002b"></script>
+<script src="js/northside.js?v=20261002b"></script>
+<script src="js/bayview.js?v=20261002b"></script>
+<script src="js/tropic.js?v=20261002b"></script>
+<script src="js/hideaway.js?v=20261002b"></script>
+<script src="js/military.js?v=20261002b"></script>
+<script src="js/island.js?v=20261002b"></script>
+<script src="js/brand.js?v=20261002b"></script>
+<script src="js/world.js?v=20261002b"></script>
+<script src="js/faces.js?v=20261002b"></script>
+<script src="js/player.js?v=20261002b"></script>
+<script src="js/wardrobe.js?v=20261002b"></script>
+<script src="js/npc.js?v=20261002b"></script>
+<script src="js/animals.js?v=20261002b"></script>
+<script src="js/wildlife.js?v=20261002b"></script>
+<script src="js/cars.js?v=20261002b"></script>
+<script src="js/vehicles.js?v=20261002b"></script>
+<script src="js/audio.js?v=20261002b"></script>
+<script src="js/radio.js?v=20261002b"></script>
+<script src="js/guards.js?v=20261002b"></script>
+<script src="js/combat.js?v=20261002b"></script>
+<script src="js/police.js?v=20261002b"></script>
+<script src="js/weather.js?v=20261002b"></script>
+<script src="js/sealife.js?v=20261002b"></script>
+<script src="js/plane.js?v=20261002b"></script>
+<script src="js/fire.js?v=20261002b"></script>
+<script src="js/ems.js?v=20261002b"></script>
+<script src="js/daynight.js?v=20261002b"></script>
+<script src="js/taxi.js?v=20261002b"></script>
+<script src="js/shop.js?v=20261002b"></script>
+<script src="js/entrances.js?v=20261002b"></script>
+<script src="js/shops.js?v=20261002b"></script>
+<script src="js/jobs.js?v=20261002b"></script>
+<script src="js/ui.js?v=20261002b"></script>
+<script src="js/input.js?v=20261002b"></script>
+<script src="js/main.js?v=20261002b"></script>

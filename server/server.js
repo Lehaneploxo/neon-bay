@@ -184,7 +184,20 @@ async function start() {
   store = s;
   console.log('[db] ready');
 }
-app.listen(PORT, () => console.log(`[server] LEHA NEPLOXO WORLD on :${PORT}`));
+// the game itself (the repo root, next to this folder) at /game/ — gameleha.xyz shows it from here
+const GAME_DIR = path.join(__dirname, '..');
+if (fs.existsSync(path.join(GAME_DIR, 'index.html'))) {
+  app.use('/game', (req, res, next) => {
+    if (/^\/(server|node_modules)(\/|$)/.test(req.path) || /(^|\/)\./.test(req.path)) return res.status(404).end();
+    res.setHeader('Cache-Control', 'no-cache');   // revalidated every time (ETag); gameleha.xyz caches in front of it
+    next();
+  }, express.static(GAME_DIR, { dotfiles: 'deny', index: 'index.html', cacheControl: false }));
+}
+
+const httpServer = app.listen(PORT, () => console.log(`[server] LEHA NEPLOXO WORLD on :${PORT}`));
+// the live world: players see each other, the chat (realtime.js), the shared city (world.js)
+const world = require('./world').create({ get store() { return store; } });
+require('./realtime').attach(httpServer, { verifyToken, origins: ORIGINS, world, store: { byId: id => (store ? store.byId(id) : null) } });
 (function boot(delay) {
   start().catch(e => { console.error('[db] init failed:', e.message, '— retry in', delay / 1000, 's'); setTimeout(() => boot(Math.min(delay * 2, 60000)), delay); });
 })(2000);

@@ -845,7 +845,7 @@
       nearest(player) {
         let best = null, bd = Infinity;
         for (const c of cars) {
-          if (c.wreck) continue;
+          if (c.wreck || c.remote) continue;
           const dx = player.x - c.x, dz = player.z - c.z, [fx, fz] = fwd(c);
           const a = Math.abs(dx * fx + dz * fz), b = Math.abs(dx * fz - dz * fx);
           if (a < c.model.l / 2 + .6 && b < c.model.w / 2 + 1.4) { const d = Math.hypot(dx, dz); if (d < bd) { bd = d; best = c; } }
@@ -932,6 +932,7 @@
           const lim = limits();
           for (const c of cars.slice()) {
             const d = Math.hypot(c.x - player.x, c.z - player.z);
+            if (c.remote) continue;
             if (c.ai && d > 150) removeCar(c);
             else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && !c.autopilot && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
             else if (c.wreck && !c.visible && d > 110) removeCar(c);
@@ -978,6 +979,14 @@
         for (const c of cars) {
           c.hitT -= dt; if (c.heroHitT > 0) c.heroHitT -= dt; if (c.ghostT > 0) c.ghostT -= dt;
           const d = Math.hypot(c.x - player.x, c.z - player.z);
+          if (c.remote) {   // another player's car: put where the network says, wheels and rotors turning
+            c.damage = 0; c.vx = Math.sin(c.h) * (c.rSpeed || 0); c.vz = Math.cos(c.h) * (c.rSpeed || 0);
+            c.root.position.set(c.x, c.y, c.z); c.root.rotation.y = c.h; c.body.rotation.x = c.rPitch || 0; c.body.rotation.z = c.rBank || 0;
+            if (c.rotor) { c.spool = 1; if (c.model.jet) { for (const f of c.flames) f.scale.set(1, 1, .5); } else { c.rotor.rotation.y += dt * 28; c.tailRotor.rotation.x += dt * 45; } }
+            if (d < 60) { c.spin += (c.rSpeed || 0) / c.model.r * dt; for (const w of c.wheels) w.w.rotation.x = c.spin; }
+            c.beam.visible = night > .05 && c.visible;
+            continue;
+          }
           if (c.copHeli) heliAI(c, dt, ctx.target || player);
           else if (c.ai) updateAI(c, dt, people, player);
           else if (c.pursuit) pursuitStep(c, dt, ctx.target || player);
@@ -1134,6 +1143,14 @@
       driveTo(car, x, z, speed) { car.goto = { x, z, speed, arrived: false }; car.parked = false; car.awake = true; },
       remove(car) { if (cars.includes(car)) removeCar(car); },
       setNight(n) { night = n; beamMat.opacity = n * .5; },
+      // another player's car (net.js): only drawn where they say it is, never simulated here
+      remoteCar(id, color, accent) {
+        const model = byId[id]; if (!model) return null;
+        const car = makeCar(model, 0, -9999, 0); car.remote = true; car.parked = true; car.driver = 'remote'; car.driverMesh.visible = true;
+        if (color) { car.color = color; car.accent = accent || car.accent; paint(car); }
+        return car;
+      },
+      dropRemote(car) { if (cars.includes(car)) removeCar(car); },
       // a car kept in the hero's garage, put back where it was parked
       spawnParked(id, x, z, h, color, accent) {
         const model = byId[id]; if (!model) return null;

@@ -169,7 +169,7 @@
   }
 
   class Player {
-    constructor(scene, col) {
+    constructor(scene, col, opt) {
       this.col = col;
       this.m = makeHero(); scene.add(this.m.root);
       this.blob = new THREE.Mesh(new THREE.CircleGeometry(.45, 16).rotateX(-Math.PI / 2),
@@ -181,7 +181,8 @@
       // in the water: swim (deep), wade (waist-deep, slower); tilt 0.25 treading water .. 1 front crawl
       this.swim = false; this.wade = 0; this.tilt = .25; this.rippleT = 0; this.strokeT = 0;
       this.onSplash = null; this.onStroke = null;
-      this.fx = makeWaterFx(scene);
+      // another player (net.js) is only drawn: no splashes of their own
+      this.fx = opt && opt.remote ? { ripple() {}, drops() {}, splash() {}, update() {} } : makeWaterFx(scene);
     }
     place(x, z, heading) { this.x = x; this.z = z; this.y = this.floorAt(x, z, 10); this.vx = this.vz = this.vy = 0; this.heading = heading; this.swim = false; this.fallTop = this.y; this.standCar = null; }
     get speed() { return Math.hypot(this.vx, this.vz); }
