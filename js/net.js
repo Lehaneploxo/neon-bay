@@ -64,6 +64,7 @@
         case 'timer': timers[m.key] = m.readyAt; emit('timer', m); break;
         case 'own_sync': emit('own_sync', m); break;
         case 'biz_income': emit('biz_income', m); break;
+        case 'role': case 'ents': case 'ent_req': case 'ent_res': emit(m.t, m); break;
         case 'hit': onHit(m); break;
         case 'ko_you': if (o.star) o.star(); o.flash('Вы вырубили игрока ' + m.nick + '! Полиция это видела', 3); break;
         case 'ko_drop': if (o.loseCash) o.loseCash(m.n); setTimeout(() => o.flash('Вас вырубил ' + m.nick + ' — из кармана выпало ' + fmtM(m.n), 4), 3800); break;
@@ -333,6 +334,7 @@
       get online() { return online; },
       get nick() { return me ? me.nick : null; },
       get connected() { return !!me; },
+      get me() { return me; },
       others,
       send,
       onMessage: null,

@@ -63,7 +63,13 @@
   const BOUNCER_PHRASES = ['Эй! Здесь так не принято!', 'На выход, приятель!', 'Ты попал.', 'Охрана! Держи его!', 'Сейчас объясню правила.'];
   const PHRASES = ['Эй, смотри куда идёшь!', 'Осторожнее!', 'Ай!', 'Ну ты даёшь!', 'Полегче, приятель!', 'Куда ты так несёшься?', 'Извините?!', 'Совсем уже…'];
 
-  function makeLook(type) {
+  // a look is drawn from its own seed, so another player's game can build exactly the same person (sync.js)
+  function makeLook(type, seed) {
+    if (seed == null) seed = (Math.random() * 2147483647) | 0;
+    const real = Math.random; Math.random = U.rng(seed);
+    try { const L = lookOf(type); L.seed = seed; return L; } finally { Math.random = real; }
+  }
+  function lookOf(type) {
     const female = /_f$/.test(type) || type === 'waitress' || type === 'escort' || type === 'stripper' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
     const L = { type, female, hs: female ? rand(.9, 1) : rand(.96, 1.08), ws: rand(.92, 1.18), col: {}, hide: new Set(['tie', 'top', 'brim', 'crown', 'shades', 'bag', 'skirt', 'fringe', 'sideL', 'sideR', 'pony', 'bun', 'afro']),
       long: false, skirt: 0, purse: false, speed: rand(1.1, 1.4), lean: 0, run: false };
@@ -1034,15 +1040,21 @@
     function populate(player, camYaw) {
       const px = player.x, pz = player.z, fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
       const lim = opts.limits();
+      // online this game may run the city for other players near by too (sync.js): people are kept and made round each of them
+      const pts = [{ x: px, z: pz, fx, fz }].concat(opts.focus ? opts.focus() : []);
+      const distAll = (x, z) => { let m = Infinity; for (const q of pts) m = Math.min(m, Math.hypot(x - q.x, z - q.z)); return m; };
+      const ambient = !opts.ambient || opts.ambient();
       for (const p of people.slice()) {
-        const far = Math.hypot(p.x - px, p.z - pz) > (p.cop && p.chasing ? 130 : 100);
+        if (p.mirror) continue;   // someone else's person: they come and go with that player's game
+        const far = distAll(p.x, p.z) > (p.cop && p.chasing ? 130 : 100);
         const lying = p.dead || p.down;
         if (p.bodyguard && !p.dead) continue;
         if ((!p.spot && !lying && far && !p.keep) || (lying && (far || (p.deadT > 30 && !p.ems)))) despawn(p);
       }
+      if (!ambient) { first = false; return; }   // another player's game runs the city here: its people are shown instead
       for (const s of spots) {
         if (s.taken) continue;   // the hero is sitting there
-        const d = Math.hypot(s.x - px, s.z - pz);
+        const d = distAll(s.x, s.z);
         if (s.vacated) { if (d > lim.spotRange + 12) s.vacated = false; else continue; }
         if (!s.person) { const g = spotGang(s); if (g && (gangHeat[g] > 0 || simT < (s.backAt || 0))) continue; }
         if (s.when && !s.when()) { if (s.person && s.person.spot === s && d > 30) despawn(s.person); continue; }   // not their hours: they leave when you're not looking
@@ -1063,6 +1075,11 @@
       for (let k = 0; k < n; k++) {
         if (beach + k < wantBeach && chance(.5)) spawnBeach(px, pz, fx, fz, first);
         else if (walkers + k < lim.walkers) spawnWalker(px, pz, fx, fz, first);
+      }
+      // and round the other players this game runs the city for
+      for (const q of pts.slice(1)) {
+        const near = people.filter(p => (p.mode === 'graph' || p.mode === 'beach') && !p.cop && !p.dead && Math.hypot(p.x - q.x, p.z - q.z) < 90).length;
+        for (let k = 0; k < 2 && near + k < lim.walkers + (q.x > 60 ? lim.beach : 0); k++) { if (q.x > 60 && chance(.4)) spawnBeach(q.x, q.z, 0, 0, false); else spawnWalker(q.x, q.z, 0, 0, false); }
       }
       first = false;
     }
@@ -1206,6 +1223,7 @@
         return hit ? { t: best, p: hit, head } : null;
       },
       damage(p, dmg, src) {
+        if (p.mirror) { if (opts.onMirrorHit) opts.onMirrorHit(p, dmg, src); return; }   // another player's game runs this person
         if (p.dead || (p.bodyguard && src && src.byPlayer)) return;   // the hero can't hurt his own bodyguards
         if (p.boxer && p.boxer.guardT > 0 && src && src.kind === 'melee') dmg *= .3;   // punches into a boxer's guard
         p.hp -= dmg;
@@ -1287,6 +1305,17 @@
       },
       releaseMedic(p) { if (people.includes(p)) { p.medic = null; resumeRoute(p); } },
       despawnPerson(p) { if (people.includes(p)) despawn(p); },
+      // someone run by another player's game (sync.js): drawn and moved from outside
+      spawnMirror(type, seed, x, z, heading) {
+        const p = spawn(makeLook(type, seed), x, z, 'puppet');
+        if (!p) return null;
+        p.puppet = { anim: 'idle' }; p.keep = true; p.mirror = true; p.heading = heading || 0; p.anim = 'idle'; p.hitT = 0;
+        p.cop = false; p.gang = null; p.bouncer = false;
+        return p;
+      },
+      // another player's game takes over the city here: this game's own passers-by go (police units, bodyguards,
+      // taxi fares and the scenes' puppets stay)
+      clearAmbient() { for (const p of people.slice()) if (!p.mirror && !p.bodyguard && !p.unit && !p.puppet && !p.fare && !p.medic) despawn(p); },
       // paramedics got them back on their feet
       // two passers-by come to blows: a, the one who starts it, is a suspect for the police afterwards
       brawl(a, b, kind) {

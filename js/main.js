@@ -99,12 +99,20 @@
         player.inCar = false; player.m.root.visible = true; player.blob.visible = true;
         document.body.classList.remove('driving'); rig.snap(player);
       } else flashTip(car.model.heli ? 'Сначала приземлитесь' : 'Сначала остановитесь', 1.5);
+    } else if (promptCar && promptCar.mirror) {
+      sync.take(promptCar);   // a car another player's game drives: ask for it
     } else if (promptCar) {
+      enterCar(promptCar);
+    }
+  }
+  function enterCar(car, taken) {
+    const promptCar = car;
+    {
       const wasDriven = !!promptCar.ai || !!promptCar.pursuit || !!promptCar.goto || !!promptCar.autopilot, isPolice = !!promptCar.police;
       const ej = vehicles.enter(promptCar, player);
       if (net) net.carEntered(promptCar);
       if (ej) { if (ej.cop || isPolice) crowd.spawnCop(0, 0, 0, 0, 0, 0, ej.x, ej.z); else crowd.ejectDriver(ej.x, ej.z, ej.h); }
-      if (isPolice && !(jobs && jobs.duty === 'police')) police.reportCrime('copcar', player.x, player.z); else if (wasDriven) police.reportCrime('carjack', player.x, player.z);
+      if (isPolice && !(jobs && jobs.duty === 'police')) police.reportCrime('copcar', player.x, player.z); else if (wasDriven || taken) police.reportCrime('carjack', player.x, player.z);
       player.inCar = true; player.m.root.visible = false; player.blob.visible = false;
       document.body.classList.add('driving');
       showDistrict(promptCar.model.name);
@@ -228,7 +236,7 @@
   const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
-  let jobs = null, net = null, business = null, autos = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
+  let jobs = null, net = null, business = null, autos = null, sync = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
   const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
     hold: p => !!jobs && jobs.holdEMS(p),
@@ -389,6 +397,10 @@
   // your own cars: NEPLOXO MOTORS, cars that stay where you leave them, home garages (autos.js)
   autos = NB.createAutos({ vehicles, places, shops, player, progress, money: wallet, ui, audio, scene, flash: (t, s) => flashTip(t, s), save: saveProgress });
   business = NB.createBusiness({ places, shops, fronts: entFront, progress, money: wallet, ui, audio, flash: (t, s) => flashTip(t, s), save: saveProgress });
+  // one city for everybody near by: who runs the traffic and the passers-by, and showing the others' (sync.js)
+  sync = NB.createSync({ net, crowd, vehicles, player, places, police, flash: (t, s) => flashTip(t, s), enterCar: car => enterCar(car), onRuns: on => { if (on) sea.resumeFleet(); else sea.pauseFleet(); } });
+  Object.assign(crowdOpts, { ambient: () => sync.ambient(), focus: () => sync.focus(), onMirrorHit: (p, d, src) => sync.hitMirror(p, d, src) });
+  Object.assign(vehOpts, { ambient: () => sync.ambient(), focus: () => sync.focus() });
   net.on('timer', m => { if (m.key === 'bank' && m.by && m.by !== net.nick) flashTip('🚨 ' + m.by + ' грабит банк Неплохо Сити!', 4); });   // news for everybody
   // the game starts in the home you last walked into: inside it (the beach villa too)
   {
@@ -1050,12 +1062,12 @@
       combat.update(dt, input, aim, !!vehicles.driving || player.swim);
       shellsStep(dt);   // no fighting while swimming
       police.update(dt, player, rig.yaw);
-      ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
-      fire.update(dt, player);
+      if (!sync || sync.runsCity) ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
+      if (!sync || sync.runsCity) fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
       if (seatSpot && !player.seat) { seatSpot.taken = false; seatSpot = null; }   // got up: passers-by may sit there again
-      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); business.update(dt); autos.update(dt);
+      places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); sync.update(dt); business.update(dt); autos.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
       // the edge of the world: open ocean

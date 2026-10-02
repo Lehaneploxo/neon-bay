@@ -155,7 +155,7 @@
     function arrest(p) {
       if (!alive(p) || !p.suspect) return;
       p.suspect = false; o.say(p, pick(['Ладно, ладно, сдаюсь!', 'Это не я начал!', 'Без рук, начальник!']));
-      setTimeout(() => o.crowd.despawnPerson(p), 900);
+      if (p.mirror && NB.sync) NB.sync.arrest(p); else setTimeout(() => o.crowd.despawnPerson(p), 900);   // (someone another player's game runs: that game takes them away)
       const th = thieves.find(t => t.p === p); if (th) { thieves.splice(thieves.indexOf(th), 1); o.money.add(th.cash, 'Вернули украденное'); }
       const bonus = rank('police').bonus; credit('police');
       pay(bonus, 'Задержание'); o.flash('Зачинщик задержан! +' + fmt(bonus), 2.6);
@@ -163,7 +163,8 @@
     function help(p) {
       if (!alive(p) || !(p.dead || p.down)) return;
       const bonus = rank('ems').bonus + (p.dead ? 60 : 0); credit('ems');
-      o.crowd.revive(p, 60); o.say(p, pick(['Спасибо, доктор!', 'Я жив?!', 'Ох, голова…', 'Где я?']));
+      if (p.mirror && NB.sync) NB.sync.revive(p); else o.crowd.revive(p, 60);
+      o.say(p, pick(['Спасибо, доктор!', 'Я жив?!', 'Ох, голова…', 'Где я?']));
       pay(bonus, 'Помощь пострадавшему'); o.flash((p.dead ? 'Реанимация удалась! +' : 'Пострадавший спасён! +') + fmt(bonus), 2.6);
     }
     function douse(c) {
@@ -307,8 +308,9 @@
         if (duty) { payT += dt; if (payT >= 60) { payT -= 60; const r = rank(duty); shift.pay += r.pay; o.money.add(r.pay, 'Зарплата: ' + r.name.toLowerCase()); } }
         // a brawl somewhere around every couple of minutes (more often when there's someone on shift to see to it)
         // a road accident every couple of minutes (more often with a firefighter or a paramedic on shift)
-        if (!o.inside() && (crashT -= dt) <= 0) crashT = startCrash() ? (duty === 'fire' || duty === 'ems' ? rand(50, 90) : rand(120, 200)) : 10;
-        if (!o.inside() && (brawlT -= dt) <= 0) { const g = crimeGap(o.district()), k = crimeKind(o.district()); brawlT = (k === 'pick' ? startPickpocket() || startBrawl() : k === 'carjack' ? startCarjack() || startBrawl() : startBrawl()) ? rand(g[0], g[1]) : 5; }
+        const city = !NB.sync || NB.sync.runsCity;   // street crime and accidents: the game that runs the city makes them
+        if (city && !o.inside() && (crashT -= dt) <= 0) crashT = startCrash() ? (duty === 'fire' || duty === 'ems' ? rand(50, 90) : rand(120, 200)) : 10;
+        if (city && !o.inside() && (brawlT -= dt) <= 0) { const g = crimeGap(o.district()), k = crimeKind(o.district()); brawlT = (k === 'pick' ? startPickpocket() || startBrawl() : k === 'carjack' ? startCarjack() || startBrawl() : startBrawl()) ? rand(g[0], g[1]) : 5; }
         crimeStep(dt);
         // suspects are wanted for three minutes, then it's forgotten
         for (const p of o.crowd.people) if (p.suspect && !p.brawl && (p.suspectT = (p.suspectT || 0) + dt) > 180) p.suspect = false;

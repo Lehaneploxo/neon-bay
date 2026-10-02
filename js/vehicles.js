@@ -850,7 +850,7 @@
       nearest(player) {
         let best = null, bd = Infinity;
         for (const c of cars) {
-          if (c.wreck || c.remote || c.lockedBy) continue;   // (another player's own car stands locked)
+          if (c.wreck || (c.remote && !c.mirror) || c.lockedBy) continue;   // (another player's own car stands locked; a car another game drives can be taken: sync.js)
           const dx = player.x - c.x, dz = player.z - c.z, [fx, fz] = fwd(c);
           const a = Math.abs(dx * fx + dz * fz), b = Math.abs(dx * fz - dz * fx);
           if (a < c.model.l / 2 + .6 && b < c.model.w / 2 + 1.4) { const d = Math.hypot(dx, dz); if (d < bd) { bd = d; best = c; } }
@@ -944,20 +944,26 @@
         if (popT <= 0) {
           popT = 1;
           const lim = limits();
+          // online this game may run the traffic for other players near by too (sync.js)
+          const pts = [{ x: player.x, z: player.z }].concat(opts.focus ? opts.focus() : []), ambient = !opts.ambient || opts.ambient();
+          const distAll = (x, z) => { let m = Infinity; for (const q of pts) m = Math.min(m, Math.hypot(x - q.x, z - q.z)); return m; };
           for (const c of cars.slice()) {
-            const d = Math.hypot(c.x - player.x, c.z - player.z);
+            const d = distAll(c.x, c.z);
             if (c.remote || c.owned) continue;   // other players' cars and the hero's own (autos.js) are never tidied away
             if (c.ai && d > 150) removeCar(c);
             else if (!c.ai && !c.parked && c !== driving && !c.pursuit && !c.goto && !c.copHeli && !c.autopilot && d > 170 && cars.length > 70) removeCar(c);   // units on their way stay
             else if (c.wreck && !c.visible && d > 110) removeCar(c);
           }
-          const traffic = cars.filter(c => c.ai).length;
+          const traffic = cars.filter(c => c.ai && Math.hypot(c.x - player.x, c.z - player.z) < 150).length;   // round the hero (others: below)
           const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
-          for (let k = 0; k < (first ? lim.traffic : 2) && traffic + k < lim.traffic; k++) spawnTraffic(player.x, player.z, fx, fz, first);
+          if (ambient) {   // (another player's game runs the traffic here: its cars are shown instead)
+            for (let k = 0; k < (first ? lim.traffic : 2) && traffic + k < lim.traffic; k++) spawnTraffic(player.x, player.z, fx, fz, first);
+            for (const q of pts.slice(1)) { const near = cars.filter(c => c.ai && Math.hypot(c.x - q.x, c.z - q.z) < 140).length; for (let k = 0; k < 2 && near + k < lim.traffic; k++) spawnTraffic(q.x, q.z, 0, 0, false); }
+            const patrols = cars.filter(c => c.police && c.ai).length;
+            // new patrol cars only join the traffic while nobody is wanted (otherwise they'd appear out of thin air mid-chase)
+            if (patrols < (lim.patrols || 0) && !((ctx.police || {}).wanted > 0)) spawnTraffic(player.x, player.z, fx, fz, first, byId.police);
+          }
           const pol = ctx.police || { wanted: 0 };
-          const patrols = cars.filter(c => c.police && c.ai).length;
-          // new patrol cars only join the traffic while nobody is wanted (otherwise they'd appear out of thin air mid-chase)
-          if (patrols < (lim.patrols || 0) && !((ctx.police || {}).wanted > 0)) spawnTraffic(player.x, player.z, fx, fz, first, byId.police);
           // wanted: patrol cars close by join in; the rest are sent out from the police station one after another,
           // one car (two officers) per star; a car lost on the way is replaced after a while
           const tgt = ctx.target || player;
@@ -1165,6 +1171,8 @@
         return car;
       },
       dropRemote(car) { if (cars.includes(car)) removeCar(car); },
+      // another player's game takes over the traffic here: this game's own traffic goes
+      clearAmbient() { for (const c of cars.slice()) if (c.ai && c !== driving) removeCar(c); },
       // a car kept in the hero's garage, put back where it was parked
       spawnParked(id, x, z, h, color, accent) {
         const model = byId[id]; if (!model) return null;

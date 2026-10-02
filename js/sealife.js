@@ -110,6 +110,15 @@
           }
         }
         for (const g of guards) if (!g.home && w > 0) g.car.sirenOn = true;
+      },
+      // online, when another player's game runs the city, its boats are shown instead of ours (sync.js)
+      pauseFleet() { for (const b of boats) if (b.car && V.cars.includes(b.car) && V.driving !== b.car && b.car.autopilot) { V.remove(b.car); b.car = null; } },
+      resumeFleet() {
+        for (const b of boats) {
+          if (b.car && V.cars.includes(b.car)) continue;
+          const pts = COURSES[b.course], [x, z] = pts[b.k], [nx, nz] = pts[(b.k + 1) % pts.length];
+          b.car = launch(b.id, x, z, Math.atan2(nx - x, nz - z)); if (b.car) b.car.autopilot = pilot(b);
+        }
       }
     };
   };

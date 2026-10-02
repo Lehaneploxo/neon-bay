@@ -14,6 +14,12 @@ const MAX_MSGS_PER_SEC = 40;
 // (at most $10 000) in a pile anyone can grab for 60 s; the same attacker gets a drop from the same victim
 // once per 30 minutes; nothing drops from guests, from accounts younger than 2 hours, or in safe places
 // (the spawn beach, the hospital, your own home — the victim's game says where it is)
+// one world for everybody: players close together (the same building, or within GROUP_R outdoors) form a
+// group; the one who has been in the game longest (lowest id) runs the city's traffic and people for the whole
+// group and sends them out ('ents'); the others draw them. Each player also sends what only they run (their own
+// police units, bodyguards). Requests about someone else's car or person (a punch, an arrest, taking a car) go to
+// whoever runs it ('ent_req' -> 'ent_res').
+const GROUP_R = 240;
 const KO_SHARE = .005, KO_CAP = 10000, KO_PAIR_MS = 30 * 60 * 1000, NEWBIE_MS = 2 * 3600 * 1000, CASH_LIFE_MS = 60000;
 
 function attach(httpServer, o) {
@@ -141,6 +147,22 @@ function attach(httpServer, o) {
         broadcast(Object.assign({ t: 'car_drop', id, by: p.id }, c));
         break;
       }
+      case 'ents': {   // what I run, for the others in my group
+        if (!Array.isArray(m.c) || !Array.isArray(m.p) || m.c.length > 120 || m.p.length > 160) break;
+        const s = JSON.stringify({ t: 'ents', o: p.id, c: m.c, p: m.p });
+        for (const q of players.values()) if (q !== p && q.ready && q.group && q.group === p.group) send(q, s);
+        break;
+      }
+      case 'ent_req': {   // to the one who runs that car or person
+        const q = players.get(m.to); if (!q || q === p || q.group !== p.group) break;
+        send(q, { t: 'ent_req', from: p.id, k: str(m.k, 10), id: num(m.id, 0, 1e9) | 0, d: num(m.d, 0, 1000), kind: str(m.kind, 12), x: p.s ? p.s.x : 0, z: p.s ? p.s.z : 0 });
+        break;
+      }
+      case 'ent_res': {
+        const q = players.get(m.to); if (!q || q === p) break;
+        send(q, { t: 'ent_res', from: p.id, k: str(m.k, 10), id: num(m.id, 0, 1e9) | 0, ok: !!m.ok, car: m.car && typeof m.car === 'object' ? m.car : null });
+        break;
+      }
       case 'pick': {  // grabbing a pile of cash: whoever asks first
         const c = cash.get(m.id);
         if (!c || !p.s || p.room !== c.room || Math.hypot(p.s.x - c.x, p.s.z - c.z) > 4) break;
@@ -185,6 +207,23 @@ function attach(httpServer, o) {
     for (const [k, until] of koPairs) if (until < t) koPairs.delete(k);
     for (const [id, c] of cars) if (!c.gone && !c.owner && t - c.at > CAR_LEFT_MS && id[0] !== 'p') { cars.delete(id); broadcast({ t: 'car_take', id }); }   // a car someone brought and left, after a while
   }, TICK_MS).unref();
+  setInterval(() => {
+    const list = [...players.values()].filter(p => p.ready && p.s), parent = new Map(list.map(p => [p, p]));
+    const root = p => { while (parent.get(p) !== p) { parent.set(p, parent.get(parent.get(p))); p = parent.get(p); } return p; };
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j];
+      if (a.room === b.room && (a.room || Math.hypot(a.s.x - b.s.x, a.s.z - b.s.z) < GROUP_R)) parent.set(root(a), root(b));
+    }
+    const groups = new Map();
+    for (const p of list) { const r = root(p); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(p); }
+    for (const members of groups.values()) {
+      const host = members.reduce((a, b) => (a.id < b.id ? a : b)), ids = members.map(q => q.id).sort((a, b) => a - b), key = ids.join(',');
+      for (const q of members) {
+        q.group = members.length > 1 ? host.id : 0;
+        if (q.groupKey !== key) { q.groupKey = key; send(q, { t: 'role', host: host.id, members: ids }); }
+      }
+    }
+  }, 1000).unref();
   // dead connections (a phone that lost the network) are dropped after half a minute
   setInterval(() => {
     for (const p of players.values()) { if (!p.alive) { try { p.ws.terminate(); } catch (e) {} leave(p); continue; } p.alive = false; try { p.ws.ping(); } catch (e) {} }
