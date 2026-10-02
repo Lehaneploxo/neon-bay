@@ -21,6 +21,8 @@
     box(X0 + .4, .15, Z0 + .4, X1 - .4, .17, Z1 - .4, '#6a6470');
     for (const [a, b] of BAYS) { box(a - .15, 0, Z1 - .02, a, BAY_H + .15, Z1 + .08, TRIM); box(b, 0, Z1 - .02, b + .15, BAY_H + .15, Z1 + .08, TRIM); box(a - .15, BAY_H, Z1 - .02, b + .15, BAY_H + .15, Z1 + .08, TRIM); }
     box(X0, 2.9, Z1 - .02, X1, 3.05, Z1 + .05, TRIM);
+    // the crew door on the pillar between the bays, with a lit sign over it
+    { const dx = (BAYS[0][1] + BAYS[1][0]) / 2; box(dx - .3, .15, Z1, dx + .3, 2.5, Z1 + .1, '#2a1a18'); box(dx - .05, 1.1, Z1 + .1, dx + .05, 1.2, Z1 + .16, '#d9d9e2'); neon(dx - .34, 2.55, Z1 + .02, dx + .34, 2.65, Z1 + .14, '#ff3344'); }
     // inside: hoses on the wall, helmets on hooks, lamps
     for (let x = X0 + 1; x < X1 - 1; x += 2.6) box(x, 1.2, Z0 + .4, x + .9, 2.1, Z0 + .55, '#e8c547');
     for (let x = X0 + 1.5; x < X1 - 1; x += 1.3) box(x, 1.7, Z0 + .55, x + .3, 1.95, Z0 + .8, '#c81e1e');
@@ -37,6 +39,8 @@
     mapShapes.push({ x0: X0, z0: Z0, x1: X1, z1: Z1, c: '#e0483a', k: 'b' });
     return {
       center: { x: (X0 + X1) / 2, z: (Z0 + Z1) / 2 },
+      // the crew door on the pillar between the two bays: it leads into the station (places.js)
+      door: { x: (BAYS[0][1] + BAYS[1][0]) / 2, z: Z1 + 1.3, y: .15, heading: 0, nx: 0, nz: 1, hex: '#ff3344', cx: (X0 + X1) / 2, cz: (Z0 + Z1) / 2 },
       // the engines leave from the avenue in front of the doors
       exit: { x: (X0 + X1) / 2, z: -50 },
       // a fire engine parked in the left bay; the forecourt and the kerb stay clear

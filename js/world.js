@@ -527,11 +527,12 @@
     unmuteEdge();
 
     /* ---------- places you can go into: interiors, the villa, the tiki bar, the hotel roof ---------- */
+    const fireStation = NB.buildFireStation({ scene, col, C, mapShapes });   // before the places: its door leads into an interior
+    if (fireStation) doors.firestation = fireStation.door;
     const places = NB.buildPlaces({ scene, col, C, doors, hotelRoof, towerRoof, hospital, reserved: RESERVED, palms, mapShapes });
 
     /* ---------- the spray shop, food carts, buskers and the volleyball court ---------- */
     const spray = NB.buildSpray({ scene, col, C, mapShapes });
-    const fireStation = NB.buildFireStation({ scene, col, C, mapShapes });
     const street = NB.buildStreet({ scene, col, C, palms, doors, motelLot, mapShapes, lamps });
     // LEHA NEPLOXO WORLD: the president's billboards — a giant one on the beach facing the city, one on each embankment
     if (NB.buildBillboards) NB.buildBillboards({ scene, col, spots: [[122, -75, -Math.PI / 2, 26, 8, .1], [22, -109.3, 0, 16, 6, .15], [-22, 109.3, Math.PI, 16, 6, .15]] });

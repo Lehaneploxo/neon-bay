@@ -210,7 +210,7 @@
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
     let G = null;   // the running game, handed over in attach()
-    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [1700, 1500], hospital: [1800, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640], home_studio: [2200, 1780] };
+    const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [2400, 1500], hospital: [2550, 1500], firestation: [2700, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640], home_studio: [2200, 1780] };
 
     // an interior: its room, where you appear inside, the exit circle, lighting and music
     function interior(id, name, door, o) {
@@ -412,45 +412,174 @@
     }
 
     /* ---------------------------------------------------------------
-       3. POLICE STATION: desk sergeant, holding cells, locker room with a uniform
+       the city services' buildings: the police station, the hospital, the fire station.
+       Each is a real workplace: the boss's office (get hired, quit), the locker room (start and end a shift)
+       and the rooms where the work goes on. Shared bits first.
+       --------------------------------------------------------------- */
+    // a doorway in a partition wall
+    const DW = c => ({ c, w: 1.5, h: 2.5 });
+    // a small sign over a doorway or on a wall
+    const doorSign = (face, x, y, z, text, hex, bg) => K.picture(face, x, y, z, 2.2, .55, T.sign(text, null, hex, bg || '#0e1628'));
+    // a heart monitor's screen
+    const ecgTex = K.tex(128, 80, (g, w, h) => {
+      g.fillStyle = '#04140c'; g.fillRect(0, 0, w, h); g.strokeStyle = '#3dff8a'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(0, 46);
+      for (let x = 0; x < w; x += 32) { g.lineTo(x + 10, 46); g.lineTo(x + 13, 40); g.lineTo(x + 16, 52); g.lineTo(x + 19, 12); g.lineTo(x + 22, 62); g.lineTo(x + 25, 46); g.lineTo(x + 32, 46); }
+      g.stroke(); g.fillStyle = '#3dff8a'; g.font = 'bold 14px Arial'; g.fillText('♥ 72', 6, 16); g.fillStyle = '#4fc8ff'; g.fillText('SpO2 98', 64, 16);
+    }, false);
+    // a desk with a computer (the screen looks at whoever sits at +z of it when dir = 1, at -z when dir = -1)
+    function computerDesk(x, z, dir, top) {
+      K.box(x - 1.1, 0, z - .4, x + 1.1, .76, z + .4, top || '#d8d0c0', true);
+      K.box(x - .32, .76, z - dir * .08 - .03, x + .32, 1.2, z - dir * .08 + .03, '#1e2228');
+      K.screen(dir > 0 ? '+z' : '-z', x, .99, z - dir * .08 + dir * .035, .56, .36, 2);
+      K.box(x - .3, .76, z + dir * .15, x + .3, .78, z + dir * .3, '#2a2a30');
+    }
+    // a chair; seat 0.6 high
+    const chair = (x, z, hex) => { K.box(x - .25, 0, z - .25, x + .25, .6, z + .25, hex || '#2a3a52'); };
+    // a hospital bed along z, its head at +z, someone lying in it now and then; an IV stand and a monitor beside it
+    function hospitalBed(bx, cz, side, chance) {
+      K.box(bx - .55, 0, cz - 1.05, bx + .55, .5, cz + 1.05, '#c9ced4', true); K.box(bx - .5, .5, cz - 1, bx + .5, .62, cz + 1, '#ffffff');
+      K.box(bx - .5, .62, cz + .5, bx + .5, .72, cz + .95, '#dfe8f4'); K.box(bx - .55, .5, cz + 1, bx + .55, 1.1, cz + 1.08, '#9aa4b0');
+      K.box(bx - .5, .62, cz - .95, bx + .5, .66, cz + .2, '#8fc8e8');
+      const sx = bx + side * .85;
+      K.box(sx - .03, 0, cz + .6, sx + .03, 1.9, cz + .66, '#c8ccd4'); K.box(sx - .1, 1.55, cz + .58, sx + .1, 1.85, cz + .68, '#e8f4ff');
+      K.box(sx - .2, 0, cz + 1.0, sx + .2, 1.0, cz + 1.3, '#8a929e'); K.picture('-z', sx, 1.18, cz + .99, .36, .24, ecgTex);
+      if (Math.random() < (chance == null ? .75 : chance)) spots.push(K.spot({ kind: 'lie', x: bx, z: cz - .9, y: .74, heading: 0, type: pick(['elderly', 'tourist_m', 'business_m', 'tourist_f', 'beach_m']) }));
+    }
+    // a row of lockers against a wall at x (face: +1 opens to +x)
+    function lockerRow(x, z0, z1, face, hex) {
+      for (let z = z0; z < z1 - .4; z += .9) {
+        K.box(face > 0 ? x : x - .6, 0, z, face > 0 ? x + .6 : x, 2.3, z + .85, hex, true);
+        const fx = face > 0 ? x + .61 : x - .61;
+        K.box(Math.min(fx, fx + face * .02), 1.6, z + .3, Math.max(fx, fx + face * .02), 1.9, z + .55, '#2a3a4a');
+      }
+    }
+
+    /* ---------------------------------------------------------------
+       3. POLICE STATION, three rows of rooms:
+          front:  locker room · lobby with the desk sergeant · holding cells
+          middle: the chief's office · the detectives' room · interrogation with a one-way mirror
+          back:   break room · armoury
        --------------------------------------------------------------- */
     {
-      const pl = interior('police', 'Полицейский участок', doors.police, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-17, -6, 21, 6], light: lit('#e8f0ff', '#50586a', .9) });
+      const H = 4, WALL = '#bcc6d4';
+      const pl = interior('police', 'Полицейский участок', doors.police, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-20, -6, 20, 26], light: lit('#e8f0ff', '#50586a', .9) });
       K.at(pl.ox, pl.oz);
-      K.room(-9, -6, 9, 6, 4, { wall: '#c9d2de', ceil: '#b8c2ce', trim: '#2f5fb0', neon: '#3f8cff', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }], '+x': [{ c: -3, w: 1.4, h: 2.5 }], '-x': [{ c: 2, w: 1.4, h: 2.5 }] } });
-      K.floor(-9, -6, 9, 6, T.tiles, 1.5);
-      K.box(-4, 0, 1.5, 4, 1.15, 2.4, '#2f3a52', true); K.box(-4.05, 1.15, 1.45, 4.05, 1.22, 2.45, '#dfe6ee'); K.box(-4, 1.22, 2.3, 4, 1.7, 2.4, '#2f3a52');
-      K.neon(-4, .3, 1.44, 4, .36, 1.5, '#3f8cff', false);
-      spots.push(K.spot({ kind: 'idle', x: 0, z: 3.4, heading: Math.PI, type: 'cop', home: true }));
-      spots.push(K.spot({ kind: 'guard', x: 7.4, z: -4.6, heading: -Math.PI * .75, type: 'cop', home: true }));
-      K.box(-8.8, 0, -5, -8, .6, -.5, '#5a6478', true);
-      for (const z of [-4.2, -2.6]) if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x: -8.4, z, y: .66, heading: Math.PI / 2, mix: 'town', home: true }));
-      K.picture('-z', 0, 3, 5.83, 5, 1.1, T.sign('NEPLOXO CITY PD', 'служить и защищать', '#3f8cff', '#0e1628'));
+      K.room(-20, -6, 20, 26, H, { wall: '#c9d2de', ceil: '#b8c2ce', trim: '#2f5fb0', neon: '#3f8cff', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.wallX(-8, -6, 6, H, WALL, [DW(2)]); K.wallX(8, -6, 6, H, WALL, [DW(-3)]);
+      K.wallZ(6, -20, 20, H, WALL, [DW(0)]);
+      K.wallX(-8, 6, 16, H, WALL, [DW(11)]); K.wallX(8, 6, 16, H, WALL, [DW(9)]);
+      K.wallZ(16, -20, 20, H, WALL, [DW(-4), DW(4)]); K.wallX(0, 16, 26, H, WALL);
+      K.floor(-8, -6, 8, 6, T.tiles, 1.5); K.floor(8, -6, 20, 6, T.concrete, 2.5); K.floor(-20, -6, -8, 6, T.tiles, 1.2);
+      K.floor(-20, 6, -8, 16, T.wood, 2); K.floor(-8, 6, 14, 16, T.darkTile, 1.4); K.floor(14, 6, 20, 16, T.concrete, 2.5);
+      K.floor(-20, 16, 0, 26, T.whiteTile, 1.2); K.floor(0, 16, 20, 26, T.concrete, 2.5);
+      for (const [x, z] of [[0, 0], [-14, 0], [14, -3], [-14, 11], [0, 11], [-10, 21], [10, 21]]) K.neon(x - 1.5, H - .04, z - .15, x + 1.5, H - .01, z + .15, '#f4f8ff', false);
+
+      // the lobby: the desk sergeant behind his counter, a bench, wanted posters, signs to every door
+      K.box(-6.5, 0, 1.5, -1.5, 1.15, 2.4, '#2f3a52', true); K.box(-6.55, 1.15, 1.45, -1.45, 1.22, 2.45, '#dfe6ee'); K.box(-6.5, 1.22, 2.3, -1.5, 1.7, 2.4, '#2f3a52');
+      K.neon(-6.5, .3, 1.44, -1.5, .36, 1.5, '#3f8cff', false);
+      computerDesk(-4.6, 2.9, 1, '#3a4660');
+      spots.push(K.spot({ kind: 'idle', x: -4.6, z: 3.8, heading: Math.PI, type: 'cop', home: true }));
+      spots.push(K.spot({ kind: 'guard', x: 6.6, z: -4.6, heading: -Math.PI * .75, type: 'cop', home: true }));
+      K.box(-7.8, 0, -5, -7.2, .6, -.5, '#5a6478', true);
+      for (const z of [-4.2, -2.6, -1.2]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: -7.5, z, y: .66, heading: Math.PI / 2, mix: 'town', home: true }));
+      K.picture('-z', 0, 3.25, 5.83, 3.6, .8, T.sign('NEPLOXO CITY PD', 'служить и защищать', '#3f8cff', '#0e1628'));
       const wanted = n => T.poster((g, w, h) => { g.fillStyle = '#f0e6c8'; g.fillRect(0, 0, w, h); g.fillStyle = '#222'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.fillText('WANTED', w / 2, 26); g.fillStyle = ['#c98f65', '#8d5a36', '#e8b890'][n]; g.fillRect(w / 2 - 26, 40, 52, 60); g.fillStyle = '#2a1c14'; g.fillRect(w / 2 - 28, 36, 56, 16); g.fillStyle = '#222'; g.font = 'bold 18px Arial'; g.fillText('$' + (n + 1) * 500, w / 2, 130); });
-      for (let k = 0; k < 3; k++) K.picture('+x', -8.83, 2.1, -3.5 + k * 1.4, 1, 1.4, wanted(k), true);
-      // holding cells in the east wing
-      K.room(9.3, -6, 21, 6, 4, { wall: '#b8c0cc', ceil: '#a8b0bc', trim: '#2f3a52', gaps: { '-x': [{ c: -3, w: 1.4, h: 2.5 }] } });
-      K.floor(9.3, -6, 21, 6, T.concrete, 2.5);
-      for (const x of [13, 17]) K.wallX(x, 1, 6, 4, '#9aa2ae');
-      for (let x = 9.35; x < 21; x += .24) K.box(x, 0, .95, x + .06, 3, 1.02, '#3a3a44');
-      K.solid(9.3, 0, .9, 21, 3, 1.05); K.box(9.3, 3, .9, 21, 3.12, 1.05, '#3a3a44');
-      for (const cx of [11.15, 15, 19]) { K.box(cx - 1.4, 0, 5, cx + 1.4, .6, 6, '#6a6a74', true); if (Math.random() < .8) spots.push(K.spot({ kind: 'sit', x: cx + rand(-.8, .8), z: 5.4, y: .66, heading: Math.PI, mix: 'town', home: true })); }
-      spots.push(K.spot({ kind: 'guard', x: 19.5, z: -3.8, heading: Math.PI * .75, type: 'cop', home: true }));
-      // locker room in the west wing
-      K.room(-17, -6, -9.3, 6, 4, { wall: '#c2cad6', ceil: '#b2bac6', trim: '#2f3a52', gaps: { '+x': [{ c: 2, w: 1.4, h: 2.5 }] } });
-      K.floor(-17, -6, -9.3, 6, T.tiles, 1.2);
-      for (let z = -5; z < 5; z += .9) { K.box(-16.9, 0, z, -16.3, 2.3, z + .85, '#4f6a8a', true); K.box(-16.29, 1.6, z + .3, -16.27, 1.9, z + .55, '#2a3a4a'); }
-      K.box(-13.5, 0, -2, -12.9, .5, 2, '#8a6a4a', true);
-      const lockers = K.pt(-15.4, 0);
+      for (let k = 0; k < 3; k++) K.picture('-x', 7.83, 2.1, 1 + k * 1.4, 1, 1.4, wanted(k), true);
+      doorSign('+x', -7.83, 3.1, 2, '← РАЗДЕВАЛКА', '#8fd0ff'); doorSign('-x', 7.83, 3.1, -3, 'КАМЕРЫ →', '#8fd0ff');
+      doorSign('-z', 0, 2.75, 5.83, '↑ ОТДЕЛ · НАЧАЛЬНИК', '#ffd84f');
+
+      // holding cells in the east wing: three cells behind bars, a guard
+      for (const x of [12, 16]) K.wallX(x, 1, 6, H, '#9aa2ae');
+      for (let x = 8.2; x < 20; x += .24) K.box(x, 0, .95, x + .06, 3, 1.02, '#3a3a44');
+      K.solid(8.15, 0, .9, 20, 3, 1.05); K.box(8.15, 3, .9, 20, 3.12, 1.05, '#3a3a44');
+      for (const cx of [10.1, 14, 18]) {
+        K.box(cx - 1.4, 0, 4.9, cx + 1.4, .6, 5.8, '#6a6a74', true); K.box(cx + 1.1, 0, 1.4, cx + 1.6, .45, 1.9, '#d8d8d8');
+        if (Math.random() < .8) spots.push(K.spot({ kind: 'sit', x: cx + rand(-.8, .8), z: 5.3, y: .66, heading: Math.PI, type: 'prisoner', home: true }));
+      }
+      spots.push(K.spot({ kind: 'guard', x: 18.5, z: -3.8, heading: Math.PI * .75, type: 'cop', home: true }));
+      K.box(9, 0, -5.8, 11, .76, -5, '#5a6478', true); chair(10, -4.5);
+
+      // the locker room in the west wing: lockers along two walls, benches, a mirror
+      lockerRow(-19.85, -5.4, 5.6, 1, '#4f6a8a');
+      for (let x = -18.6; x < -9.5; x += .9) { K.box(x, 0, -5.85, x + .85, 2.3, -5.25, '#4f6a8a', true); K.box(x + .3, 1.6, -5.24, x + .55, 1.9, -5.22, '#2a3a4a'); }
+      for (const z of [-2, 2.6]) K.box(-15, 0, z - 1.4, -14.4, .5, z + 1.4, '#8a6a4a', true);
+      K.picture('-z', -12, 1.7, 5.83, 2.4, 1.2, K.tex(64, 64, (g, s) => { g.fillStyle = '#b8d4e8'; g.fillRect(0, 0, s, s); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(8, 0, 10, s); }, false));
+      K.picture('-z', -16.5, 3.1, 5.83, 3, .6, T.sign('РАЗДЕВАЛКА', null, '#8fd0ff', '#0e1628'));
+      if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: -14.7, z: -2.4, y: .56, heading: Math.PI / 2, type: 'cop', home: true }));
+
+      // the chief's office: a big desk, the chief behind it, flags, books, the president on the wall
+      K.box(-17.2, 0, 12.1, -11.8, .78, 13, '#5a3a24', true); K.box(-17.25, .78, 12.05, -11.75, .84, 13.05, '#3a2414');
+      K.box(-14.9, 0, 13.4, -14.1, .6, 14.2, '#2a1a14'); K.box(-14.9, .6, 14.05, -14.1, 1.5, 14.2, '#2a1a14');
+      spots.push(K.spot({ kind: 'sit', x: -14.5, z: 13.75, y: .66, heading: Math.PI, type: 'cop', home: true }));
+      K.box(-15.6, .84, 12.3, -15, .87, 12.7, '#f2f2f2'); K.box(-13.2, .84, 12.4, -12.7, 1.05, 12.6, '#ffd84f');
+      chair(-15.6, 10.6, '#6a2a2a'); chair(-13.4, 10.6, '#6a2a2a');
+      K.box(-19.9, 0, 7, -19.4, 2.7, 10.8, '#5a3a24', true);
+      for (let y = .4; y < 2.6; y += .55) for (let z = 7.1; z < 10.6; z += .22) K.box(-19.4, y, z, -19.2, y + .4 * (.7 + Math.random() * .3), z + .18, pick(['#8a2a2a', '#2a4a8a', '#2a6a3a', '#c9a04a', '#3a3a3a']));
+      for (const [x, hex] of [[-19, '#3f8cff'], [-10, '#f2f2f2']]) { K.box(x - .04, 0, 15.2, x + .04, 2.6, 15.28, '#c9a04a'); K.box(x + .04, 1.7, 15.22, x + 1.1, 2.5, 15.26, hex); }
+      K.picture('-z', -14.5, 2.75, 15.83, 2.8, 1.1, T.sign('LEHA NEPLOXO', 'президент мира', '#ffd84f', '#101820'));
+      doorSign('+x', -7.83, 3.1, 11, '← НАЧАЛЬНИК', '#ffd84f');
+
+      // the detectives' room: four desks with computers, a board with the case on it
+      for (const [x, z] of [[-4.5, 8.6], [4.5, 8.6], [-4.5, 12.6], [4.5, 12.6]]) {
+        computerDesk(x, z, 1); chair(x, z + .95);
+        if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x, z: z + .95, y: .66, heading: Math.PI, type: 'cop', home: true }));
+      }
+      K.picture('-z', 0, 2, 15.83, 3, 1.5, K.tex(256, 128, (g, w, h) => {
+        g.fillStyle = '#f4f4f0'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8a070'; g.fillRect(0, 0, w, 6);
+        const pins = [[30, 30], [110, 22], [200, 40], [60, 90], [160, 95]];
+        g.strokeStyle = '#d02030'; g.lineWidth = 2; g.beginPath(); pins.forEach(([x, y], i) => i ? g.lineTo(x + 14, y + 16) : g.moveTo(x + 14, y + 16)); g.stroke();
+        for (const [x, y] of pins) { g.fillStyle = '#e8e0d0'; g.fillRect(x, y, 28, 32); g.fillStyle = '#5a4a3a'; g.fillRect(x + 8, y + 6, 12, 14); g.fillStyle = '#d02030'; g.beginPath(); g.arc(x + 14, y + 2, 3, 0, 7); g.fill(); }
+        g.fillStyle = '#222'; g.font = 'bold 16px Arial'; g.fillText('ДЕЛО № 21', 92, 120);
+      }), true);
+      doorSign('-x', 7.83, 3.1, 9, 'ДОПРОСНАЯ →', '#8fd0ff');
+      doorSign('-z', -4, 3.1, 15.83, '↑ ОТДЫХ', '#8fd0ff'); doorSign('-z', 4, 3.1, 15.83, '↑ ОРУЖЕЙНАЯ', '#8fd0ff');
+
+      // interrogation: the observation room looks through a one-way mirror at a table, a lamp, a suspect
+      K.wallX(14, 6, 16, H, WALL, [{ c: 7.2, w: 1.3, h: 2.5 }, { c: 11, w: 3.6, h: 2.3 }]);
+      K.box(13.85, 0, 9.2, 14.15, 1, 12.8, WALL, true); K.solid(13.85, 1, 9.2, 14.15, 2.3, 12.8);
+      { const m = new THREE.Mesh(new THREE.BoxGeometry(.06, 1.3, 3.6), new THREE.MeshBasicMaterial({ color: 0x2a3440, transparent: true, opacity: .45, depthWrite: false }));
+        m.position.set(K.wx(14), 1.65, K.wz(11)); scene.add(m); }
+      K.box(9, 0, 10, 10.2, .76, 12, '#4a4a52', true); K.box(9.3, .76, 10.6, 9.8, .9, 11, '#1a1a1e');
+      spots.push(K.spot({ kind: 'idle', x: 12.8, z: 11.4, heading: Math.PI / 2, type: 'cop', home: true }));
+      K.box(16.2, 0, 10.4, 17.8, .76, 11.6, '#6a6a70', true); chair(17, 12.3, '#4a4a52'); chair(17, 9.7, '#4a4a52');
+      K.box(16.95, 2.6, 10.95, 17.05, H, 11.05, '#2a2a2a'); K.neon(16.7, 2.45, 10.7, 17.3, 2.6, 11.3, '#fff2c8');
+      spots.push(K.spot({ kind: 'sit', x: 17, z: 12.3, y: .66, heading: Math.PI, type: 'prisoner', home: true }));
+      if (Math.random() < .8) spots.push(K.spot({ kind: 'sit', x: 17, z: 9.7, y: .66, heading: 0, type: 'cop', home: true }));
+      doorSign('-x', 13.83, 3.1, 7.2, 'ДОПРОС', '#ff6a6a');
+
+      // the break room: a sofa and a TV, a kitchen corner with coffee, a table of doughnuts
+      K.box(-16, 0, 24.9, -10, .45, 25.9, '#3a4a6a', true); K.box(-16, .45, 25.55, -10, 1.15, 25.9, '#34425e');
+      for (const x of [-15, -13, -11]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x, z: 25.2, y: .51, heading: Math.PI, type: 'cop', home: true }));
+      K.box(-14.4, 0, 18, -11.6, .6, 18.5, '#2a2a30', true); K.box(-14.2, .6, 18.15, -11.8, 2.1, 18.25, '#141418'); K.screen('+z', -13, 1.35, 18.27, 2.3, 1.35, 2);
+      K.box(-19.9, 0, 17, -19.2, .95, 22.5, '#e8e8ec', true); K.box(-19.85, .95, 18, -19.4, 1.4, 18.5, '#1a1a1e'); K.box(-19.85, .95, 19.5, -19.45, 1.3, 20.2, '#c0c0c8');
+      K.box(-19.9, 0, 23.2, -19.1, 2, 24.3, '#f0f0f2', true);
+      K.box(-6.5, 0, 19.8, -3.5, .75, 21.8, '#d8c8a8', true);
+      for (let k = 0; k < 6; k++) K.box(-6 + (k % 3) * .9, .75, 20.3 + (k > 2 ? .8 : 0), -5.75 + (k % 3) * .9, .83, 20.55 + (k > 2 ? .8 : 0), pick(['#ff9ac8', '#c8743a', '#f2e0b0']));
+      for (const [x, z, h] of [[-5, 19.2, 0], [-5, 22.4, Math.PI]]) { chair(x, z); if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x, z, y: .66, heading: h, type: 'cop', home: true })); }
+
+      // the armoury: a counter behind a cage, the quartermaster, racks of guns, ammo crates
+      K.box(.15, 0, 20, 19.85, 1.05, 20.8, '#3a4250', true); K.box(.15, 1.05, 19.95, 19.85, 1.1, 20.85, '#8a8a94');
+      for (let x = .3; x <= 19.7; x += .3) if (x < 7 || x > 9) K.box(x, 1.1, 20.35, x + .04, H - .05, 20.4, '#5a5a62');
+      K.solid(.15, 1.1, 20.3, 19.85, H, 20.45);
+      spots.push(K.spot({ kind: 'idle', x: 8, z: 21.6, heading: Math.PI, type: 'cop', home: true }));
+      for (let r = 0; r < 3; r++) for (let k = 0; k < 8; k++) { const x = 2.4 + k * 1.4; K.box(x, 1 + r * .7, 25.75, x + (k % 3 ? .55 : .95), 1.1 + r * .7, 25.85, '#18181c'); }
+      K.box(1.5, .9, 25.85, 15, 3.2, 25.95, '#6b5a44');
+      for (const [x, z] of [[16, 22], [17.2, 22], [16.6, 23.4], [16, 24.8], [17.4, 24.8]]) K.box(x - .5, 0, z - .4, x + .5, .55, z + .4, '#4a5a32', true);
+      K.picture('-z', 8, 3.4, 25.83, 3.2, .6, T.sign('ОРУЖЕЙНАЯ', null, '#ff8a3d', '#1a1210'));
+
       let warnT = 0;
+      const job = () => G.jobs && G.jobs.job === 'police', on = () => G.jobs && G.jobs.duty === 'police';
       pl.attach = () => {
-        pl.interactions = [{ ...lockers, r: 2, short: 'ФОРМА', label: () => G.jobs && G.jobs.duty === 'police' ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену',
-          use: () => {
-            if (G.jobs && G.jobs.duty === 'police') { G.jobs.end(); return; }
-            if (G.jobs) { G.jobs.start('police'); return; }
-            if (G.progress.outfit === 'cop') { G.setOutfit(G.progress.prevOutfit || 'hawaii'); G.flash('Вы снова в своей одежде', 2); }
-            else { G.progress.prevOutfit = G.progress.outfit; G.setOutfit('cop'); }
-          } }];
+        pl.interactions = [
+          { ...pl.P(-4, .8), r: 1.6, short: 'ДЕЖУРНЫЙ', label: () => 'Поговорить с дежурным', use: () => G.ui.menu({ eyebrow: 'Полицейский участок', title: 'Дежурный', items: () => [
+            { name: 'Оплатить штраф', desc: 'Снять розыск: $500 за каждую звезду', price: G.police.wanted * 500, label: 'Оплатить', disabled: G.police.wanted ? '' : 'Вас не разыскивают', buy: () => { G.police.clear(); return 'Розыск снят. Больше не нарушайте!'; } },
+            { name: 'Работа в полиции', desc: 'Устроиться или уволиться — у начальника: прямо через дверь за стойкой, в отделе налево. Смена — в раздевалке (слева от входа)', price: 0, disabled: 'Понятно', buy: () => '' },
+            { name: 'Оружейная', desc: 'Табельное оружие на смену — в дальней комнате справа', price: 0, disabled: 'Понятно', buy: () => '' }
+          ] }) },
+          { ...pl.P(-18.2, 0), r: 2.4, short: 'СМЕНА', label: () => on() ? 'Раздевалка: закончить смену' : job() ? 'Раздевалка: начать смену' : 'Раздевалка (для сотрудников)', use: () => G.jobs.locker('police') },
+          { ...pl.P(-14.5, 11.2), r: 1.8, short: 'НАЧАЛЬНИК', label: () => job() ? 'Начальник участка: ваша служба · уволиться' : 'Начальник участка: устроиться на работу', use: () => G.jobs.boss('police') },
+          { ...pl.P(8, 19.3), r: 1.8, short: 'ОРУЖИЕ', label: () => 'Оружейная: табельное оружие', use: () => G.jobs.armoury() }
+        ];
       };
       // walking around the station with a gun out gets you in trouble
       pl.update = (dt) => {
@@ -463,37 +592,204 @@
     }
 
     /* ---------------------------------------------------------------
-       4. HOSPITAL: reception, waiting chairs, beds with patients
+       4. HOSPITAL, three rows of rooms:
+          front:  emergency (beds behind curtains) · reception hall with the lift to the roof · the doctors' room (lockers)
+          middle: ward 1 · the nurses' post · ward 2
+          back:   operating theatre · the head doctor's office · X-ray and lab
        --------------------------------------------------------------- */
+    let hospLift = null;
     {
-      const pl = interior('hospital', 'Больница', doors.hospital, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-9, -6, 9, 8], light: lit('#f2fbff', '#6a7a80', 1.0) });
+      const H = 3.8, WALL = '#e2eaec';
+      const pl = interior('hospital', 'Больница', doors.hospital, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-20, -6, 20, 26], light: lit('#f2fbff', '#6a7a80', 1.0) });
       K.at(pl.ox, pl.oz);
-      K.room(-9, -6, 9, 8, 3.8, { wall: '#eef3f4', ceil: '#e2e8ea', trim: '#3aa88a', neon: '#6bffd0', gaps: { '-z': [{ c: 0, w: 1.8, h: 2.6 }] } });
-      K.floor(-9, -6, 9, 8, T.mint, 1.2);
+      K.room(-20, -6, 20, 26, H, { wall: '#eef3f4', ceil: '#e2e8ea', trim: '#3aa88a', neon: '#6bffd0', gaps: { '-z': [{ c: 0, w: 1.8, h: 2.6 }] } });
+      K.wallX(-8, -6, 6, H, WALL, [DW(2)]); K.wallX(8, -6, 6, H, WALL, [DW(2)]);
+      K.wallZ(6, -20, 20, H, WALL, [DW(0)]);
+      K.wallX(-8, 6, 16, H, WALL, [DW(11)]); K.wallX(8, 6, 16, H, WALL, [DW(11)]);
+      K.wallZ(16, -20, 20, H, WALL, [DW(-4), DW(4), DW(15)]); K.wallX(0, 16, 26, H, WALL); K.wallX(10, 16, 26, H, WALL);
+      K.floor(-20, -6, 20, 16, T.mint, 1.2); K.floor(-20, 16, 0, 26, T.whiteTile, 1); K.floor(0, 16, 10, 26, T.wood, 2); K.floor(10, 16, 20, 26, T.tiles, 1.2);
+      for (const [x, z] of [[0, 0], [-14, 0], [14, 0], [-14, 11], [0, 11], [14, 11], [5, 21], [15, 21]]) K.neon(x - 1.5, H - .04, z - .15, x + 1.5, H - .01, z + .15, '#f4fffc', false);
+
+      // reception: the nurse's counter, waiting chairs, the lift up to the helipad
       K.box(-6.5, 0, 0, -1, 1.1, .9, '#f6f8f8', true); K.box(-6.55, 1.1, -.05, -.95, 1.18, .95, '#3aa88a'); K.box(-6.5, .4, -.02, -1, .55, 0, '#e02a3a');
+      computerDesk(-5.2, 1.6, 1, '#e8eef0');
       spots.push(K.spot({ kind: 'idle', x: -3.6, z: 1.9, heading: Math.PI, type: 'medic', home: true }));
-      spots.push(K.spot({ kind: 'idle', x: 4, z: 1.2, heading: Math.PI / 2, type: 'medic', home: true }));
-      for (let z = -4.6; z < 0; z += .8) { K.box(-8.7, 0, z - .3, -8.1, .6, z + .3, '#5ab0d0', true); K.box(-8.95, .6, z - .3, -8.7, 1.2, z + .3, '#5ab0d0'); if (Math.random() < .55) spots.push(K.spot({ kind: 'sit', x: -8.4, z, y: .66, heading: Math.PI / 2, type: pick(['elderly', 'tourist_m', 'tourist_f']), home: true })); }
-      for (const cz of [-3, 1, 5]) {
-        K.box(5.8, 0, cz - 1.05, 8.2, .5, cz + 1.05, '#c9ced4', true); K.box(5.9, .5, cz - 1, 8.1, .62, cz + 1, '#ffffff'); K.box(5.9, .62, cz + .5, 8.1, .72, cz + 1, '#dfe8f4');
-        K.box(5.5, 0, cz + 1.4, 8.6, 2.4, cz + 1.44, '#a8d0e8');
-        if (Math.random() < .8) spots.push(K.spot({ kind: 'lie', x: 7, z: cz - .9, y: .74, heading: 0, type: pick(['elderly', 'tourist_m', 'business_m', 'tourist_f']), home: true }));
+      for (let z = -4.6; z < 0; z += .8) { K.box(7.2, 0, z - .3, 7.8, .6, z + .3, '#5ab0d0', true); K.box(7.8, .6, z - .3, 7.95, 1.2, z + .3, '#5ab0d0'); if (Math.random() < .55) spots.push(K.spot({ kind: 'sit', x: 7.5, z, y: .66, heading: -Math.PI / 2, type: pick(['elderly', 'tourist_m', 'tourist_f']), home: true })); }
+      K.picture('-z', 0, 3.1, 5.83, 3.4, .75, T.sign('NEPLOXO GENERAL', 'приёмный покой', '#3aa88a', '#f4fbfa'));
+      K.picture('-z', -4, 2.3, 5.83, 1.1, 1.1, K.tex(128, 128, (g, s) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, s, s); g.fillStyle = '#e02a3a'; g.fillRect(s * .38, s * .12, s * .24, s * .76); g.fillRect(s * .12, s * .38, s * .76, s * .24); }, false));
+      K.box(4.6, 0, -5.99, 6.4, 2.6, -5.86, '#b8bcc8'); K.box(5.48, 0, -5.86, 5.52, 2.6, -5.83, '#7a7e8a'); K.neon(4.5, 2.6, -5.9, 6.5, 2.7, -5.83, '#6bffd0');
+      K.picture('+z', 5.5, 3.05, -5.83, 1.6, .35, T.sign('ВЕРТОЛЁТ ↑', null, '#6bffd0', '#10201c'));
+      hospLift = { x: pl.X(5.5), z: pl.Z(-4.6) };
+      doorSign('+x', -7.83, 3.1, 2, '← ПРИЁМНОЕ', '#3aa88a', '#f4fbfa'); doorSign('-x', 7.83, 3.1, 2, 'ОРДИНАТОРСКАЯ →', '#3aa88a', '#f4fbfa');
+      doorSign('-z', 0, 2.75, 5.83, '↑ ПАЛАТЫ · ГЛАВВРАЧ', '#3aa88a', '#f4fbfa');
+
+      // emergency: three beds behind curtains, a doctor on his rounds
+      for (const cz of [-3.6, 0, 3.6]) { hospitalBed(-18.4, cz, 1, .7); K.box(-19.9, 0, cz + 1.5, -16.4, 2.4, cz + 1.54, '#a8d0e8'); }
+      spots.push(K.spot({ kind: 'idle', x: -15.6, z: .4, heading: -Math.PI / 2, type: 'medic', home: true }));
+      K.box(-9.4, 0, -5.8, -8.4, 1.0, -4.6, '#d8dee4', true); K.box(-9.3, 1.0, -5.6, -8.5, 1.05, -4.8, '#8ab8d8');
+      K.picture('+x', -19.83, 3, 0, 4, .6, T.sign('ПРИЁМНОЕ ОТДЕЛЕНИЕ', null, '#e02a3a', '#fff4f4'));
+
+      // the doctors' room: lockers (the shift starts here), a sofa, a coffee table
+      lockerRow(19.85, -5.4, 5.6, -1, '#3aa88a');
+      K.box(10, 0, -5.9, 15, .45, -5, '#4a7a8a', true); K.box(10, .45, -5.9, 15, 1.1, -5.6, '#426e7c');
+      K.box(11.4, 0, -3.8, 13.6, .45, -2.8, '#d8c8a8', true); K.box(11.8, .45, -3.5, 12.1, .6, -3.2, '#f2f2f2');
+      for (const x of [11, 13.6]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x, z: -5.3, y: .51, heading: 0, type: 'medic', home: true }));
+      K.picture('-z', 14, 3, 5.83, 3.4, .6, T.sign('ОРДИНАТОРСКАЯ', null, '#3aa88a', '#f4fbfa'));
+
+      // two wards of four beds; the nurses' post between them
+      for (const [x0, x1, n] of [[-20, -8, 1], [8, 20, 2]]) {
+        for (const bx of [x0 + 1.6, x1 - 1.6]) for (const cz of [8.4, 13.4]) hospitalBed(bx, cz, bx < (x0 + x1) / 2 ? 1 : -1);
+        K.picture(n === 1 ? '+x' : '-x', n === 1 ? -19.83 : 19.83, 2.6, 11, 1.6, .9, T.poster((g, w, h) => { g.fillStyle = '#9ad0e8'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2d06a'; g.beginPath(); g.arc(w * .7, h * .3, 18, 0, 7); g.fill(); g.fillStyle = '#4a9a5a'; g.fillRect(0, h * .65, w, h); }), true);
+        if (Math.random() < .7) spots.push(K.spot({ kind: 'idle', x: (x0 + x1) / 2, z: 11, heading: n === 1 ? -Math.PI / 2 : Math.PI / 2, type: 'medic', home: true }));
       }
-      K.picture('-z', 2, 2.6, 7.83, 1.6, 1.6, K.tex(128, 128, (g, s) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, s, s); g.fillStyle = '#e02a3a'; g.fillRect(s * .38, s * .12, s * .24, s * .76); g.fillRect(s * .12, s * .38, s * .76, s * .24); }, false));
-      K.picture('-z', -4, 2.7, 7.83, 5, 1.1, T.sign('NEPLOXO GENERAL', 'приёмный покой', '#3aa88a', '#f4fbfa'));
+      doorSign('+x', -7.83, 3.1, 11, '← ПАЛАТА 1', '#3aa88a', '#f4fbfa'); doorSign('-x', 7.83, 3.1, 11, 'ПАЛАТА 2 →', '#3aa88a', '#f4fbfa');
+      K.box(-3, 0, 11, 3, 1.05, 11.8, '#f6f8f8', true); K.box(-3.05, 1.05, 10.95, 3.05, 1.12, 11.85, '#3aa88a'); K.box(-3, 0, 11.8, -2.2, 1.05, 13.6, '#f6f8f8', true);
+      computerDesk(0, 12.5, 1, '#e8eef0');
+      spots.push(K.spot({ kind: 'idle', x: 1.6, z: 13.3, heading: Math.PI, type: 'medic', home: true }));
+      for (let z = 7; z < 10; z += .8) { K.box(-7.8, 0, z - .3, -7.2, .6, z + .3, '#5ab0d0', true); if (Math.random() < .4) spots.push(K.spot({ kind: 'sit', x: -7.5, z, y: .66, heading: Math.PI / 2, type: pick(['elderly', 'tourist_f', 'business_m']), home: true })); }
+      for (const x of [-7.3, 7.3]) { K.box(x - .3, 0, 15.2, x + .3, .5, 15.7, '#8a6a4a', true); K.box(x - .35, .5, 15.15, x + .35, 1.4, 15.75, '#3a9a4a'); }
+      doorSign('-z', -4, 3.1, 15.83, 'ОПЕРАЦИОННАЯ', '#ff4f4f', '#fff4f4'); doorSign('-z', 4, 3.1, 15.83, 'ГЛАВВРАЧ', '#3aa88a', '#f4fbfa');
+      K.neon(-4.8, 2.6, 15.8, -3.2, 2.7, 15.84, '#ff2233');
+
+      // the operating theatre: a table under a big lamp, surgeons round it, monitors, a trolley of instruments
+      K.box(-10.5, 0, 20, -9.5, .85, 22.1, '#8a929e', true); K.box(-10.55, .85, 19.9, -9.45, .95, 22.2, '#7ac0d8');
+      spots.push(K.spot({ kind: 'lie', x: -10, z: 20.15, y: .97, heading: 0, type: pick(['tourist_m', 'business_m', 'beach_m']), home: true }));
+      K.box(-10.05, 2.9, 20.95, -9.95, H, 21.05, '#c8ccd4'); K.box(-11, 2.75, 20.3, -9, 2.9, 21.8, '#e8ecf0'); K.neon(-10.8, 2.7, 20.5, -9.2, 2.75, 21.6, '#ffffff');
+      for (const [x, z, h] of [[-11.6, 21, Math.PI / 2], [-8.4, 21, -Math.PI / 2], [-10, 23.2, Math.PI]]) spots.push(K.spot({ kind: 'idle', x, z, heading: h, type: 'medic', home: true }));
+      for (const z of [19.4, 22.6]) { K.box(-13.6, 0, z - .3, -13, 1.3, z + .3, '#8a929e', true); K.picture('+x', -12.98, 1.6, z, .7, .45, ecgTex); }
+      K.box(-7.8, 0, 19.2, -6.8, .9, 20, '#c8ccd4', true); for (let k = 0; k < 5; k++) K.box(-7.7 + k * .18, .9, 19.4, -7.6 + k * .18, .93, 19.8, '#e8ecf0');
+      K.box(-19.9, 0, 17, -19.3, 1.9, 25, '#dfe6ea', true); K.box(-19.3, 1, 18, -19.28, 1.8, 24, '#a8c8d8');
+      K.picture('-z', -10, 3, 25.83, 3.4, .6, T.sign('ОПЕРАЦИОННАЯ', null, '#ff4f4f', '#fff4f4'));
+
+      // the head doctor's office
+      K.box(2.8, 0, 22.1, 7.2, .78, 23, '#6a4a2a', true); K.box(2.75, .78, 22.05, 7.25, .84, 23.05, '#4a3020');
+      K.box(4.6, 0, 23.4, 5.4, .6, 24.2, '#2a2a30'); K.box(4.6, .6, 24.05, 5.4, 1.5, 24.2, '#2a2a30');
+      spots.push(K.spot({ kind: 'sit', x: 5, z: 23.75, y: .66, heading: Math.PI, type: 'medic', home: true }));
+      K.box(3.2, .84, 22.3, 3.8, .87, 22.7, '#f2f2f2'); K.box(6.2, .84, 22.4, 6.6, 1.1, 22.6, '#3aa88a');
+      chair(4, 20.6, '#3a6a6a'); chair(6, 20.6, '#3a6a6a');
+      K.box(.2, 0, 17, .7, 2.6, 21, '#6a4a2a', true);
+      for (let y = .4; y < 2.5; y += .55) for (let z = 17.1; z < 20.8; z += .22) K.box(.7, y, z, .9, y + .38, z + .18, pick(['#e8e8e8', '#3a6a9a', '#8a2a2a', '#2a6a4a']));
+      for (const x of [2.5, 4, 7.5]) K.picture('-z', x, 2.3, 25.83, .8, .6, T.poster((g, w, h) => { g.fillStyle = '#f4ecd8'; g.fillRect(0, 0, w, h); g.strokeStyle = '#c9a04a'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8); g.fillStyle = '#333'; for (let k = 0; k < 5; k++) g.fillRect(24, 40 + k * 22, w - 48, 4); }), true);
+
+      // X-ray and the lab: light boxes with pictures of bones, a scanner, microscopes
+      const xray = K.tex(96, 128, (g, w, h) => { g.fillStyle = '#0a1420'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(220,240,255,.85)'; g.lineWidth = 5; g.beginPath(); g.moveTo(w / 2, 10); g.lineTo(w / 2, h - 10); g.stroke(); g.lineWidth = 3; for (let k = 0; k < 6; k++) { g.beginPath(); g.ellipse(w / 2, 28 + k * 14, 34 - k * 2, 6, 0, Math.PI, 0); g.stroke(); } }, false);
+      for (const z of [18, 19.4, 20.8]) { K.box(19.75, 1.2, z - .62, 19.9, 2.4, z + .62, '#e8f4ff'); K.picture('-x', 19.73, 1.8, z, 1.1, 1.1, xray); }
+      K.box(13, 0, 22.5, 17, 1.1, 24.5, '#f2f4f6', true); K.box(14.2, .3, 23, 15.8, .9, 24.6, '#2a3440');
+      K.box(11.5, 0, 22.8, 13, .7, 24.2, '#d8dee4', true); K.box(11.6, .7, 23, 12.9, .76, 24, '#7ac0d8');
+      K.box(10.3, 0, 17.2, 11.3, .9, 20.8, '#e8eef0', true);
+      for (const z of [17.8, 19.6]) { K.box(10.6, .9, z, 10.9, 1.35, z + .2, '#2a2a30'); K.box(10.55, .9, z - .1, 11, .95, z + .35, '#3a3a40'); }
+      spots.push(K.spot({ kind: 'idle', x: 12.2, z: 19.2, heading: -Math.PI / 2, type: 'medic', home: true }));
+      K.picture('-z', 15, 3, 25.83, 3.4, .6, T.sign('РЕНТГЕН · ЛАБОРАТОРИЯ', null, '#4fc8ff', '#0e1628'));
+      doorSign('-z', 15, 3.1, 15.83, '↑ РЕНТГЕН', '#3aa88a', '#f4fbfa');
+
       let bloodT = 0;
+      const job = () => G.jobs && G.jobs.job === 'ems', on = () => G.jobs && G.jobs.duty === 'ems';
       pl.attach = () => {
-        pl.interactions = [{ ...pl.P(-3.6, -.7), r: 1.6, short: 'МЕДСЕСТРА', label: () => 'Поговорить с медсестрой',
-          use: () => G.ui.menu({ eyebrow: 'Больница', title: 'Приёмный покой', items: () => [
-            { name: 'Лечение', desc: 'Полностью восстановить здоровье', price: 40, disabled: G.player.hp >= 100 ? 'Вы здоровы' : '', buy: () => { G.player.hp = 100; return 'Здоровье восстановлено'; } },
-            { name: 'Бронежилет', desc: 'Со склада больницы, дешевле, чем в магазине', price: 150, disabled: G.getArmor() >= 100 ? 'Уже надет' : '', buy: () => { G.setArmor(100); return 'Бронежилет надет'; } },
-            { name: 'Сдать кровь', desc: '−25 здоровья, +$25. Раз в 5 минут', price: -25, disabled: Date.now() - bloodT < 300000 ? 'Приходите позже' : G.player.hp <= 30 ? 'Слишком мало здоровья' : '', buy: () => { bloodT = Date.now(); G.player.hp -= 25; return 'Спасибо, вы спасли жизнь!'; } }
-          ] }) }];
-        if (heliPad) pl.interactions.push({ ...pl.P(-8.1, 6.5), r: 1.4, short: 'ЛИФТ', label: () => 'Лифт на крышу — вертолёт', use: () => G.teleport(heliPad.liftX, heliPad.z, Math.PI / 2, null, 'Крыша больницы', heliPad.y) });
+        pl.interactions = [
+          { ...pl.P(-3.6, -.7), r: 1.6, short: 'МЕДСЕСТРА', label: () => 'Поговорить с медсестрой',
+            use: () => G.ui.menu({ eyebrow: 'Больница', title: 'Приёмный покой', items: () => [
+              { name: 'Лечение', desc: 'Полностью восстановить здоровье', price: 40, disabled: G.player.hp >= 100 ? 'Вы здоровы' : '', buy: () => { G.player.hp = 100; return 'Здоровье восстановлено'; } },
+              { name: 'Бронежилет', desc: 'Со склада больницы, дешевле, чем в магазине', price: 150, disabled: G.getArmor() >= 100 ? 'Уже надет' : '', buy: () => { G.setArmor(100); return 'Бронежилет надет'; } },
+              { name: 'Сдать кровь', desc: '−25 здоровья, +$25. Раз в 5 минут', price: -25, disabled: Date.now() - bloodT < 300000 ? 'Приходите позже' : G.player.hp <= 30 ? 'Слишком мало здоровья' : '', buy: () => { bloodT = Date.now(); G.player.hp -= 25; return 'Спасибо, вы спасли жизнь!'; } },
+              { name: 'Работа на скорой', desc: 'Устроиться или уволиться — у главврача: прямо через пост медсестры, дверь справа. Смена — в ординаторской (справа от входа)', price: 0, disabled: 'Понятно', buy: () => '' }
+            ] }) },
+          { ...pl.P(18.2, 0), r: 2.4, short: 'СМЕНА', label: () => on() ? 'Ординаторская: закончить смену' : job() ? 'Ординаторская: начать смену' : 'Шкафчики врачей (для сотрудников)', use: () => G.jobs.locker('ems') },
+          { ...pl.P(5, 21.2), r: 1.8, short: 'ГЛАВВРАЧ', label: () => job() ? 'Главврач: ваша работа · уволиться' : 'Главврач: устроиться на скорую', use: () => G.jobs.boss('ems') }
+        ];
+        if (heliPad) pl.interactions.push({ ...pl.P(5.5, -4.9), r: 1.4, short: 'ЛИФТ', label: () => 'Лифт на крышу — вертолёт', use: () => G.teleport(heliPad.liftX, heliPad.z, Math.PI / 2, null, 'Крыша больницы', heliPad.y) });
       };
-      // the lift up to the helipad, on the west wall
-      K.box(-8.99, 0, 5.6, -8.86, 2.6, 7.4, '#b8bcc8'); K.box(-8.87, 0, 6.48, -8.84, 2.6, 6.52, '#7a7e8a'); K.neon(-8.9, 2.6, 5.5, -8.84, 2.7, 7.5, '#6bffd0');
-      K.picture('+x', -8.83, 3.05, 6.5, 1.6, .35, T.sign('ВЕРТОЛЁТ ↑', null, '#6bffd0', '#10201c'));
+    }
+
+    /* ---------------------------------------------------------------
+       FIRE STATION 7, inside: the garage with two engines, a pole down from upstairs, hoses and helmets;
+       then the locker room, the kitchen and the chief's office; at the back the bunk room and a gym
+       --------------------------------------------------------------- */
+    if (doors.firestation) {
+      const H = 5, WALL = '#e8ded2', RED = '#c81e1e';
+      const pl = interior('firestation', 'Пожарная часть', doors.firestation, { inside: [0, -4.4, 0], exit: [0, -5.3], bounds: [-16, -6, 16, 30], light: lit('#fff4ea', '#5a4a48', .95) });
+      K.at(pl.ox, pl.oz);
+      K.room(-16, -6, 16, 30, H, { wall: '#a8322a', ceil: '#3a3436', trim: '#f2ede4', neon: '#ff3344', gaps: { '-z': [{ c: 0, w: 1.6, h: 2.6 }] } });
+      K.wallZ(10, -16, 16, H, WALL, [DW(-10.5), DW(.5), DW(11)]);
+      K.wallX(-5, 10, 22, H, WALL); K.wallX(6, 10, 22, H, WALL);
+      K.wallZ(22, -16, 16, H, WALL, [DW(-3), DW(3)]); K.wallX(0, 22, 30, H, WALL);
+      K.floor(-16, -6, 16, 10, T.concrete, 3); K.floor(-16, 10, -5, 22, T.tiles, 1.2); K.floor(-5, 10, 6, 22, T.checker, 1); K.floor(6, 10, 16, 22, T.wood, 2);
+      K.floor(-16, 22, 0, 30, T.wood, 2); K.floor(0, 22, 16, 30, T.darkTile, 1.4);
+      for (const [x, z] of [[-9, 2], [9, 2], [0, 2], [-10.5, 16], [.5, 16], [11, 16], [-8, 26], [8, 26]]) K.neon(x - 1.5, H - .04, z - .15, x + 1.5, H - .01, z + .15, '#fff6ea', false);
+
+      // the garage: big doors (closed), two engines, the brass pole, hoses and helmets on the walls
+      for (const cx of [-9, 9]) {
+        K.box(cx - 2.8, 0, -5.99, cx + 2.8, 4.2, -5.86, '#d8d2c8');
+        for (let y = .4; y < 4.2; y += .5) K.box(cx - 2.8, y, -5.86, cx + 2.8, y + .05, -5.84, '#b8b2a8');
+        K.box(cx - 2.95, 4.2, -5.99, cx + 2.95, 4.4, -5.84, '#f2ede4');
+        // an engine: cab at -z, body with lockers, a ladder on top, white stripe, lights
+        const x0 = cx - 1.25, x1 = cx + 1.25;
+        K.box(x0, .45, -3.6, x1, 2.9, -1.2, RED, true); K.box(x0 + .05, 1.7, -3.62, x1 - .05, 2.6, -3.58, '#9fd0f0');
+        K.box(x0, .45, -1.2, x1, 2.7, 6.2, RED, true); K.box(x0 - .01, 1.15, -3.6, x1 + .01, 1.35, 6.2, '#f2f2f2');
+        for (let z = -.8; z < 5.8; z += 1.6) for (const s of [x0 - .02, x1 + .01]) K.box(s, 1.5, z, s + .01, 2.5, z + 1.4, '#a8181a');
+        K.box(x0 + .3, 2.7, -1, x0 + .45, 2.95, 6.6, '#c8ccd4'); K.box(x1 - .45, 2.7, -1, x1 - .3, 2.95, 6.6, '#c8ccd4');
+        for (let z = -.8; z < 6.6; z += .45) K.box(x0 + .45, 2.8, z, x1 - .45, 2.86, z + .06, '#c8ccd4');
+        K.neon(x0 + .2, 2.9, -3.2, x0 + .7, 3.05, -2.9, '#ff2233'); K.neon(x1 - .7, 2.9, -3.2, x1 - .2, 3.05, -2.9, '#3f6bff');
+        for (const z of [-2.6, 1.6, 4.8]) for (const s of [x0 - .12, x1 - .02]) K.box(s, 0, z - .5, s + .14, .9, z + .5, '#1a1a1e');
+      }
+      K.box(-.06, 0, 6, .06, H, 6.12, '#d8b84a', true); K.neon(-.55, H - .06, 5.55, .55, H - .02, 6.6, '#ffd84f', false);
+      K.box(-.6, 0, 5.5, .6, .05, 6.6, '#2a2a2e');
+      for (let z = -4; z < 8; z += 2.4) { K.box(-15.85, 1.2, z, -15.7, 2.1, z + .9, '#e8c547'); K.box(15.7, 1.2, z, 15.85, 2.1, z + .9, '#e8c547'); }
+      for (let z = -4; z < 8; z += 1.2) { K.box(-15.7, 2.4, z, -15.45, 2.65, z + .3, RED); }
+      K.picture('-z', 0, 4.1, 9.83, 5, 1, T.sign('FIRE STATION 7', 'Неплохо Сити', '#ff3344', '#1a0a0a'));
+      for (const [x, z, h] of [[-5.6, 3, Math.PI / 2], [5.6, 0, -Math.PI / 2], [3, 8.6, Math.PI]]) if (Math.random() < .8) spots.push(K.spot({ kind: 'idle', x, z, heading: h, type: 'firefighter', home: true }));
+      doorSign('-z', -10.5, 3.1, 9.83, 'РАЗДЕВАЛКА', '#ffd84f', '#1a0a0a'); doorSign('-z', .5, 3.1, 9.83, 'КУХНЯ', '#ffd84f', '#1a0a0a'); doorSign('-z', 11, 3.1, 9.83, 'НАЧАЛЬНИК ЧАСТИ', '#ffd84f', '#1a0a0a');
+
+      // the locker room: open lockers with the gear in them — helmets, coats, boots
+      for (let x = -15.6; x < -5.8; x += 1.2) {
+        K.box(x, 0, 21.2, x + 1.1, 2.3, 21.85, '#6a6a72', true);
+        K.box(x + .15, 1.1, 21.15, x + .95, 2.0, 21.25, '#c8a040'); K.box(x + .3, 2.0, 21.2, x + .8, 2.25, 21.5, '#e8c547'); K.box(x + .25, 0, 20.9, x + .85, .35, 21.2, '#1a1a1e');
+      }
+      lockerRow(-15.85, 10.6, 19.8, 1, '#6a6a72');
+      K.box(-10.8, 0, 14.2, -8.2, .45, 14.8, '#8a6a4a', true);
+      K.picture('+x', -15.83, 3.4, 15.2, 3, .55, T.sign('РАЗДЕВАЛКА', null, '#ffd84f', '#1a0a0a'));
+
+      // the kitchen: a long table with benches, the crew eating, a stove and a fridge
+      K.box(-3, 0, 14, 4, .78, 16, '#8a5a3a', true);
+      for (const z of [13.3, 16.7]) K.box(-3, 0, z - .25, 4, .45, z + .25, '#6a4a2a', true);
+      for (let x = -2.4; x < 4; x += 1.3) for (const [z, h] of [[13.3, 0], [16.7, Math.PI]]) if (Math.random() < .45) spots.push(K.spot({ kind: 'sit', x, z, y: .51, heading: h, type: 'firefighter', home: true }));
+      for (let x = -2.4; x < 4; x += 1.6) { K.box(x - .2, .78, 14.6, x + .2, .82, 15, '#f2f2f2'); K.box(x - .12, .82, 14.7, x + .12, .9, 14.9, '#c8743a'); }
+      K.box(-4.85, 0, 15.4, -4.05, .95, 20.6, '#e8e8ec', true); K.box(-4.8, .95, 16.2, -4.1, 1.0, 17.4, '#1a1a1e'); K.box(-4.75, .95, 18.6, -4.3, 1.25, 19.1, '#c0c0c8');
+      K.box(4.8, 0, 10.2, 5.85, 2.1, 11.6, '#f0f0f2', true); K.box(4.78, 1.2, 10.25, 4.8, 1.22, 11.55, '#c8ccd4');
+      if (Math.random() < .7) spots.push(K.spot({ kind: 'idle', x: -3.4, z: 18, heading: -Math.PI / 2, type: 'firefighter', home: true }));
+
+      // the chief's office
+      K.box(8.2, 0, 17.4, 13.8, .78, 18.3, '#5a3a24', true); K.box(8.15, .78, 17.35, 13.85, .84, 18.35, '#3a2414');
+      K.box(10.6, 0, 18.7, 11.4, .6, 19.5, '#2a1a14'); K.box(10.6, .6, 19.35, 11.4, 1.5, 19.5, '#2a1a14');
+      spots.push(K.spot({ kind: 'sit', x: 11, z: 19.05, y: .66, heading: Math.PI, type: 'firefighter', home: true }));
+      K.box(9, .84, 17.6, 9.6, .87, 18, '#f2f2f2'); K.box(12.6, .84, 17.6, 13.2, 1.15, 18, '#e8c547');
+      chair(10, 16, '#6a2a2a'); chair(12, 16, '#6a2a2a');
+      K.picture('-z', 11, 2.7, 21.83, 2.6, 1, T.sign('LEHA NEPLOXO', 'президент мира', '#ffd84f', '#1a0a0a'));
+      for (const z of [12, 13.4]) K.picture('-x', 15.83, 2.2, z, .9, .7, T.poster((g, w, h) => { g.fillStyle = '#f4ecd8'; g.fillRect(0, 0, w, h); g.strokeStyle = '#c81e1e'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8); g.fillStyle = '#c81e1e'; g.beginPath(); g.moveTo(w / 2, 30); g.lineTo(w / 2 + 22, 90); g.lineTo(w / 2 - 22, 90); g.fill(); }), true);
+
+      // the bunk room: the night shift asleep
+      for (const bx of [-14.6, -11.4, -8.2, -5]) {
+        for (const y of [.45, 1.65]) { K.box(bx - .5, y, 26.6, bx + .5, y + .14, 28.8, '#f2f2f2'); K.box(bx - .5, y + .14, 28.2, bx + .5, y + .24, 28.7, '#dfe8f4'); K.box(bx - .5, y - .08, 26.6, bx + .5, y, 28.8, '#5a5a62'); }
+        for (const [x, z] of [[bx - .5, 26.6], [bx + .44, 26.6], [bx - .5, 28.74], [bx + .44, 28.74]]) K.box(x, 0, z, x + .06, 2.2, z + .06, '#5a5a62');
+        K.solid(bx - .5, 0, 26.6, bx + .5, 2.2, 28.8);
+        if (Math.random() < .6) spots.push(K.spot({ kind: 'lie', x: bx, z: 26.9, y: .62, heading: 0, type: 'firefighter', home: true }));
+      }
+      K.picture('-z', -8, 3.6, 29.83, 3.4, .6, T.sign('КОМНАТА ОТДЫХА', null, '#ffd84f', '#1a0a0a'));
+
+      // the gym: a bench with a barbell, dumbbells, a punching bag
+      K.box(6.4, 0, 25.4, 7.6, .5, 27.6, '#2a2a30', true); K.box(5.4, 1.1, 26.9, 8.6, 1.16, 27, '#c8ccd4'); for (const x of [5.5, 8.3]) K.box(x, .85, 26.7, x + .2, 1.4, 27.2, '#1a1a1e');
+      K.box(1, 0, 29.2, 5, .6, 29.8, '#3a3a42', true); for (let x = 1.2; x < 5; x += .5) K.box(x, .6, 29.35, x + .3, .8, 29.65, '#1a1a1e');
+      K.box(12.45, 2.2, 25.95, 12.55, H, 26.05, '#2a2a2a'); K.box(12.2, .6, 25.7, 12.8, 2.2, 26.3, RED, true);
+      if (Math.random() < .7) spots.push(K.spot({ kind: 'idle', x: 12.5, z: 24.9, heading: 0, type: 'firefighter', home: true }));
+      K.picture('-z', 8, 3.6, 29.83, 2.6, .6, T.sign('СПОРТЗАЛ', null, '#ffd84f', '#1a0a0a'));
+      doorSign('-z', -3, 3.1, 21.83, '↑ ОТДЫХ', '#ffd84f', '#1a0a0a'); doorSign('-z', 3, 3.1, 21.83, '↑ СПОРТЗАЛ', '#ffd84f', '#1a0a0a');
+
+      const job = () => G.jobs && G.jobs.job === 'fire', on = () => G.jobs && G.jobs.duty === 'fire';
+      pl.attach = () => {
+        pl.interactions = [
+          { ...pl.P(-10.5, 18.4), r: 2.4, short: 'СМЕНА', label: () => on() ? 'Раздевалка: закончить смену' : job() ? 'Раздевалка: начать смену' : 'Раздевалка (для сотрудников)', use: () => G.jobs.locker('fire') },
+          { ...pl.P(11, 16.6), r: 1.8, short: 'НАЧАЛЬНИК', label: () => job() ? 'Начальник части: ваша служба · уволиться' : 'Начальник части: устроиться пожарным', use: () => G.jobs.boss('fire') }
+        ];
+      };
     }
     /* ---------------------------------------------------------------
        NEPLOXO TOWER: a black-and-gold lobby with a lift to the roof; up top a pool, sunbeds,
@@ -577,8 +873,8 @@
       K.neon(x - 8.08, y + 2.3, z - .7, x - 8.02, y + 2.4, z + .7, '#6bffd0');
       for (const [a, b] of [[-4.3, -4.2], [4.2, 4.3]]) { K.neon(x - 4.3, y + .06, z + a, x + 4.3, y + .1, z + b, '#ffd84f', false); K.neon(x + a, y + .06, z - 4.3, x + b, y + .1, z + 4.3, '#ffd84f', false); }
       heliPad = { x: x + .8, z, y, liftX: x - 7.4 };
-      const hosp = places.find(p => p.id === 'hospital'), down = hosp.P(-7.4, 6.5);
-      outdoor.push({ x: x - 7.6, z, y, r: 1.4, short: 'ЛИФТ', label: () => 'Лифт вниз', use: () => G.teleport(down.x, down.z, Math.PI / 2, hosp, hosp.name) });
+      const hosp = places.find(p => p.id === 'hospital'), down = hospLift;
+      outdoor.push({ x: x - 7.6, z, y, r: 1.4, short: 'ЛИФТ', label: () => 'Лифт вниз', use: () => G.teleport(down.x, down.z, 0, hosp, hosp.name) });
     }
 
     /* ---------------------------------------------------------------

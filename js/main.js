@@ -161,8 +161,8 @@
     const online = NB.online;
     if (online && online.replacing) return;   // the server's copy is being loaded in: don't write over it
     progress.garage = garageCars();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn } = progress, guardsN = guards ? guards.list : progress.guards;
-    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, guards: guardsN, _t: online ? online.now() : Date.now() };
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job } = progress, guardsN = guards ? guards.list : progress.guards;
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, guards: guardsN, _t: online ? online.now() : Date.now() };
     try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
     if (online) online.push(data, urgent === true);
     saveT = 0;
@@ -269,7 +269,7 @@
   /* ---------- places: doors, interiors, and the things to do in them ---------- */
   function setOutfit(id) { progress.outfit = id === 'cop' ? 'cop' : 'own'; if (id === 'cop') player.setOutfit('cop'); else player.setLook(progress.look); saveProgress(); }
   // one piece on (or off): out of a police uniform, if it was on, into your own clothes
-  function wear(slot, key) { progress.look[slot] = key; progress.outfit = 'own'; player.setLook(progress.look); saveProgress(); }
+  function wear(slot, key) { if (jobs && jobs.duty) jobs.end(false, 'смена окончена — вы переоделись'); progress.look[slot] = key; progress.outfit = 'own'; player.setLook(progress.look); saveProgress(); }
   // a short blink to black, then the hero is somewhere else (through a door, up a lift)
   let fading = false, drunkT = 0;
   function blink(fn) {
@@ -331,8 +331,9 @@
     const ENT = {
       ammo: ['AMMO BAY', 'оружие · патроны · тир', '🔫', 'ОРУЖИЕ', { canopy: false, board: false }],
       bank: ['БАНК', 'Банк Неплохо Сити', '🏦', 'БАНК', { canopy: false }],
-      police: ['ПОЛИЦИЯ', '', '🚓', 'ПОЛИЦИЯ', { canopy: false, board: false }],
-      hospital: ['БОЛЬНИЦА', 'лечение · бронежилет · вертолёт', '🏥', 'БОЛЬНИЦА', { canopy: false, board: false }],
+      police: ['ПОЛИЦИЯ', 'работа · камеры · оружейная', '🚓', 'ПОЛИЦИЯ', { canopy: false, board: false }],
+      firestation: ['ПОЖАРНАЯ ЧАСТЬ', 'работа пожарным', '🚒', 'РАБОТА', { canopy: false, board: false }],
+      hospital: ['БОЛЬНИЦА', 'лечение · работа · вертолёт', '🏥', 'БОЛЬНИЦА', { canopy: false, board: false }],
       tower: ['NEPLOXO TOWER', 'лобби · лифт на крышу', '🏙', 'TOWER', { canopy: false, board: false }],
       arcade: ['ИГРОВЫЕ АВТОМАТЫ', 'NEON RACER и другие', '🕹', 'ИГРЫ', { canopy: false }],
       diner: ['ЗАКУСОЧНАЯ', 'бургеры · шейки · музыка', '🍔', 'ЕДА', { canopy: false }],
@@ -362,23 +363,14 @@
     flash: (t, s) => flashTip(t, s), save: saveProgress, sleep, leave: () => { if (places.current) exitPlace(places.current); }, villa: { price: places.VILLA_PRICE } });
   placeCtx.homeOk = id => shops.ok(id);   // the villa's door opens only while its rent is paid
   fronts.finish();
-  // city jobs: sign on at the police station, the hospital or the fire station
-  jobs = NB.createJobs({ crowd, vehicles, player, police, ui, audio, world, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t),
+  // city jobs: get hired in the boss's office, start and end each shift in the locker room (jobs.js)
+  jobs = NB.createJobs({ crowd, vehicles, player, police, ui, audio, world, combat, progress, save: saveProgress, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t),
+    getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
     inside: () => !!places.current, district: () => world.districtAt(player.x, player.z),
     // the uniform: the police one is the station's (the police take you for one of theirs), the others are just worn
     wear: id => { if (id === 'cop') setOutfit('cop'); else if (id) { if (progress.outfit === 'cop') setOutfit('own'); player.setOutfit(id); } else setOutfit('own'); } });
-  placeCtx.jobs = jobs;   // the station lockers sign you on
-  if (progress.outfit === 'cop') setTimeout(() => jobs.start('police'), 0);   // came back in the police uniform: still on shift (once the whole game is set up)
-  for (const [id, kind] of [['police', 'police'], ['hospital', 'ems']]) {
-    const pl = places.byId(id); if (!pl) continue;
-    pl.interactions.push({ x: pl.inside.x + 1.6, z: pl.inside.z + .6, r: 1.6, short: 'ФОРМА', label: () => jobs.duty === kind ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену: ' + jobs.JOBS[kind].title.toLowerCase(), use: () => jobs.duty === kind ? jobs.end() : jobs.start(kind) });
-  }
-  const fireDesk = [];
-  if (world.fireStation) {
-    const fx = world.fireStation.center.x, fz = -57.9;
-    fronts.add({ x: fx, z: fz, nx: 0, nz: 1, hex: '#ff3344', title: 'ПОЖАРНАЯ ЧАСТЬ', sub: 'работа пожарным', icon: '🚒', tag: 'РАБОТА', hint: 'РАБОТА · подойдите к двери', canopy: false, board: false, ring: true });
-    fireDesk.push({ x: fx, z: fz, r: 2, short: 'ФОРМА', label: () => jobs.duty === 'fire' ? 'Снять форму и закончить смену' : 'Надеть форму и выйти на смену: пожарный', use: () => jobs.duty === 'fire' ? jobs.end() : jobs.start('fire') });
-  }
+  placeCtx.jobs = jobs;   // the bosses' offices and the locker rooms inside the stations
+  setTimeout(() => jobs.resume(), 0);   // came back in the middle of a shift: still on it (once the whole game is set up)
   { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
   // the nearest thing to use (F / the action button), if any
   let interact = null;
@@ -386,7 +378,7 @@
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
-    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.hideaway ? world.hideaway.interactions() : [], world.military ? world.military.interactions() : [], fireDesk, jobs.interactions());
+    const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.hideaway ? world.hideaway.interactions() : [], world.military ? world.military.interactions() : [], jobs.interactions());
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -475,12 +467,13 @@
     progress.armor = 0;
     // you wake up outside, whatever building you were in; the uniform is taken away
     leavePlace(); places.disarm();
-    if (progress.outfit === 'cop') setOutfit(progress.prevOutfit || 'hawaii');
+    const shiftOff = !!jobs.duty;
+    if (shiftOff) jobs.end(true); else if (progress.outfit === 'cop') setOutfit('own');
     police.clear(); rig.snap(player);
     $('bigmsg').className = '';
     const paid = spend(bill, busted ? 'Штраф' : 'Лечение');
-    flashTip(busted ? 'Вас отпустили из участка' + (paid ? ', штраф $' + paid : '') + '. Оружие изъято.'
-      : 'Вас подлатали в больнице' + (paid ? ' за $' + paid : '') + '. Половина патронов потеряна.', 3.4);
+    flashTip((busted ? 'Вас отпустили из участка' + (paid ? ', штраф $' + paid : '') + '. Оружие изъято.'
+      : 'Вас подлатали в больнице' + (paid ? ' за $' + paid : '') + '. Половина патронов потеряна.') + (shiftOff ? ' Смена прервана.' : ''), 3.4);
     saveProgress();
   }
   // where the hero is aiming: a person near the crosshair (desktop) or the best target in front (touch), else what the camera looks at
@@ -622,6 +615,7 @@
     saveProgress(true);
     if (state !== 'playing') return;
     state = 'paused'; input.reset(); show('pause');
+    $('endShiftBtn').hidden = !jobs.duty;
     if (document.pointerLockElement) document.exitPointerLock();
   }
   // the gun shop counter: the city waits while you shop
@@ -636,6 +630,7 @@
   addEventListener('keydown', e => { if (state === 'shop' && e.code === 'Escape') { e.preventDefault(); closeShop(); } });
   $('playBtn').addEventListener('click', play);
   $('resumeBtn').addEventListener('click', play);
+  $('endShiftBtn').addEventListener('click', () => { jobs.end(); play(); });
   $('btnPause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pause(); });
   $('fsBtn').addEventListener('click', fullscreen);
   $('fsBtn2').addEventListener('click', fullscreen);
