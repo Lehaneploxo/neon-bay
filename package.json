@@ -1,0 +1,13 @@
+{
+  "name": "leha-neploxo-world",
+  "version": "1.0.0",
+  "description": "LEHA NEPLOXO WORLD: the game (static files here) and its server (server/), deployed together on Railway",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm ci --prefix server",
+    "start": "node server/server.js"
+  }
+}
