@@ -200,6 +200,51 @@
       else this.setLook(this.look);
     }
     setLook(look) { this.look = NB.dressHero(this.m, look || {}); this.outfit = 'own'; }
+    // sitting on a chair or a sofa ('sit', y: where the feet are so the hips land on the seat), lying on a lounger,
+    // a bed or a gym bench on your back ('lie' / 'bench', y: the top of what you lie on). locked: a scene holds you
+    // there (a private dance, a training set) and lets you up itself; otherwise moving or jumping gets you up
+    sitAt(x, z, heading, y, pose, locked) {
+      this.seat = { x, z, heading, y, pose: pose || 'sit', locked: !!locked };
+      this.x = x; this.z = z; this.y = y; this.vx = this.vz = this.vy = 0; this.heading = heading;
+      this.onGround = true; this.air = 0; this.fallTop = y; this.swim = false; this.aimT = 0;
+      for (const k in this.m.guns) this.m.guns[k].visible = false;
+    }
+    standUp(x, z, heading) {
+      const s = this.seat; if (!s) return;
+      this.seat = null; this.m.root.rotation.x = 0; this.m.hips.rotation.x = 0;
+      if (x == null) {
+        // a step off the seat: forward from a chair, to the side from a bed or a bench
+        const h = s.heading, d = s.pose === 'sit' ? .8 : 1.0;
+        x = s.pose === 'sit' ? s.x + Math.sin(h) * d : s.x + Math.cos(h) * d; z = s.pose === 'sit' ? s.z + Math.cos(h) * d : s.z - Math.sin(h) * d; heading = h;
+      }
+      this.place(x, z, heading == null ? s.heading : heading);
+      this.setWeapon(this.weapon);
+    }
+    // the seated / lying pose, every frame while seated
+    animateSeat(dt) {
+      const m = this.m, s = this.seat, L = (a, b) => a + (b - a) * Math.min(1, dt * 10);
+      m.root.position.set(s.x, s.pose === 'sit' ? s.y : s.y + .13, s.z);
+      if (s.pose === 'sit') {
+        m.root.rotation.y = s.heading; m.root.rotation.x = 0;
+        for (const l of [m.lL, m.lR]) { l.hip.rotation.x = L(l.hip.rotation.x, -1.5); l.kn.rotation.x = L(l.kn.rotation.x, 1.5); }
+        for (const a of [m.aL, m.aR]) { a.sh.rotation.x = L(a.sh.rotation.x, -.55); a.el.rotation.x = L(a.el.rotation.x, -.7); }
+        m.aL.sh.rotation.z = -.15; m.aR.sh.rotation.z = .15;
+      } else {
+        // on the back, head along the heading: turned round and tipped over backwards
+        m.root.rotation.y = s.heading + Math.PI; m.root.rotation.x = -Math.PI / 2;
+        for (const l of [m.lL, m.lR]) { l.hip.rotation.x = L(l.hip.rotation.x, -.05); l.kn.rotation.x = L(l.kn.rotation.x, .08); }
+        if (s.pose === 'bench') {
+          // pressing the bar: arms straight up, bending down between pushes
+          const k = this.punchT > 0 ? Math.sin((1 - this.punchT / .3) * Math.PI) : 0;
+          for (const a of [m.aL, m.aR]) { a.sh.rotation.x = -Math.PI / 2 + .1; a.el.rotation.x = -1.2 + k * 1.15; }
+        } else {
+          for (const a of [m.aL, m.aR]) { a.sh.rotation.x = L(a.sh.rotation.x, -.15); a.el.rotation.x = L(a.el.rotation.x, -.3); }
+          m.aL.sh.rotation.z = -.25; m.aR.sh.rotation.z = .25;
+        }
+      }
+      m.torso.rotation.x = 0; m.torso.rotation.y = 0; m.hips.position.y = .95; m.head.rotation.x = 0;
+      this.blob.visible = false;
+    }
     setWeapon(id) { this.weapon = id; for (const k in this.m.guns) this.m.guns[k].visible = k === id && !this.swim; }   // no gun in hand while swimming
     punch() { this.punchT = .3; }
     fired() { this.recoil = 1; this.aimT = Math.max(this.aimT, .8); }
@@ -251,6 +296,12 @@
         this.m.root.position.set(this.x, this.y + .12 * f, this.z);
         this.blob.visible = false;
         return;
+      }
+      if (this.seat) {
+        const wants = Math.hypot(input.move.x, input.move.y) > .35 || input.jump;
+        if (this.punchT > 0) this.punchT -= dt;
+        if (wants && !this.seat.locked) { input.jump = false; this.standUp(); }
+        else { input.jump = false; this.animateSeat(dt); return; }
       }
       this.m.root.rotation.x = 0;
       if (this.aimT > 0) this.aimT -= dt;

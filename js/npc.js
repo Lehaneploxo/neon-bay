@@ -64,7 +64,7 @@
   const PHRASES = ['Эй, смотри куда идёшь!', 'Осторожнее!', 'Ай!', 'Ну ты даёшь!', 'Полегче, приятель!', 'Куда ты так несёшься?', 'Извините?!', 'Совсем уже…'];
 
   function makeLook(type) {
-    const female = /_f$/.test(type) || type === 'waitress' || type === 'escort' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
+    const female = /_f$/.test(type) || type === 'waitress' || type === 'escort' || type === 'stripper' || ((type === 'jogger' || type === 'elderly') && chance(.5)) || (type === 'cop' && chance(.3));
     const L = { type, female, hs: female ? rand(.9, 1) : rand(.96, 1.08), ws: rand(.92, 1.18), col: {}, hide: new Set(['tie', 'top', 'brim', 'crown', 'shades', 'bag', 'skirt', 'fringe', 'sideL', 'sideR', 'pony', 'bun', 'afro']),
       long: false, skirt: 0, purse: false, speed: rand(1.1, 1.4), lean: 0, run: false };
     const skin = pick(SKIN), hair = type === 'elderly' ? pick(['#9a9a9a', '#c9c9c9', '#e5e5e5']) : pick(HAIR);
@@ -148,9 +148,9 @@
         set('torso', '#b0203a'); sleeves('long', '#b0203a'); legs('pants', '#1a1a22'); set('shoeL shoeR', '#0c0c0e');
         show('brim crown'); set('crown', '#b0203a'); set('brim', '#c9a04a'); L.speed = 1.5; break;
       }
-      case 'escort': { // working girls: loud colours, as little as possible on, thigh boots or heels, big hair
+      case 'escort': case 'stripper': { // working girls: loud colours, as little as possible on, thigh boots or heels, big hair (the strip club's girls: always a swimsuit)
         const NEON = ['#ff2d7a', '#e0102a', '#141418', '#9b30ff', '#ffd23d', '#3fe6e0', '#39ff6a', '#ff7a1a', '#f5f5f0'];
-        const c = pick(NEON), c2 = pick(NEON.filter(x => x !== c)), look = pick(['bikini', 'bikini', 'dress', 'crop', 'body']);
+        const c = pick(NEON), c2 = pick(NEON.filter(x => x !== c)), look = type === 'stripper' ? pick(['bikini', 'bikini', 'body']) : pick(['bikini', 'bikini', 'dress', 'crop', 'body']);
         if (look === 'bikini') {        // a bikini top and tiny hot pants
           set('torso', skin); sleeves('none'); legs('bare', c2); show('top'); set('top', c);
         } else if (look === 'dress') {  // a skin-tight mini dress, bare shoulders
@@ -235,7 +235,7 @@
     else if (type === 'business_m' || type === 'croupier') style = pick(['short', 'short', 'quiff', 'buzz', 'bald']);
     else if (type === 'elderly') style = female ? pick(['bob', 'bun', 'pixie', 'curly']) : pick(['short', 'bald', 'bald', 'buzz']);
     else if (type === 'waitress' || type === 'cook') style = female ? pick(['pony', 'bun']) : 'short';
-    else if (type === 'escort') style = pick(['long', 'long', 'curly', 'pony', 'afro']);
+    else if (type === 'escort' || type === 'stripper') style = pick(['long', 'long', 'curly', 'pony', 'afro']);
     else if (type === 'musician') style = pick(['long', 'mullet', 'afro', 'manbun', 'quiff']);
     else if (female) style = L.long ? pick(['long', 'long', 'curly', 'pony', 'afro']) : pick(['bob', 'pixie', 'bun', 'pony']);
     else style = pick(['short', 'short', 'quiff', 'buzz', 'bald', 'mullet', 'curly', 'afro', 'long', 'manbun']);
@@ -1041,6 +1041,7 @@
         if ((!p.spot && !lying && far && !p.keep) || (lying && (far || (p.deadT > 30 && !p.ems)))) despawn(p);
       }
       for (const s of spots) {
+        if (s.taken) continue;   // the hero is sitting there
         const d = Math.hypot(s.x - px, s.z - pz);
         if (s.vacated) { if (d > lim.spotRange + 12) s.vacated = false; else continue; }
         if (!s.person) { const g = spotGang(s); if (g && (gangHeat[g] > 0 || simT < (s.backAt || 0))) continue; }
@@ -1067,6 +1068,7 @@
     }
 
     const api = {
+      spots,   // benches, chairs, sofas, loungers, beds: the hero can take a free one too (main.js)
       update(dt, t, player, camYaw, dangers, police) {
         if (police) pol = police;
         simT += dt;

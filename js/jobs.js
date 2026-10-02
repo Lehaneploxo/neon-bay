@@ -33,7 +33,7 @@
   const CALL_R = 300;   // how far away calls are shown
   // seconds between street crimes near the hero, by district
   const crimeGap = name => /^(Район 21|Доки|Мост 21)/.test(name || '') ? [20, 40] : /^(Рынок|Гавань)/.test(name || '') ? [45, 75] : [60, 100];
-  const NOT_BRAWLERS = new Set(['escort', 'soldier', 'prisoner', 'security', 'cop', 'medic', 'firefighter', 'waitress', 'cook', 'croupier', 'bellboy', 'bouncer', 'elderly']);
+  const NOT_BRAWLERS = new Set(['escort', 'stripper', 'soldier', 'prisoner', 'security', 'cop', 'medic', 'firefighter', 'waitress', 'cook', 'croupier', 'bellboy', 'bouncer', 'elderly']);
 
   NB.createJobs = function (o) {
     // o: crowd, vehicles, player, police, money { add }, flash, say, wear(outfit|null), ui, audio, inside() -> bool, world,

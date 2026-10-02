@@ -388,14 +388,41 @@
   autos = NB.createAutos({ vehicles, places, shops, player, progress, money: wallet, ui, audio, scene, flash: (t, s) => flashTip(t, s), save: saveProgress });
   business = NB.createBusiness({ places, shops, fronts: entFront, progress, money: wallet, ui, audio, flash: (t, s) => flashTip(t, s), save: saveProgress });
   net.on('timer', m => { if (m.key === 'bank' && m.by && m.by !== net.nick) flashTip('🚨 ' + m.by + ' грабит банк Неплохо Сити!', 4); });   // news for everybody
-  { const sp = shops.spawn(); if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; } }
+  // the game starts in the home you last walked into: inside it (the beach villa too)
+  {
+    const sp = shops.spawn(), vl = places.byId('villa');
+    if (sp && sp.marker && sp.marker.info && (!sp.marker.info.enabled || sp.marker.info.enabled())) {
+      const m = sp.marker, pl = m.place;
+      pl.door = m.door; pl.info = m.info; pl.name = m.info.name || pl.name; if (pl.sign) pl.sign(m.info.title, m.info.sub, m.info.hex);
+      places.current = pl; player.place(pl.inside.x, pl.inside.z, pl.inside.heading); places.disarm();
+    } else if (sp) { player.place(sp.x, sp.z, sp.heading); if (sp.y != null) player.y = sp.y; }
+    else if (progress.homeSpawn === 'villa' && progress.villa && vl && shops.ok('villa')) { places.current = vl; player.place(vl.inside.x, vl.inside.z, vl.inside.heading); places.disarm(); }
+  }
+  // free seats nearby (the same ones passers-by use): sit down, or lie down on a lounger or a bed
+  let seatSpot = null;
+  function seatsNear() {
+    const out = [];
+    if (vehicles.driving) return out;
+    for (const s of places.current ? crowd.spots.concat(places.freeSeats) : crowd.spots) {
+      if ((s.kind !== 'sit' && s.kind !== 'lie') || s.person || s.taken || s.type === 'prisoner') continue;
+      if (Math.abs(s.x - player.x) > 1.5 || Math.abs(s.z - player.z) > 1.5 || Math.abs(s.y - .7 - player.y) > 1.3) continue;
+      out.push({ x: s.x, z: s.z, y: player.y, r: 1.3, short: s.kind === 'sit' ? 'СЕСТЬ' : 'ЛЕЧЬ', label: () => s.kind === 'sit' ? 'Сесть' : 'Прилечь', use: () => {
+        seatSpot = s; s.taken = true;
+        if (s.kind === 'sit') player.sitAt(s.x, s.z, s.heading, s.y - .95, 'sit'); else player.sitAt(s.x, s.z, s.heading, s.y, 'lie');
+        rig.snap(player);
+      } });
+    }
+    return out;
+  }
   // the nearest thing to use (F / the action button), if any
   let interact = null;
   function findInteraction() {
     interact = null;
     if (vehicles.driving || player.dead || respawnT > 0) return;
     let bd = Infinity;
+    if (player.seat) { if (!player.seat.locked) interact = { it: { short: 'ВСТАТЬ', use: () => player.standUp() }, label: 'Встать' }; return; }
     const list = places.current ? places.interactions() : places.interactions().concat(world.spray.interactions(), world.street.interactions(), animals.interactions(player), fashionDoor, securityDoor, world.tropic ? world.tropic.interactions() : [], world.hideaway ? world.hideaway.interactions() : [], world.military ? world.military.interactions() : [], jobs.interactions(), autos.interactions());
+    for (const it of seatsNear()) list.push(it);
     for (const it of list) {
       if (Math.abs(player.y - (it.y || 0)) > 2.2) continue;
       const d = Math.hypot(player.x - it.x, player.z - it.z);
@@ -1024,6 +1051,7 @@
       fire.update(dt, player);
       sea.update(dt);
       taxi.update(dt);
+      if (seatSpot && !player.seat) { seatSpot.taken = false; seatSpot = null; }   // got up: passers-by may sit there again
       places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); business.update(dt); autos.update(dt);
       world.spray.update(dt); world.street.update(dt);
       if ((saveT += dt) > 5) saveProgress();
@@ -1048,7 +1076,7 @@
       if (raw < .5) adapt(raw);
       findInteraction();
       // walking into a door circle takes you inside (or back out)
-      if (!fading) { const m = places.doors(player, !drv && !player.dead && respawnT <= 0); if (m) { if (m.dir === 'in') enterPlace(m.place); else exitPlace(m.place); } }
+      if (!fading) { const m = places.doors(player, !drv && !player.dead && respawnT <= 0); if (m) { if (m.dir === 'in') { enterPlace(m.place); if (m.info && m.info.enter) m.info.enter(); else if (m.place.id === 'villa' && progress.villa && progress.homeSpawn !== 'villa') { progress.homeSpawn = 'villa'; saveProgress(); flashTip('Теперь игра будет начинаться здесь: вилла', 3); } } else exitPlace(m.place); } }
   }
   let last = performance.now(), frameNo = 0, menuT = 0;
   const snapV = v => Math.round(v / 2) * 2;

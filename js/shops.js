@@ -7,7 +7,8 @@
 // Homes: a price to buy, then rent every real day (24 hours of real time, the same for every player once the
 // game is online). The rent is taken from your cash by itself; with no cash for it the door stays locked
 // until the debt is paid, and after 14 unpaid days the home goes back on sale and half its price comes back.
-// Inside: a bed (sleep, save, and you'll wake up here next time), a wardrobe, and a desk for rent and sale.
+// Inside: a bed (sleep, save), a wardrobe, and a desk for rent and sale. The last home of yours you walked into is
+// where the game starts next time — inside it.
 // Online every home has one owner on the whole server (server/world.js): the owner's nick is shown on the
 // door of a house or flat with its own door; in a block of flats the list of flats says who lives where.
 // Buying needs an account and a connection; if somebody else got there a moment earlier, the money comes back.
@@ -19,7 +20,7 @@
   /* ---------- what the shops sell ---------- */
   const heal = (n, msg) => G => {
     const P = G.player;
-    return { desc: '+' + n + ' здоровья', disabled: P.hp >= 100 ? 'Вы сыты' : '', buy: () => { P.hp = Math.min(100, P.hp + n); return msg; } };
+    return { desc: '+' + n + ' здоровья', buy: () => { P.hp = Math.min(100, P.hp + n); return msg; } };   // a full stomach doesn't stop you buying
   };
   const drink = (s, msg) => G => ({ desc: 'Слегка кружит голову', buy: () => { if (G.drunk) G.drunk(s); return msg; } });
   const MENUS = {
@@ -34,7 +35,7 @@
     bbq: [['Рёбрышки BBQ', 26, heal(60, 'Пальчики оближешь')], ['Хот-дог с луком', 7, heal(20, 'Классика')], ['Кукуруза на гриле', 5, heal(12, 'С маслом')], ['Холодное пиво', 6, drink(15, 'Ледяное!')]],
     cafe: [['Круассан', 6, heal(15, 'Хрустящий')], ['Сэндвич с индейкой', 12, heal(35, 'Свежий')], ['Латте', 7, heal(12, 'С сердечком на пенке')], ['Чизкейк', 9, heal(25, 'Нью-йоркский')]],
     market: [['Чипсы', 3, heal(8, 'Хрум')], ['Сэндвич в упаковке', 6, heal(20, 'Сойдёт')], ['Энергетик NEPLOXO', 5, heal(15, 'Заряд бодрости')], ['Пиво, банка', 4, drink(12, 'Пшшш!')],
-      ['Аптечка', 150, G => ({ desc: 'Полное здоровье', disabled: G.player.hp >= 100 ? 'Вы здоровы' : '', buy: () => { G.player.hp = 100; return 'Как новенький'; } })],
+      ['Аптечка', 150, G => ({ desc: 'Полное здоровье', buy: () => { G.player.hp = 100; return 'Как новенький'; } })],
       ['Лотерейный билет «Неплохо»', 20, G => ({ desc: 'Сотрите и узнайте: до $5 000', buy: () => {
         const r = Math.random();
         if (r < .005) { G.money.add(5000, 'Лотерея'); return 'ДЖЕКПОТ! +$5 000!'; }
@@ -238,10 +239,16 @@
         return [
           { name: 'Оплачено ещё ' + d + ' сут. ' + hh + ' ч', desc: 'Аренда ' + fmt(h.rent) + ' в сутки, списывается сама', price: 0, disabled: 'Ок', buy: () => '' },
           { name: 'Оплатить вперёд на 7 суток', desc: 'Чтобы точно не остаться без дома', price: h.rent * 7, label: 'Оплатить', buy: () => { r.paid += 7 * DAY; o.save(); return 'Оплачено на неделю вперёд'; } },
-          { name: P.homeSpawn === h.id ? 'Вы просыпаетесь здесь' : 'Просыпаться здесь', desc: 'При входе в игру вы появитесь у этой двери', price: 0, label: 'Выбрать', disabled: P.homeSpawn === h.id ? 'Выбрано' : '', buy: () => { P.homeSpawn = h.id; o.save(); return 'Теперь вы просыпаетесь здесь'; } },
+          { name: P.homeSpawn === h.id ? 'Игра начинается здесь' : 'Начинать игру здесь', desc: 'При входе в игру вы появитесь в этом доме (так же бывает, когда просто заходите домой)', price: 0, label: 'Выбрать', disabled: P.homeSpawn === h.id ? 'Выбрано' : '', buy: () => { P.homeSpawn = h.id; o.save(); return 'Теперь вы просыпаетесь здесь'; } },
           { name: 'Продать', desc: 'Вернётся половина цены: ' + fmt(back), price: -back, buy: () => { delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null; if (N()) N().free('home', h.id); o.save(); refresh(h); setTimeout(() => { o.ui.close(); o.leave(); }, 600); return 'Продано'; } }
         ];
       } });
+    }
+    // walking into your own home: next time the game starts here
+    function startHere(h) {
+      if (P.homeSpawn === h.id) return;
+      P.homeSpawn = h.id; o.save();
+      o.flash('Теперь игра будет начинаться здесь: ' + h.name, 3);
     }
     const inside = h => ({
       sleep: () => { P.homeSpawn = h.id; o.sleep('Вы выспались. Игра сохранена. Теперь вы просыпаетесь здесь'); },
@@ -253,7 +260,7 @@
       const T = TIER[h.tier], d = doorOf(h, o.fronts); d.hex = T.hex; h.door = d; ALL[h.id] = h;
       h.entrance = o.fronts.add(Object.assign({}, d, { hex: T.hex, title: h.name, sub: '', icon: T.icon, tag: T.word.toUpperCase(), hint: '', boardW: h.tier === 'house' ? 4.4 : 5.6, pillars: !!h.gate, canopy: !h.gate }));
       refresh(h);
-      o.places.addDoor(T.room, d, { name: h.name, title: h.name, sub: h.where, hex: T.hex, enabled: () => ok(h), locked: () => (owned(h) ? debtMenu : buyMenu)(h), use: what => { const f = inside(h)[what]; if (f) f(); } });
+      h.marker = o.places.addDoor(T.room, d, { name: h.name, title: h.name, sub: h.where, hex: T.hex, enabled: () => ok(h), locked: () => (owned(h) ? debtMenu : buyMenu)(h), use: what => { const f = inside(h)[what]; if (f) f(); }, enter: () => startHere(h) });
     }
     // blocks of flats: one door, the flat you own behind it
     for (const B of BLOCKS) {
@@ -269,8 +276,8 @@
       const info = { name: B.name, title: B.name, sub: B.where, hex: T.hex,
         enabled: () => { const u = mineIn(B); if (!u || !ok(u)) return false; info.name = u.name; return true; },   // in you go, to your own flat
         locked: () => { const u = mineIn(B); if (u) debtMenu(u); else blockMenu(B); },
-        use: what => { const u = mineIn(B); if (u) { const f = inside(u)[what]; if (f) f(); } } };
-      o.places.addDoor(T.room, d, info);
+        use: what => { const u = mineIn(B); if (u) { const f = inside(u)[what]; if (f) f(); } }, enter: () => { const u = mineIn(B); if (u) startHere(u); } };
+      B.marker = o.places.addDoor(T.room, d, info);
     }
     // the beach villa (built in places.js, bought at its gate): it pays rent like every other home
     const villa = o.villa ? { id: 'villa', tier: 'mansion', name: 'Вилла на пляже', where: 'Пляж Not Bad', price: o.villa.price, rent: rentFor(o.villa.price) } : null;
@@ -329,7 +336,8 @@
       // the homes you own and can get into (for the garages, autos.js)
       ownedHomes() { const out = []; for (const id in P.homes) { const h = ALL[id]; if (h && h.door && ok(h)) out.push(h); } return out; },
       // where to wake up: the door of the home you last slept in, if it's still yours
-      spawn() { const h = ALL[P.homeSpawn]; if (!h || !h.door || !owned(h)) return null; const d = h.door; return { x: d.x + d.nx * 2.2, z: d.z + d.nz * 2.2, heading: d.heading, y: d.y }; },
+      // where to start: inside the home you last walked into, if it's still yours and the rent is paid (marker: its door)
+      spawn() { const h = ALL[P.homeSpawn]; if (!h || !h.door || !ok(h)) return null; const d = h.door; return { x: d.x + d.nx * 2.2, z: d.z + d.nz * 2.2, heading: d.heading, y: d.y, marker: h.block ? h.block.marker : h.marker }; },
       // for the maps
       icons() {
         const out = [];

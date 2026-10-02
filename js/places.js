@@ -209,6 +209,10 @@
     const { scene, col, C, doors, hotelRoof, towerRoof, hospital, palms, mapShapes } = ctx;
     const K = makeKit(scene, col, C), T = textures(K);
     const places = [], spots = [], outdoor = [], markers = [];
+    // a chair, a sofa, a bed: someone sits there now and then (chance), and when nobody does it's still a free
+    // seat the hero can take (main.js: «СЕСТЬ» / «ЛЕЧЬ»)
+    const freeSeats = [];
+    const seat = (chance, s) => { if (Math.random() < chance) spots.push(s); else freeSeats.push(s); };
     let G = null;   // the running game, handed over in attach()
     const ORIGIN = { ammo: [1500, 1500], bank: [1600, 1500], police: [2400, 1500], hospital: [2550, 1500], firestation: [2700, 1500], dealer: [2850, 1500], arcade: [1500, 1620], diner: [1600, 1620], hotel: [1700, 1620], casino: [1800, 1620], villa: [1500, 1740], motel: [1700, 1740], fashion: [1600, 1860], prison: [1700, 1860], boxing: [1800, 1740], gym: [1900, 1740], strip: [1800, 1860], tower: [1900, 1500], airport: [2000, 1512], shop_clothes: [2100, 1500], shop_food: [2100, 1620], shop_market: [2100, 1740], home_flat: [2100, 1860], home_house: [2200, 1500], home_mansion: [2200, 1640], home_studio: [2200, 1780] };
 
@@ -355,7 +359,7 @@
       // queue ropes, benches, customers, the guard
       for (let x = -9; x <= 7; x += 2) { K.box(x - .06, 0, 2, x + .06, .95, 2.12, '#c9a04a', true); if (x < 7) K.box(x, .8, 2.03, x + 2, .86, 2.09, '#b0203a'); }
       K.box(-11.8, 0, -6, -10.9, .6, -1, '#6a4a2a', true);
-      for (const z of [-5.2, -3.6, -2]) if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x: -11.25, z, y: .66, heading: Math.PI / 2, mix: 'downtown' }));
+      for (const z of [-5.2, -3.6, -2]) seat(.7, K.spot({ kind: 'sit', x: -11.25, z, y: .66, heading: Math.PI / 2, mix: 'downtown' }));
       for (const x of windows) if (Math.random() < .75) spots.push(K.spot({ kind: 'idle', x, z: 3.35, heading: 0, mix: 'downtown', home: true }));
       spots.push(K.spot({ kind: 'guard', x: 9.8, z: -6.3, heading: -Math.PI / 2 - .5, type: 'security', home: true }));
       K.picture('-z', 0, 4.6, 9.83, 8, 1.3, T.sign('BANK OF NEPLOXO', 'надёжно с 1961 года', '#e8c56a', '#1d1a24'));
@@ -454,7 +458,7 @@
       const sx = bx + side * .85;
       K.box(sx - .03, 0, cz + .6, sx + .03, 1.9, cz + .66, '#c8ccd4'); K.box(sx - .1, 1.55, cz + .58, sx + .1, 1.85, cz + .68, '#e8f4ff');
       K.box(sx - .2, 0, cz + 1.0, sx + .2, 1.0, cz + 1.3, '#8a929e'); K.picture('-z', sx, 1.18, cz + .99, .36, .24, ecgTex);
-      if (Math.random() < (chance == null ? .75 : chance)) spots.push(K.spot({ kind: 'lie', x: bx, z: cz - .9, y: .74, heading: 0, type: pick(['elderly', 'tourist_m', 'business_m', 'tourist_f', 'beach_m']) }));
+      seat((chance == null ? .75 : chance), K.spot({ kind: 'lie', x: bx, z: cz - .9, y: .74, heading: 0, type: pick(['elderly', 'tourist_m', 'business_m', 'tourist_f', 'beach_m']) }));
     }
     // a row of lockers against a wall at x (face: +1 opens to +x)
     function lockerRow(x, z0, z1, face, hex) {
@@ -492,7 +496,7 @@
       spots.push(K.spot({ kind: 'idle', x: -4.6, z: 3.8, heading: Math.PI, type: 'cop', home: true }));
       spots.push(K.spot({ kind: 'guard', x: 6.6, z: -4.6, heading: -Math.PI * .75, type: 'cop', home: true }));
       K.box(-7.8, 0, -5, -7.2, .6, -.5, '#5a6478', true);
-      for (const z of [-4.2, -2.6, -1.2]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: -7.5, z, y: .66, heading: Math.PI / 2, mix: 'town', home: true }));
+      for (const z of [-4.2, -2.6, -1.2]) seat(.6, K.spot({ kind: 'sit', x: -7.5, z, y: .66, heading: Math.PI / 2, mix: 'town', home: true }));
       K.picture('-z', 0, 3.25, 5.83, 3.6, .8, T.sign('NEPLOXO CITY PD', 'служить и защищать', '#3f8cff', '#0e1628'));
       const wanted = n => T.poster((g, w, h) => { g.fillStyle = '#f0e6c8'; g.fillRect(0, 0, w, h); g.fillStyle = '#222'; g.font = 'bold 22px Arial'; g.textAlign = 'center'; g.fillText('WANTED', w / 2, 26); g.fillStyle = ['#c98f65', '#8d5a36', '#e8b890'][n]; g.fillRect(w / 2 - 26, 40, 52, 60); g.fillStyle = '#2a1c14'; g.fillRect(w / 2 - 28, 36, 56, 16); g.fillStyle = '#222'; g.font = 'bold 18px Arial'; g.fillText('$' + (n + 1) * 500, w / 2, 130); });
       for (let k = 0; k < 3; k++) K.picture('-x', 7.83, 2.1, 1 + k * 1.4, 1, 1.4, wanted(k), true);
@@ -505,7 +509,7 @@
       K.solid(8.15, 0, .9, 20, 3, 1.05); K.box(8.15, 3, .9, 20, 3.12, 1.05, '#3a3a44');
       for (const cx of [10.1, 14, 18]) {
         K.box(cx - 1.4, 0, 4.9, cx + 1.4, .6, 5.8, '#6a6a74', true); K.box(cx + 1.1, 0, 1.4, cx + 1.6, .45, 1.9, '#d8d8d8');
-        if (Math.random() < .8) spots.push(K.spot({ kind: 'sit', x: cx + rand(-.8, .8), z: 5.3, y: .66, heading: Math.PI, type: 'prisoner', home: true }));
+        seat(.8, K.spot({ kind: 'sit', x: cx + rand(-.8, .8), z: 5.3, y: .66, heading: Math.PI, type: 'prisoner', home: true }));
       }
       spots.push(K.spot({ kind: 'guard', x: 18.5, z: -3.8, heading: Math.PI * .75, type: 'cop', home: true }));
       K.box(9, 0, -5.8, 11, .76, -5, '#5a6478', true); chair(10, -4.5);
@@ -516,7 +520,7 @@
       for (const z of [-2, 2.6]) K.box(-15, 0, z - 1.4, -14.4, .5, z + 1.4, '#8a6a4a', true);
       K.picture('-z', -12, 1.7, 5.83, 2.4, 1.2, K.tex(64, 64, (g, s) => { g.fillStyle = '#b8d4e8'; g.fillRect(0, 0, s, s); g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(8, 0, 10, s); }, false));
       K.picture('-z', -16.5, 3.1, 5.83, 3, .6, T.sign('РАЗДЕВАЛКА', null, '#8fd0ff', '#0e1628'));
-      if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: -14.7, z: -2.4, y: .56, heading: Math.PI / 2, type: 'cop', home: true }));
+      seat(.6, K.spot({ kind: 'sit', x: -14.7, z: -2.4, y: .56, heading: Math.PI / 2, type: 'cop', home: true }));
 
       // the chief's office: a big desk, the chief behind it, flags, books, the president on the wall
       K.box(-17.2, 0, 12.1, -11.8, .78, 13, '#5a3a24', true); K.box(-17.25, .78, 12.05, -11.75, .84, 13.05, '#3a2414');
@@ -533,7 +537,7 @@
       // the detectives' room: four desks with computers, a board with the case on it
       for (const [x, z] of [[-4.5, 8.6], [4.5, 8.6], [-4.5, 12.6], [4.5, 12.6]]) {
         computerDesk(x, z, 1); chair(x, z + .95);
-        if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x, z: z + .95, y: .66, heading: Math.PI, type: 'cop', home: true }));
+        seat(.7, K.spot({ kind: 'sit', x, z: z + .95, y: .66, heading: Math.PI, type: 'cop', home: true }));
       }
       K.picture('-z', 0, 2, 15.83, 3, 1.5, K.tex(256, 128, (g, w, h) => {
         g.fillStyle = '#f4f4f0'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8a070'; g.fillRect(0, 0, w, 6);
@@ -555,18 +559,18 @@
       K.box(16.2, 0, 10.4, 17.8, .76, 11.6, '#6a6a70', true); chair(17, 12.3, '#4a4a52'); chair(17, 9.7, '#4a4a52');
       K.box(16.95, 2.6, 10.95, 17.05, H, 11.05, '#2a2a2a'); K.neon(16.7, 2.45, 10.7, 17.3, 2.6, 11.3, '#fff2c8');
       spots.push(K.spot({ kind: 'sit', x: 17, z: 12.3, y: .66, heading: Math.PI, type: 'prisoner', home: true }));
-      if (Math.random() < .8) spots.push(K.spot({ kind: 'sit', x: 17, z: 9.7, y: .66, heading: 0, type: 'cop', home: true }));
+      seat(.8, K.spot({ kind: 'sit', x: 17, z: 9.7, y: .66, heading: 0, type: 'cop', home: true }));
       doorSign('-x', 13.83, 3.1, 7.2, 'ДОПРОС', '#ff6a6a');
 
       // the break room: a sofa and a TV, a kitchen corner with coffee, a table of doughnuts
       K.box(-16, 0, 24.9, -10, .45, 25.9, '#3a4a6a', true); K.box(-16, .45, 25.55, -10, 1.15, 25.9, '#34425e');
-      for (const x of [-15, -13, -11]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x, z: 25.2, y: .51, heading: Math.PI, type: 'cop', home: true }));
+      for (const x of [-15, -13, -11]) seat(.6, K.spot({ kind: 'sit', x, z: 25.2, y: .51, heading: Math.PI, type: 'cop', home: true }));
       K.box(-14.4, 0, 18, -11.6, .6, 18.5, '#2a2a30', true); K.box(-14.2, .6, 18.15, -11.8, 2.1, 18.25, '#141418'); K.screen('+z', -13, 1.35, 18.27, 2.3, 1.35, 2);
       K.box(-19.9, 0, 17, -19.2, .95, 22.5, '#e8e8ec', true); K.box(-19.85, .95, 18, -19.4, 1.4, 18.5, '#1a1a1e'); K.box(-19.85, .95, 19.5, -19.45, 1.3, 20.2, '#c0c0c8');
       K.box(-19.9, 0, 23.2, -19.1, 2, 24.3, '#f0f0f2', true);
       K.box(-6.5, 0, 19.8, -3.5, .75, 21.8, '#d8c8a8', true);
       for (let k = 0; k < 6; k++) K.box(-6 + (k % 3) * .9, .75, 20.3 + (k > 2 ? .8 : 0), -5.75 + (k % 3) * .9, .83, 20.55 + (k > 2 ? .8 : 0), pick(['#ff9ac8', '#c8743a', '#f2e0b0']));
-      for (const [x, z, h] of [[-5, 19.2, 0], [-5, 22.4, Math.PI]]) { chair(x, z); if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x, z, y: .66, heading: h, type: 'cop', home: true })); }
+      for (const [x, z, h] of [[-5, 19.2, 0], [-5, 22.4, Math.PI]]) { chair(x, z); seat(.5, K.spot({ kind: 'sit', x, z, y: .66, heading: h, type: 'cop', home: true })); }
 
       // the armoury: a counter behind a cage, the quartermaster, racks of guns, ammo crates
       K.box(.15, 0, 20, 19.85, 1.05, 20.8, '#3a4250', true); K.box(.15, 1.05, 19.95, 19.85, 1.1, 20.85, '#8a8a94');
@@ -625,7 +629,7 @@
       K.box(-6.5, 0, 0, -1, 1.1, .9, '#f6f8f8', true); K.box(-6.55, 1.1, -.05, -.95, 1.18, .95, '#3aa88a'); K.box(-6.5, .4, -.02, -1, .55, 0, '#e02a3a');
       computerDesk(-5.2, 1.6, 1, '#e8eef0');
       spots.push(K.spot({ kind: 'idle', x: -3.6, z: 1.9, heading: Math.PI, type: 'medic', home: true }));
-      for (let z = -4.6; z < 0; z += .8) { K.box(7.2, 0, z - .3, 7.8, .6, z + .3, '#5ab0d0', true); K.box(7.8, .6, z - .3, 7.95, 1.2, z + .3, '#5ab0d0'); if (Math.random() < .55) spots.push(K.spot({ kind: 'sit', x: 7.5, z, y: .66, heading: -Math.PI / 2, type: pick(['elderly', 'tourist_m', 'tourist_f']), home: true })); }
+      for (let z = -4.6; z < 0; z += .8) { K.box(7.2, 0, z - .3, 7.8, .6, z + .3, '#5ab0d0', true); K.box(7.8, .6, z - .3, 7.95, 1.2, z + .3, '#5ab0d0'); seat(.55, K.spot({ kind: 'sit', x: 7.5, z, y: .66, heading: -Math.PI / 2, type: pick(['elderly', 'tourist_m', 'tourist_f']), home: true })); }
       K.picture('-z', 0, 3.1, 5.83, 3.4, .75, T.sign('NEPLOXO GENERAL', 'приёмный покой', '#3aa88a', '#f4fbfa'));
       K.picture('-z', -4, 2.3, 5.83, 1.1, 1.1, K.tex(128, 128, (g, s) => { g.fillStyle = '#ffffff'; g.fillRect(0, 0, s, s); g.fillStyle = '#e02a3a'; g.fillRect(s * .38, s * .12, s * .24, s * .76); g.fillRect(s * .12, s * .38, s * .76, s * .24); }, false));
       K.box(4.6, 0, -5.99, 6.4, 2.6, -5.86, '#b8bcc8'); K.box(5.48, 0, -5.86, 5.52, 2.6, -5.83, '#7a7e8a'); K.neon(4.5, 2.6, -5.9, 6.5, 2.7, -5.83, '#6bffd0');
@@ -644,7 +648,7 @@
       lockerRow(19.85, -5.4, 5.6, -1, '#3aa88a');
       K.box(10, 0, -5.9, 15, .45, -5, '#4a7a8a', true); K.box(10, .45, -5.9, 15, 1.1, -5.6, '#426e7c');
       K.box(11.4, 0, -3.8, 13.6, .45, -2.8, '#d8c8a8', true); K.box(11.8, .45, -3.5, 12.1, .6, -3.2, '#f2f2f2');
-      for (const x of [11, 13.6]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x, z: -5.3, y: .51, heading: 0, type: 'medic', home: true }));
+      for (const x of [11, 13.6]) seat(.6, K.spot({ kind: 'sit', x, z: -5.3, y: .51, heading: 0, type: 'medic', home: true }));
       K.picture('-z', 14, 3, 5.83, 3.4, .6, T.sign('ОРДИНАТОРСКАЯ', null, '#3aa88a', '#f4fbfa'));
 
       // two wards of four beds; the nurses' post between them
@@ -657,7 +661,7 @@
       K.box(-3, 0, 11, 3, 1.05, 11.8, '#f6f8f8', true); K.box(-3.05, 1.05, 10.95, 3.05, 1.12, 11.85, '#3aa88a'); K.box(-3, 0, 11.8, -2.2, 1.05, 13.6, '#f6f8f8', true);
       computerDesk(0, 12.5, 1, '#e8eef0');
       spots.push(K.spot({ kind: 'idle', x: 1.6, z: 13.3, heading: Math.PI, type: 'medic', home: true }));
-      for (let z = 7; z < 10; z += .8) { K.box(-7.8, 0, z - .3, -7.2, .6, z + .3, '#5ab0d0', true); if (Math.random() < .4) spots.push(K.spot({ kind: 'sit', x: -7.5, z, y: .66, heading: Math.PI / 2, type: pick(['elderly', 'tourist_f', 'business_m']), home: true })); }
+      for (let z = 7; z < 10; z += .8) { K.box(-7.8, 0, z - .3, -7.2, .6, z + .3, '#5ab0d0', true); seat(.4, K.spot({ kind: 'sit', x: -7.5, z, y: .66, heading: Math.PI / 2, type: pick(['elderly', 'tourist_f', 'business_m']), home: true })); }
       for (const x of [-7.3, 7.3]) { K.box(x - .3, 0, 15.2, x + .3, .5, 15.7, '#8a6a4a', true); K.box(x - .35, .5, 15.15, x + .35, 1.4, 15.75, '#3a9a4a'); }
       doorSign('-z', -4, 3.1, 15.83, 'ОПЕРАЦИОННАЯ', '#ff4f4f', '#fff4f4'); doorSign('-z', 4, 3.1, 15.83, 'ГЛАВВРАЧ', '#3aa88a', '#f4fbfa');
       K.neon(-4.8, 2.6, 15.8, -3.2, 2.7, 15.84, '#ff2233');
@@ -762,7 +766,7 @@
       // the kitchen: a long table with benches, the crew eating, a stove and a fridge
       K.box(-3, 0, 14, 4, .78, 16, '#8a5a3a', true);
       for (const z of [13.3, 16.7]) K.box(-3, 0, z - .25, 4, .45, z + .25, '#6a4a2a', true);
-      for (let x = -2.4; x < 4; x += 1.3) for (const [z, h] of [[13.3, 0], [16.7, Math.PI]]) if (Math.random() < .45) spots.push(K.spot({ kind: 'sit', x, z, y: .51, heading: h, type: 'firefighter', home: true }));
+      for (let x = -2.4; x < 4; x += 1.3) for (const [z, h] of [[13.3, 0], [16.7, Math.PI]]) seat(.45, K.spot({ kind: 'sit', x, z, y: .51, heading: h, type: 'firefighter', home: true }));
       for (let x = -2.4; x < 4; x += 1.6) { K.box(x - .2, .78, 14.6, x + .2, .82, 15, '#f2f2f2'); K.box(x - .12, .82, 14.7, x + .12, .9, 14.9, '#c8743a'); }
       K.box(-4.85, 0, 15.4, -4.05, .95, 20.6, '#e8e8ec', true); K.box(-4.8, .95, 16.2, -4.1, 1.0, 17.4, '#1a1a1e'); K.box(-4.75, .95, 18.6, -4.3, 1.25, 19.1, '#c0c0c8');
       K.box(4.8, 0, 10.2, 5.85, 2.1, 11.6, '#f0f0f2', true); K.box(4.78, 1.2, 10.25, 4.8, 1.22, 11.55, '#c8ccd4');
@@ -782,7 +786,7 @@
         for (const y of [.45, 1.65]) { K.box(bx - .5, y, 26.6, bx + .5, y + .14, 28.8, '#f2f2f2'); K.box(bx - .5, y + .14, 28.2, bx + .5, y + .24, 28.7, '#dfe8f4'); K.box(bx - .5, y - .08, 26.6, bx + .5, y, 28.8, '#5a5a62'); }
         for (const [x, z] of [[bx - .5, 26.6], [bx + .44, 26.6], [bx - .5, 28.74], [bx + .44, 28.74]]) K.box(x, 0, z, x + .06, 2.2, z + .06, '#5a5a62');
         K.solid(bx - .5, 0, 26.6, bx + .5, 2.2, 28.8);
-        if (Math.random() < .6) spots.push(K.spot({ kind: 'lie', x: bx, z: 26.9, y: .62, heading: 0, type: 'firefighter', home: true }));
+        seat(.6, K.spot({ kind: 'lie', x: bx, z: 26.9, y: .62, heading: 0, type: 'firefighter', home: true }));
       }
       K.picture('-z', -8, 3.6, 29.83, 3.4, .6, T.sign('КОМНАТА ОТДЫХА', null, '#ffd84f', '#1a0a0a'));
 
@@ -841,7 +845,7 @@
       // the sales desk
       K.box(9, 0, -3.4, 15, 1.1, -2.4, '#141418', true); K.box(8.95, 1.1, -3.45, 15.05, 1.16, -2.35, '#c9a227'); K.neon(9, .25, -3.45, 15, .3, -3.4, '#3fe6e0', false);
       spots.push(K.spot({ kind: 'idle', x: 12, z: -1.6, heading: Math.PI, type: 'business_f', home: true }), K.spot({ kind: 'idle', x: -12, z: -2, heading: Math.PI / 2, type: 'business_m', home: true }));
-      for (const x of [-18, -16]) { K.box(x - .5, 0, -4.8, x + .5, .45, -3.8, '#2a2a30', true); if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x, z: -4.3, y: .51, heading: 0, mix: 'downtown', home: true })); }
+      for (const x of [-18, -16]) { K.box(x - .5, 0, -4.8, x + .5, .45, -3.8, '#2a2a30', true); seat(.6, K.spot({ kind: 'sit', x, z: -4.3, y: .51, heading: 0, mix: 'downtown', home: true })); }
       // eight stands in two rows, a car on each, turning
       const stands = [];
       const SLOTS = [[-15, 5], [-5, 5], [5, 5], [15, 5], [-15, 16], [-5, 16], [5, 16], [15, 16]];
@@ -875,7 +879,7 @@
       spots.push(K.spot({ kind: 'idle', x: -1.5, z: 6.9, heading: Math.PI, type: 'business_f' }), K.spot({ kind: 'guard', x: 2.5, z: 6.9, heading: Math.PI, type: 'security' }));
       for (const x of [-4.5, 0, 4.5]) { K.box(x - 1, 0, 11.85, x + 1, 3, 11.99, '#c9a04a'); K.box(x - .02, 0, 11.83, x + .02, 3, 11.86, '#7a6a3a'); K.neon(x - 1.1, 3, 11.8, x + 1.1, 3.1, 11.9, '#3fe6e0'); }
       K.picture('-z', 0, 4.8, 11.83, 8, 2, T.sign('NEPLOXO TOWER', '150 метров над Неплохо Сити', '#ff4fa3', '#10081c'));
-      for (const [x0, x1, h] of [[-9.8, -9, Math.PI / 2], [9, 9.8, -Math.PI / 2]]) { K.box(x0, 0, -3, x1, .6, 2, '#2a2230', true); for (let z = -2.4; z < 2; z += 1.2) if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x: (x0 + x1) / 2, z, y: .66, heading: h, mix: 'downtown' })); }
+      for (const [x0, x1, h] of [[-9.8, -9, Math.PI / 2], [9, 9.8, -Math.PI / 2]]) { K.box(x0, 0, -3, x1, .6, 2, '#2a2230', true); for (let z = -2.4; z < 2; z += 1.2) seat(.5, K.spot({ kind: 'sit', x: (x0 + x1) / 2, z, y: .66, heading: h, mix: 'downtown' })); }
       const lobbyLift = pl.P(0, 10.6);
       towerPad = { lobbyLift };
       pl.attach = () => { pl.interactions = [{ ...lobbyLift, r: 2.2, short: 'ЛИФТ', label: () => 'Лифт на крышу — 150 м', use: () => G.teleport(towerPad.roofX, towerPad.roofZ, towerPad.roofH, null, 'Крыша NEPLOXO TOWER', towerRoof.y) }]; };
@@ -997,7 +1001,7 @@
       for (let x = -7.2; x < 2.6; x += 1.2) {
         K.box(x - .05, 0, 2.2, x + .05, .55, 2.3, '#d9d9e2'); K.box(x - .24, .55, 2.01, x + .24, .62, 2.49, '#c8283c');
         K.solid(x - .2, 0, 2.05, x + .2, .62, 2.45);
-        if (Math.random() < .45) spots.push(K.spot({ kind: 'sit', x, z: 2.2, y: .66, heading: 0, mix: 'town', home: true }));
+        seat(.45, K.spot({ kind: 'sit', x, z: 2.2, y: .66, heading: 0, mix: 'town', home: true }));
       }
       K.box(-8, 0, 6.2, 3, 1.0, 6.9, '#b8b8c2', true); K.box(-7, 1.9, 6.4, -2, 2.7, 6.9, '#9a9aa4');
       spots.push(K.spot({ kind: 'idle', x: -3, z: 5.1, heading: Math.PI, type: 'cook', home: true }));
@@ -1007,7 +1011,7 @@
       for (const cx of [-8.2, -4.4, -.6]) {
         for (const s of [-1, 1]) { const x0 = cx + s * .95 - .3, x1 = cx + s * .95 + .3; K.box(x0, 0, -4.8, x1, .6, -3, '#c8283c', true); K.box(s < 0 ? x0 - .2 : x1, .6, -4.8, s < 0 ? x0 : x1 + .2, 1.3, -3, '#a81e30', true); }
         K.box(cx - .45, 0, -4.7, cx + .45, .78, -3.2, '#f4f0ea', true);
-        for (const s of [-1, 1]) if (Math.random() < .55) spots.push(K.spot({ kind: 'sit', x: cx + s * .9, z: -3.9, y: .66, heading: s < 0 ? Math.PI / 2 : -Math.PI / 2, mix: 'town', home: true }));
+        for (const s of [-1, 1]) seat(.55, K.spot({ kind: 'sit', x: cx + s * .9, z: -3.9, y: .66, heading: s < 0 ? Math.PI / 2 : -Math.PI / 2, mix: 'town', home: true }));
       }
       for (let x = -9.5; x < 1.5; x += 2.4) K.neon(x, 1.3, -4.99, x + 1.8, 2.6, -4.97, '#a8e0ff', false);
       // jukebox
@@ -1020,10 +1024,10 @@
       pl.attach = () => {
         pl.interactions = [
           { ...pl.P(-2.5, 1.7), r: 1.9, short: 'МЕНЮ', label: () => 'Меню закусочной', use: () => G.ui.menu({ eyebrow: 'Закусочная', title: 'Меню', items: () => [
-            { name: 'Бургер «Neon»', desc: '+40 здоровья', price: 12, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 40); return 'Вкусно!'; } },
-            { name: 'Картошка фри', desc: '+15 здоровья', price: 5, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Хрустит!'; } },
-            { name: 'Молочный коктейль', desc: '+20 здоровья', price: 7, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); return 'Клубничный, с вишенкой'; } },
-            { name: 'Кофе', desc: '+10 здоровья', price: 3, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'Бодрит!'; } }
+            { name: 'Бургер «Neon»', desc: '+40 здоровья', price: 12, buy: () => { G.player.hp = Math.min(100, G.player.hp + 40); return 'Вкусно!'; } },
+            { name: 'Картошка фри', desc: '+15 здоровья', price: 5, buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Хрустит!'; } },
+            { name: 'Молочный коктейль', desc: '+20 здоровья', price: 7, buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); return 'Клубничный, с вишенкой'; } },
+            { name: 'Кофе', desc: '+10 здоровья', price: 3, buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'Бодрит!'; } }
           ] }) },
           { ...pl.P(8.4, 2.6), r: 1.4, short: 'МУЗЫКА', label: () => 'Музыкальный автомат · $1', use: () => { if (!G.money.spend(1, 'Музыка')) return; song = (song + 1) % SONGS.length; pl.music = SONGS[song]; G.flash('Играет ' + NAMES[song], 2); } }
         ];
@@ -1049,7 +1053,7 @@
       // sofas with guests, potted palms, a chandelier
       for (const [x0, x1, face] of [[-9.8, -9, Math.PI / 2], [-6, -5.2, -Math.PI / 2]]) {
         K.box(x0, 0, -1, x1, .6, 3, '#3fb8b0', true); K.box(face > 0 ? x0 - .0 : x1 - .01, .6, -1, face > 0 ? x0 + .25 : x1, 1.25, 3, '#2f9890');
-        for (let z = -.4; z < 3; z += 1.1) if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x: (x0 + x1) / 2 + (face > 0 ? .1 : -.1), z, y: .66, heading: face, mix: 'strip', home: true }));
+        for (let z = -.4; z < 3; z += 1.1) seat(.5, K.spot({ kind: 'sit', x: (x0 + x1) / 2 + (face > 0 ? .1 : -.1), z, y: .66, heading: face, mix: 'strip', home: true }));
       }
       K.box(-8, 0, .3, -7, .45, 1.7, '#e8e0d4', true);
       const pot = (x, z) => { K.box(x - .35, 0, z - .35, x + .35, .7, z + .35, '#c9a04a', true); for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; K.box(x + Math.cos(a) * .15 - .06, .7, z + Math.sin(a) * .15 - .06, x + Math.cos(a) * .7, 1.6 + (k % 2) * .3, z + Math.sin(a) * .7, '#2f8a44'); } };
@@ -1125,7 +1129,7 @@
       for (const cx of [-6, 6]) {
         K.box(cx - 1.4, 0, 10, cx + 1.4, .9, 11.2, '#5a2a1a', true); K.box(cx - 1.3, .9, 10.1, cx + 1.3, .94, 11.1, '#1f6b3a');
         spots.push(K.spot({ kind: 'idle', x: cx, z: 11.9, heading: Math.PI, type: 'croupier', home: true }));
-        for (const dx of [-.9, 0, .9]) { K.box(cx + dx - .22, 0, 9.1, cx + dx + .22, .62, 9.55, '#c9a04a', true); if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: cx + dx, z: 9.3, y: .66, heading: 0, mix: 'downtown', home: true })); }
+        for (const dx of [-.9, 0, .9]) { K.box(cx + dx - .22, 0, 9.1, cx + dx + .22, .62, 9.55, '#c9a04a', true); seat(.6, K.spot({ kind: 'sit', x: cx + dx, z: 9.3, y: .66, heading: 0, mix: 'downtown', home: true })); }
       }
       // slot machines along both walls
       const slots = [];
@@ -1138,7 +1142,7 @@
         K.box(f - .05, .7, z + .46, f + .05, 1.2, z + .5, '#d9d9e2');
         const sx = f + dir * .75;
         K.box(sx - .22, 0, z - .22, sx + .22, .62, z + .22, '#c9a04a', true);
-        if (Math.random() < .35) spots.push(K.spot({ kind: 'sit', x: sx, z, y: .66, heading: dir > 0 ? -Math.PI / 2 : Math.PI / 2, mix: 'downtown', home: true }));
+        seat(.35, K.spot({ kind: 'sit', x: sx, z, y: .66, heading: dir > 0 ? -Math.PI / 2 : Math.PI / 2, mix: 'downtown', home: true }));
         slots.push({ x: f + dir * .5, z });
       }
       // cashier's cage
@@ -1217,7 +1221,7 @@
       board('-z', -18.5, 5.6, 11.52, 14, 4.3);
       K.box(-28.5, 0, -2, -26.5, .9, 1, '#8a6a4a', true); K.box(-28.45, .9, -1.9, -26.55, 1.5, .9, '#6a4a3a');   // a stack of luggage by the wall
       // seats by the entrance for people waiting to be picked up
-      for (let x = 8; x < 26; x += 1) { K.box(x, 0, 2.2, x + .8, .45, 3, '#2a4a7a'); K.box(x, .45, 2.95, x + .8, 1, 3.05, '#2a4a7a'); if (Math.random() < .3) spots.push(K.spot({ kind: 'sit', x: x + .4, z: 2.6, y: .5, heading: Math.PI, mix: 'town', home: true })); }
+      for (let x = 8; x < 26; x += 1) { K.box(x, 0, 2.2, x + .8, .45, 3, '#2a4a7a'); K.box(x, .45, 2.95, x + .8, 1, 3.05, '#2a4a7a'); seat(.3, K.spot({ kind: 'sit', x: x + .4, z: 2.6, y: .5, heading: Math.PI, mix: 'town', home: true })); }
       K.solid(8, 0, 2.2, 26, .5, 3.05);
       board('-z', 17, 5.6, 11.52, 14, 4.3); K.box(9, 3.2, 11.6, 25, 7.8, 11.95, '#1c2a4a', true);
 
@@ -1258,7 +1262,7 @@
       spots.push(K.spot({ kind: 'idle', x: -29.05, z: 21, heading: Math.PI / 2, type: 'waitress', home: true }));
       for (const x of [-24, -19.5]) for (const z of [18.5, 22.5]) {
         K.box(x - .5, 0, z - .5, x + .5, .78, z + .5, '#f5f5f0', true);
-        for (const s of [-1, 1]) { K.box(x + s * .95 - .25, 0, z - .25, x + s * .95 + .25, .48, z + .25, '#8a5a3a', true); if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: x + s * .95, z, y: .52, heading: s < 0 ? Math.PI / 2 : -Math.PI / 2, mix: 'town', home: true })); }
+        for (const s of [-1, 1]) { K.box(x + s * .95 - .25, 0, z - .25, x + s * .95 + .25, .48, z + .25, '#8a5a3a', true); seat(.6, K.spot({ kind: 'sit', x: x + s * .95, z, y: .52, heading: s < 0 ? Math.PI / 2 : -Math.PI / 2, mix: 'town', home: true })); }
       }
 
       /* --- the gates: rows of seats facing the window, three desks, the runway outside --- */
@@ -1275,7 +1279,7 @@
       K.picture('-z', 0, 4.4, 33.8, 58, 6.2, view);
       for (let x = -28; x <= 28; x += 4) K.box(x - .08, .8, 33.7, x + .08, 7.5, 33.85, '#d0d4dc');
       for (const z of [28, 30.6]) for (const [a, b] of [[-26, -3], [3, 26]]) {
-        for (let x = a; x < b - .2; x += .9) { K.box(x, 0, z - .35, x + .8, .45, z + .35, '#3a5a8a'); K.box(x, .45, z - .42, x + .8, 1, z - .34, '#3a5a8a'); if (Math.random() < .16) spots.push(K.spot({ kind: 'sit', x: x + .4, z, y: .5, heading: 0, mix: 'town', home: true })); }
+        for (let x = a; x < b - .2; x += .9) { K.box(x, 0, z - .35, x + .8, .45, z + .35, '#3a5a8a'); K.box(x, .45, z - .42, x + .8, 1, z - .34, '#3a5a8a'); seat(.16, K.spot({ kind: 'sit', x: x + .4, z, y: .5, heading: 0, mix: 'town', home: true })); }
         K.box(a, 0, z - .1, b, .2, z + .1, '#8a8a96'); K.solid(a, 0, z - .42, b, .5, z + .35);
       }
       [[-16, 1, 'МАЙАМИ'], [0, 2, 'НЬЮ-ЙОРК'], [16, 3, 'ГАВАНА']].forEach(([x, n, city]) => {
@@ -1294,17 +1298,17 @@
       pl.attach = () => {
         pl.interactions = [
           { ...pl.P(10.7, 21.7), r: 1.8, short: 'КУПИТЬ', label: () => 'Duty Free', use: () => G.ui.menu({ eyebrow: 'Аэропорт', title: 'Duty Free', items: () => [
-            { name: 'Шоколад «Neon»', desc: '+15 здоровья', price: 8, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Тает во рту'; } },
-            { name: 'Виски «Neon Gold»', desc: '+40 здоровья, для храбрости', price: 60, disabled: G.player.hp >= 100 ? 'Вы и так бодры' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 40); return 'Мягкий, с дымком'; } },
+            { name: 'Шоколад «Neon»', desc: '+15 здоровья', price: 8, buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Тает во рту'; } },
+            { name: 'Виски «Neon Gold»', desc: '+40 здоровья, для храбрости', price: 60, buy: () => { G.player.hp = Math.min(100, G.player.hp + 40); return 'Мягкий, с дымком'; } },
             { name: 'Сигары «Habana Royal»', desc: 'коробка из 10 штук', price: 50, buy: () => 'Настоящий Майами-стиль' },
             { name: 'Духи «Pink Flamingo»', desc: 'для особого случая', price: 120, buy: () => 'Пахнет закатом и деньгами' },
             { name: 'Очки-авиаторы', desc: 'как у пилотов', price: 90, buy: () => 'Сидят идеально' },
             { name: 'Золотые часы', desc: 'швейцарские, почти', price: 1500, buy: () => 'Время — деньги' }
           ] }) },
           { ...pl.P(-27.6, 20.5), r: 1.9, short: 'КАФЕ', label: () => 'Café Aeroport', use: () => G.ui.menu({ eyebrow: 'Аэропорт', title: 'Café Aeroport', items: () => [
-            { name: 'Капучино', desc: '+10 здоровья', price: 4, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'С корицей'; } },
-            { name: 'Сэндвич с тунцом', desc: '+30 здоровья', price: 9, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 30); return 'Свежий!'; } },
-            { name: 'Пончик в глазури', desc: '+15 здоровья', price: 3, disabled: G.player.hp >= 100 ? 'Вы сыты' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Розовая глазурь, конечно'; } }
+            { name: 'Капучино', desc: '+10 здоровья', price: 4, buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'С корицей'; } },
+            { name: 'Сэндвич с тунцом', desc: '+30 здоровья', price: 9, buy: () => { G.player.hp = Math.min(100, G.player.hp + 30); return 'Свежий!'; } },
+            { name: 'Пончик в глазури', desc: '+15 здоровья', price: 3, buy: () => { G.player.hp = Math.min(100, G.player.hp + 15); return 'Розовая глазурь, конечно'; } }
           ] }) },
           { ...pl.P(-18.5, 7.2), r: 3, short: 'ТАБЛО', label: () => 'Табло вылетов', use: () => { const f = flights.find(q => q.st === 1 || q.st === 2) || flights[0]; G.flash('Рейс ' + f.code + ' в ' + f.city + ': ' + STATUS[f.st][0].toLowerCase() + ', выход ' + f.gate, 3); } }
         ];
@@ -1451,7 +1455,7 @@
       for (const [x, z] of stools) {
         K.box(x - .05, dy, z - .05, x + .05, 1.0, z + .05, '#7a5028'); K.box(x - .22, 1.0, z - .22, x + .22, 1.06, z + .22, BAMBOO); K.solid(x - .18, 0, z - .18, x + .18, 1.06, z + .18);
         const face = Math.atan2(125 - x, -67 - z);
-        if (Math.random() < .5) spots.push(K.spot({ kind: 'sit', x: x - Math.sin(face) * .05, z: z - Math.cos(face) * .05, y: 1.12, heading: face, mix: 'beach', home: true }));
+        seat(.5, K.spot({ kind: 'sit', x: x - Math.sin(face) * .05, z: z - Math.cos(face) * .05, y: 1.12, heading: face, mix: 'beach', home: true }));
       }
       // string lights under the roof edge, torches at the corners
       const BULBS = ['#ff4fa3', '#ffd84f', '#3fe6e0', '#8cff6b', '#ff8a3d'];
@@ -1473,9 +1477,9 @@
       K.box(119.35, 0, -68.3, 119.45, 2.1, -68.1, '#5a3a1a', true); K.box(119.35, 0, -65.9, 119.45, 2.1, -65.7, '#5a3a1a', true);
       mapShapes.push({ x0: 120, z0: -72, x1: 130, z1: -62, c: '#c9a06a', k: 'b' });
       outdoor.push({ x: 121.7, z: -67, r: 1.9, short: 'БАР', label: () => 'Тики-бар: коктейли', use: () => G.ui.menu({ eyebrow: 'Тики-бар', title: 'Коктейли', items: () => [
-        { name: 'Коктейль «Закат»', desc: '+30 здоровья', price: 15, disabled: G.player.hp >= 100 ? 'Вам хватит' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 30); return 'Освежает!'; } },
-        { name: 'Пина колада', desc: '+20 здоровья', price: 10, disabled: G.player.hp >= 100 ? 'Вам хватит' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); return 'Кокос и ананас'; } },
-        { name: 'Кокосовая вода', desc: '+10 здоровья', price: 4, disabled: G.player.hp >= 100 ? 'Вам хватит' : '', buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'Прямо из кокоса'; } }
+        { name: 'Коктейль «Закат»', desc: '+30 здоровья', price: 15, buy: () => { G.player.hp = Math.min(100, G.player.hp + 30); return 'Освежает!'; } },
+        { name: 'Пина колада', desc: '+20 здоровья', price: 10, buy: () => { G.player.hp = Math.min(100, G.player.hp + 20); return 'Кокос и ананас'; } },
+        { name: 'Кокосовая вода', desc: '+10 здоровья', price: 4, buy: () => { G.player.hp = Math.min(100, G.player.hp + 10); return 'Прямо из кокоса'; } }
       ] }) });
     }
 
@@ -1776,7 +1780,7 @@
         K.box(x - 1, 0, z - .45, x + 1, .78, z + .45, STEEL, true);
         for (const s of [-1, 1]) K.box(x - 1, 0, z + s * .85 - .18, x + 1, .45, z + s * .85 + .18, STEEL, true);
         for (let k = 0; k < 5; k++) K.box(x - .6 + k * .28, .78, z - .1, x - .45 + k * .28, .79, z + .1, k % 2 ? '#f2f2ec' : '#c81e2a');
-        for (const s of [-1, 1]) for (const dx of [-.5, .5]) if (Math.random() < .75) spots.push(K.spot({ kind: 'sit', x: x + dx, z: z + s * .9, y: .51, heading: s > 0 ? Math.PI : 0, type: 'prisoner' }));
+        for (const s of [-1, 1]) for (const dx of [-.5, .5]) seat(.75, K.spot({ kind: 'sit', x: x + dx, z: z + s * .9, y: .51, heading: s > 0 ? Math.PI : 0, type: 'prisoner' }));
       }
       // the cells: seven a side on each tier, 3 m wide, bars in front
       const cells = [];
@@ -1834,15 +1838,17 @@
     // one training session in a place: pl gets busy() and onInput() while it runs
     function trainer(pl) {
       const T = { on: false, t: 0, n: 0, last: false, stat: null, label: '' };
+      let x0 = 0, z0 = 0, h0 = 0;   // where the hero stands up after a set on the bench
       pl.busy = () => T.on;
       pl.onInput = input => { if (!T.on) return; if (input.fire && !T.last) { T.n++; G.player.punch(); G.audio.punch(null, false); } T.last = input.fire; input.fire = false; input.jump = false; };
-      const start = (stat, label, x, z, heading) => {
+      const start = (stat, label, x, z, heading, lie) => {
         if (T.on) return;
         const S = stats();
         if (S[stat] >= 100) { G.flash(STAT_NAME[stat] + ' уже на максимуме — 100', 2.4); return; }
         if (S.got[stat] >= DAY_CAP) { G.flash('На сегодня хватит: ' + STAT_NAME[stat].toLowerCase() + ' +' + DAY_CAP + ' за день. Приходите завтра', 3); return; }
-        Object.assign(T, { on: true, t: 8, n: 0, last: true, stat, label });
-        G.player.place(pl.X(x), pl.Z(z), heading); if (G.view) G.view(heading + Math.PI, .25);
+        Object.assign(T, { on: true, t: 8, n: 0, last: true, stat, label }); x0 = x; z0 = z; h0 = heading;
+        if (lie) G.player.sitAt(pl.X(lie.x), pl.Z(lie.z), lie.heading, lie.y, 'bench', true); else G.player.place(pl.X(x), pl.Z(z), heading);
+        if (G.view) G.view(heading + Math.PI, lie ? .55 : .25);
       };
       const update = dt => {
         if (!T.on) return;
@@ -1850,6 +1856,7 @@
         pl.hudInfo = { tag: 'ТРЕНИРОВКА', text: T.label + ' — жмите УДАР как можно чаще! Повторов: ' + T.n, time: '0:0' + Math.max(0, Math.ceil(T.t)), warn: T.t < 3 };
         if (T.t > 0) return;
         T.on = false; pl.hudInfo = null;
+        if (G.player.seat) G.player.standUp(pl.X(x0), pl.Z(z0), h0);
         const S = stats(), gain = Math.max(T.n > 3 ? 1 : 0, Math.min(DAY_CAP - S.got[T.stat], 100 - S[T.stat], Math.round(T.n / 5)));
         S[T.stat] += gain; S.got[T.stat] += gain; G.save();
         G.flash(gain ? T.label + ': +' + gain + ' · ' + STAT_NAME[T.stat] + ' ' + S[T.stat] + '/100' : 'Слабовато. Жмите чаще!', 3);
@@ -1887,7 +1894,7 @@
       for (const [x, z] of [[-2, 7.5], [2, 7.5], [-2, 10.5], [2, 10.5]]) { K.box(x - .02, 4.6, z - .02, x + .02, 6, z + .02, '#444450'); K.neon(x - .4, 4.4, z - .4, x + .4, 4.6, z + .4, '#fff6dc'); }
       // heavy bags along the left wall, benches of spectators on the right, a scoreboard
       for (const z of [1, 5, 9, 13]) { K.box(-9.1, 3.1, z - .02, -9.06, 6, z + .02, '#6a6a70'); K.box(-9.45, 1.1, z - .35, -8.75, 3.1, z + .35, '#b0202a', true); K.box(-9.47, 2.9, z - .37, -8.73, 3.1, z + .37, '#1a1a1e'); }
-      for (let z = 1; z < 17; z += 2.6) { K.box(8.4, 0, z - .9, 9.6, .45, z + .9, '#5a4030', true); for (const dz of [-.5, .5]) if (Math.random() < .6) spots.push(K.spot({ kind: 'sit', x: 9, z: z + dz, y: .51, heading: -Math.PI / 2, type: Math.random() < .5 ? 'beach_m' : 'worker' })); }
+      for (let z = 1; z < 17; z += 2.6) { K.box(8.4, 0, z - .9, 9.6, .45, z + .9, '#5a4030', true); for (const dz of [-.5, .5]) seat(.6, K.spot({ kind: 'sit', x: 9, z: z + dz, y: .51, heading: -Math.PI / 2, type: Math.random() < .5 ? 'beach_m' : 'worker' })); }
       for (const [x, z] of [[-7.5, 3], [-7.5, 11]]) spots.push(K.spot({ kind: 'guard', x, z, heading: -Math.PI / 2, type: 'beach_m' }));
       spots.push(K.spot({ kind: 'idle', x: 5.9, z: 9, heading: -Math.PI / 2, type: 'business_m' }));   // the coach
       // five fighters, each harder than the last
@@ -2005,7 +2012,7 @@
         K.box(-8.4, 0, z - .3, -6.6, .45, z + .3, '#1a1a1e', true);
         for (const s of [-1, 1]) K.box(-7.9 - .04, 0, z + s * .7 - .04, -7.9 + .04, 1.25, z + s * .7 + .04, '#8a8a90');
         K.box(-7.95, 1.2, z - 1.1, -7.85, 1.26, z + 1.1, '#c9c9d4'); for (const s of [-1, 1]) K.box(-8.15, .95, z + s * .95 - .06, -7.65, 1.5, z + s * .95 + .06, '#1a1a1e');
-        ints.push({ ...pl.P(-5.9, z), r: 1.2, short: 'ЖИМ', label: () => 'Жим лёжа (сила)', use: () => tr.start('str', 'Жим лёжа', -6.2, z, -Math.PI / 2) });
+        ints.push({ ...pl.P(-5.9, z), r: 1.2, short: 'ЖИМ', label: () => 'Жим лёжа (сила)', use: () => tr.start('str', 'Жим лёжа', -6.2, z, -Math.PI / 2, { x: -6.5, z, heading: -Math.PI / 2, y: .45 }) });   // on the bench, the bar over the chest
       }
       // treadmills on the right
       for (const z of [1.5, 6, 10.5]) {
@@ -2044,21 +2051,21 @@
       // the stage and the runway, lit round the edges, three chrome poles
       K.box(-4.5, 0, 13, 4.5, SY, 19.8, '#1a0a14', true); K.box(-1.3, 0, 7, 1.3, SY, 13, '#1a0a14', true);
       for (const [a, b, c, d] of [[-4.5, 12.96, -1.3, 13.02], [1.3, 12.96, 4.5, 13.02], [-1.34, 7, -1.28, 13], [1.28, 7, 1.34, 13], [-1.3, 6.96, 1.3, 7.02]]) K.neon(a, SY - .08, b, c, SY, d, '#ff2d7a', false);
-      for (const [x, z] of [[-2.8, 16], [2.8, 16], [0, 8.6]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 5 - SY, 8), new THREE.MeshLambertMaterial({ color: 0xe8e8f0, emissive: 0x222228 })); p.position.set(pl.X(x), SY + (5 - SY) / 2, pl.Z(z)); scene.add(p); K.solid(x - .08, SY, z - .08, x + .08, 5, z + .08); spots.push(K.spot({ kind: 'dance', x: x, z: z - .45, y: SY, fixedY: true, heading: Math.PI, type: 'escort' })); }
-      spots.push(K.spot({ kind: 'dance', x: 0, z: 15.5, y: SY, fixedY: true, heading: Math.PI, type: 'escort' }));
+      for (const [x, z] of [[-2.8, 16], [2.8, 16], [0, 8.6]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 5 - SY, 8), new THREE.MeshLambertMaterial({ color: 0xe8e8f0, emissive: 0x222228 })); p.position.set(pl.X(x), SY + (5 - SY) / 2, pl.Z(z)); scene.add(p); K.solid(x - .08, SY, z - .08, x + .08, 5, z + .08); spots.push(K.spot({ kind: 'dance', x: x, z: z - .45, y: SY, fixedY: true, heading: Math.PI, type: 'stripper' })); }
+      spots.push(K.spot({ kind: 'dance', x: 0, z: 15.5, y: SY, fixedY: true, heading: Math.PI, type: 'stripper' }));
       // coloured spotlights on the stage
       for (const [x, z, c] of [[-2.8, 14, 0xff2d7a], [2.8, 14, 0x9b30ff], [0, 9.5, 0x3fe6e0]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.1, 1.2, 4.2, 14, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: .13, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.position.set(pl.X(x), SY + 2.1, pl.Z(z)); scene.add(m); }
       // chairs and small tables round the runway, men watching
       for (const s of [-1, 1]) for (const z of [7.8, 9.6, 11.4]) {
         const x = s * 2.3; K.box(x - .25, 0, z - .25, x + .25, .45, z + .25, '#6a1e3a', true); K.box(x + s * .2 - .03, .45, z - .25, x + s * .25, 1, z + .25, '#6a1e3a');
-        if (Math.random() < .7) spots.push(K.spot({ kind: 'sit', x: x - s * .02, z, y: .51, heading: -s * Math.PI / 2, type: Math.random() < .6 ? 'business_m' : 'tourist_m' }));
+        seat(.7, K.spot({ kind: 'sit', x: x - s * .02, z, y: .51, heading: -s * Math.PI / 2, type: Math.random() < .6 ? 'business_m' : 'tourist_m' }));
         K.box(x + s * 1 - .25, 0, z - .25, x + s * 1 + .25, .7, z + .25, '#1a0a14', true); K.neon(x + s * 1 - .05, .7, z - .05, x + s * 1 + .05, .85, z + .05, '#ffd84f', false);
       }
       // the bar along the left wall
       K.box(-10.9, 0, 0, -8.6, 1.1, 11, '#1a0a14', true); K.box(-8.65, 1.05, 0, -8.5, 1.12, 11, '#ff2d7a');
       for (const y of [1.6, 2.3]) { K.neon(-10.95, y - .05, 0.5, -10.9, y, 10.5, '#9b30ff', false); for (let z = .8; z < 10.3; z += .38) K.neon(-10.88, y, z, -10.78, y + .3, z + .09, ['#5fd38a', '#ffb347', '#ff6b8a', '#9fd8ff'][(z * 7 | 0) % 4], false); }
-      spots.push(K.spot({ kind: 'idle', x: -10, z: 5.5, heading: Math.PI / 2, type: 'waitress' }));
-      for (const z of [2, 4, 7]) spots.push(K.spot({ kind: 'idle', x: -8, z, heading: -Math.PI / 2, type: Math.random() < .5 ? 'business_m' : 'escort' }));
+      spots.push(K.spot({ kind: 'idle', x: -10, z: 5.5, heading: Math.PI / 2, type: 'stripper' }));   // the waitress too: a swimsuit
+      for (const z of [2, 4, 7]) spots.push(K.spot({ kind: 'idle', x: -8, z, heading: -Math.PI / 2, type: Math.random() < .5 ? 'business_m' : 'stripper' }));
       // two VIP booths on the right with curtains and a sofa
       for (const z0 of [1, 8]) {
         K.box(7, 0, z0 - .1, 11, 3, z0 + .1, '#6a1e3a', true); K.box(7, 0, z0 + 5.9, 11, 3, z0 + 6.1, '#6a1e3a', true);
@@ -2084,17 +2091,17 @@
         pl.hudInfo = { tag: 'VIP', text: 'Приватный танец…', time: '0:' + String(Math.max(0, Math.ceil(V.t))).padStart(2, '0'), warn: false };
         if (V.t <= 0) {
           V.on = false; pl.hudInfo = null; fade(true);
-          setTimeout(() => { fade(false); if (g && G.crowd.people.includes(g)) { G.say(g, pick(['Приходи ещё, красавчик', 'Ты мой любимый клиент', 'Неплохо провели время'])); G.crowd.releasePuppet(g); } G.player.place(pl.X(5.5), pl.Z(4), -Math.PI / 2); }, 260);
+          setTimeout(() => { fade(false); if (g && G.crowd.people.includes(g)) { G.say(g, pick(['Приходи ещё, красавчик', 'Ты мой любимый клиент', 'Неплохо провели время'])); G.crowd.releasePuppet(g); } G.player.standUp(pl.X(5.5), pl.Z(4), -Math.PI / 2); }, 260);
           G.flash('Неплохо! Приватный танец окончен', 2.6);
         }
       };
-      pl.onLeave = () => { if (V.on) { V.on = false; pl.hudInfo = null; if (V.girl) G.crowd.releasePuppet(V.girl); } };
+      pl.onLeave = () => { if (V.on) { V.on = false; pl.hudInfo = null; if (V.girl) G.crowd.releasePuppet(V.girl); G.player.standUp(); } };
       pl.attach = () => {
         pl.interactions = [
           { ...pl.P(0, 6.2), r: 1.6, short: 'ЧАЕВЫЕ', label: () => 'Бросить на сцену $20', use: () => {
             if (!G.money.spend(20, 'Чаевые')) return;
             rain(0, 8.2); G.audio.cash(false);
-            const d = G.crowd.people.filter(p => p.look.type === 'escort' && p.spot && Math.abs(p.x - pl.X(0)) < 5 && p.z > pl.Z(7)).sort((a, b) => a.z - b.z)[0];
+            const d = G.crowd.people.filter(p => p.look.type === 'stripper' && p.spot && Math.abs(p.x - pl.X(0)) < 5 && p.z > pl.Z(7)).sort((a, b) => a.z - b.z)[0];
             if (d) G.say(d, pick(['Спасибо, милый!', 'Ещё, ещё!', 'Ты такой щедрый', 'Этот танец для тебя']));
           } },
           { ...pl.P(-8, 9.5), r: 1.6, short: 'БАР', label: () => 'Коктейль · $15', use: () => { if (!G.money.spend(15, 'Коктейль')) return; if (G.drunk) G.drunk(25); G.audio.pickup(); G.flash('Коктейль «Неплохо»: голова приятно кружится', 2.4); } },
@@ -2104,9 +2111,9 @@
             fade(true);
             setTimeout(() => {
               fade(false);
-              const g = G.crowd.spawnPuppet('escort', pl.X(8.6), pl.Z(4), Math.PI / 2); if (!g) return;
+              const g = G.crowd.spawnPuppet('stripper', pl.X(8.6), pl.Z(4), Math.PI / 2); if (!g) return;
               g.puppet.anim = 'dance'; V.on = true; V.t = 14; V.girl = g;
-              G.player.place(pl.X(10.3), pl.Z(4), -Math.PI / 2); if (G.view) G.view(Math.PI / 2, .3);
+              G.player.sitAt(pl.X(10.35), pl.Z(4), -Math.PI / 2, .56 - .95, 'sit', true); if (G.view) G.view(Math.PI / 2, .3);   // on the sofa
               G.say(g, pick(['Расслабься, красавчик…', 'Это только для тебя', 'Садись поудобнее']));
             }, 260);
           } }
@@ -2454,7 +2461,7 @@
        ===================================================================== */
     for (const pl of places) if (!pl.update) pl.update = () => {};
     const api = {
-      list: places, spots, VILLA_PRICE, garage, tiki, heliPad, towerRoof, yacht, dealer,
+      list: places, spots, freeSeats, VILLA_PRICE, garage, tiki, heliPad, towerRoof, yacht, dealer,
       current: null,
       byId: id => places.find(p => p.id === id),
       // which interior a point is in
