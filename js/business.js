@@ -21,6 +21,9 @@
   // the shops from shops.js: a price by what they are
   const SHOP_PRICE = { lobster: 250000, sushi: 150000, coco: 90000, luxe: 450000, mall: 200000, guns: 250000, market: 80000, clothes: 120000, food: 60000 };
   const NOT_SALES = /^(Аренда|Штраф|Лечение|Покупка виллы|Возврат)/;   // money that leaves you inside but isn't a purchase there
+  const shopPrice = s => SHOP_PRICE[s.menu] || SHOP_PRICE[s.stock] || SHOP_PRICE[s.kind] || 80000;
+  // the price list for the server too (server/tools/prices.js reads it: a business is yours only if you paid this)
+  NB.BIZ_PRICES = { PLACES, shopPrice };
 
   NB.createBusiness = function (o) {
     // o: places, shops, fronts (entrances made in main), progress, money { add, spend }, ui, flash, audio, save
@@ -29,7 +32,7 @@
     const N = () => NB.net;
     const LIST = [];
     for (const id in PLACES) if (o.places.byId(id)) LIST.push(Object.assign({ id, place: id }, PLACES[id]));
-    for (const s of o.shops.shops) LIST.push({ id: s.id, name: s.name, where: s.sub, price: SHOP_PRICE[s.menu] || SHOP_PRICE[s.stock] || SHOP_PRICE[s.kind] || 80000, shop: s });
+    for (const s of o.shops.shops) LIST.push({ id: s.id, name: s.name, where: s.sub, price: shopPrice(s), shop: s });
     const BY = {}; for (const b of LIST) BY[b.id] = b;
     const owner = b => (N() ? N().owner('biz', b.id) : null);
     const mine = b => !!P.biz[b.id];
@@ -40,17 +43,17 @@
       if (pl.info && pl.info.biz) return BY[pl.info.biz] || null;
       return PLACES[pl.id] && BY[pl.id] || null;
     }
-    // a purchase inside: half of it to the owner (the server skips your own business)
-    function spent(n, note) {
-      const b = here(); if (!b || !(n > 0) || NOT_SALES.test(note || '')) return;
-      if (N()) N().spent(b.id, n);
+    // a purchase inside: which business it was in (the server gives half to its owner, not for buying in your own)
+    function saleAt(n, note) {
+      const b = here(); if (!b || !(n > 0) || NOT_SALES.test(note || '')) return null;
+      return b.id;
     }
 
     function buy(b) {
       P.biz[b.id] = { price: b.price, t: Date.now() }; o.save(); o.audio.fare();
       N().claim('biz', b.id).then(ok => {
         if (ok || !P.biz[b.id]) return;
-        delete P.biz[b.id]; o.money.add(b.price, 'Возврат: ' + b.name); o.save();
+        delete P.biz[b.id]; o.money.add(b.price, 'Возврат: ' + b.name, 'biz:' + b.id); o.save();
         o.flash(b.name + ': кто-то купил чуть раньше вас — деньги вернули', 4);
       });
       return 'Поздравляем! ' + b.name + ' — ваш бизнес. Половина того, что тратят в нём другие игроки, — ваша';
@@ -62,9 +65,9 @@
         const rows = [{ name: 'Как это работает', desc: 'Купите заведение — и половина того, что в нём тратят другие игроки, будет приходить вам, даже когда вас нет в игре. Вторая половина — расходы заведения. Продать можно здесь же за половину цены', price: 0, disabled: 'Понятно', buy: () => '' }];
         const sorted = LIST.slice().sort((a, b) => (mine(b) - mine(a)) || a.price - b.price);
         for (const b of sorted) {
-          if (mine(b)) { rows.push({ name: '★ ' + b.name, desc: 'Ваш бизнес · ' + b.where + (earned[b.id] ? ' · заработал ' + fmt(earned[b.id]) : '') + ' · продать за ' + fmt((P.biz[b.id].price || b.price) / 2), price: -Math.round((P.biz[b.id].price || b.price) / 2), label: 'Продать', buy: () => sellOnce(b) }); continue; }
+          if (mine(b)) { rows.push({ name: '★ ' + b.name, desc: 'Ваш бизнес · ' + b.where + (earned[b.id] ? ' · заработал ' + fmt(earned[b.id]) : '') + ' · продать за ' + fmt((P.biz[b.id].price || b.price) / 2), price: -Math.round((P.biz[b.id].price || b.price) / 2), label: 'Продать', asset: 'biz:' + b.id, earn: 'Продажа бизнеса: ' + b.name, buy: () => sellOnce(b) }); continue; }
           const who = owner(b), why = who ? 'Владелец: ' + who : N() ? N().cantBuy('biz', b.id) : 'Нет связи с сервером';
-          rows.push({ name: b.name, desc: b.where + (who ? ' · владелец ' + who : ' · свободен'), price: why ? 0 : b.price, label: 'Купить', disabled: why, buy: () => buy(b) });
+          rows.push({ name: b.name, desc: b.where + (who ? ' · владелец ' + who : ' · свободен'), price: why ? 0 : b.price, label: 'Купить', disabled: why, asset: 'biz:' + b.id, buy: () => buy(b) });
         }
         return rows;
       } });
@@ -88,7 +91,7 @@
     function hook() {
       N().on('biz_income', m => {
         const b = BY[m.id], name = b ? b.name : m.id;
-        o.money.add(m.n, 'Бизнес: ' + name);
+        o.money.add(m.n, 'Бизнес: ' + name, null, !!m.w);   // (counted on the server already)
         if (m.away) { o.flash('Пока вас не было, ' + name + ' заработал ' + fmt(m.n), 4); return; }
         incSum += m.n; incName = incSum === m.n ? name : 'ваши бизнесы'; if (incT <= 0) incT = 4;
       });
@@ -96,14 +99,16 @@
       N().on('owners', () => { if (!N().guest) N().sync('biz', Object.keys(P.biz)); });
       N().on('own_sync', m => {
         if (m.kind !== 'biz') return;
-        for (const id of m.lost) { const r = P.biz[id], b = BY[id]; if (!r) continue; delete P.biz[id]; o.money.add(r.price || (b && b.price) || 0, 'Возврат: ' + (b ? b.name : id)); o.flash((b ? b.name : id) + ' принадлежит другому игроку — деньги вернули', 4); }
+        for (const id of m.lost) { const r = P.biz[id], b = BY[id]; if (!r) continue; delete P.biz[id]; o.money.add(r.price || (b && b.price) || 0, 'Возврат: ' + (b ? b.name : id), 'biz:' + id); o.flash((b ? b.name : id) + ': по данным сервера этот бизнес не ваш — если вы за него платили, деньги вернутся', 5); }
         for (const id of m.mine) if (BY[id] && !P.biz[id]) P.biz[id] = { price: BY[id].price, t: Date.now() };
         o.save();
       });
+      // taken away by the administrator: gone without a refund
+      N().on('own', m => { if (m.kind === 'biz' && !m.nick && m.revoked && P.biz[m.id]) { delete P.biz[m.id]; o.save(); } });
     }
     let hooked = false;
     return {
-      list: LIST, here, spent,
+      list: LIST, here, saleAt,
       update(dt) {
         if (!hooked && N()) { hooked = true; hook(); }
         if (incT > 0 && (incT -= dt) <= 0 && incSum) { o.flash('💼 ' + incName + ': +' + fmt(incSum) + ' от покупок других игроков', 3); incSum = 0; }

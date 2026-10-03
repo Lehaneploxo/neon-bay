@@ -1173,6 +1173,8 @@
       dropRemote(car) { if (cars.includes(car)) removeCar(car); },
       // another player's game takes over the traffic here: this game's own traffic goes
       clearAmbient() { for (const c of cars.slice()) if (c.ai && c !== driving) removeCar(c); },
+      // this game takes over the traffic (sync.js): fill the streets at once, as at the start
+      refill() { first = true; popT = 0; },
       // a car kept in the hero's garage, put back where it was parked
       spawnParked(id, x, z, h, color, accent) {
         const model = byId[id]; if (!model) return null;

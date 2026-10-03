@@ -705,7 +705,7 @@
             use: () => G.ui.menu({ eyebrow: 'Больница', title: 'Приёмный покой', items: () => [
               { name: 'Лечение', desc: 'Полностью восстановить здоровье', price: 40, disabled: G.player.hp >= 100 ? 'Вы здоровы' : '', buy: () => { G.player.hp = 100; return 'Здоровье восстановлено'; } },
               { name: 'Бронежилет', desc: 'Со склада больницы, дешевле, чем в магазине', price: 150, disabled: G.getArmor() >= 100 ? 'Уже надет' : '', buy: () => { G.setArmor(100); return 'Бронежилет надет'; } },
-              { name: 'Сдать кровь', desc: '−25 здоровья, +$25. Раз в 5 минут', price: -25, disabled: Date.now() - bloodT < 300000 ? 'Приходите позже' : G.player.hp <= 30 ? 'Слишком мало здоровья' : '', buy: () => { bloodT = Date.now(); G.player.hp -= 25; return 'Спасибо, вы спасли жизнь!'; } },
+              { name: 'Сдать кровь', desc: '−25 здоровья, +$25. Раз в 5 минут', price: -25, earn: 'Сдать кровь', disabled: Date.now() - bloodT < 300000 ? 'Приходите позже' : G.player.hp <= 30 ? 'Слишком мало здоровья' : '', buy: () => { bloodT = Date.now(); G.player.hp -= 25; return 'Спасибо, вы спасли жизнь!'; } },
               { name: 'Работа на скорой', desc: 'Устроиться или уволиться — у главврача: прямо через пост медсестры, дверь справа. Смена — в ординаторской (справа от входа)', price: 0, disabled: 'Понятно', buy: () => '' }
             ] }) },
           { ...pl.P(18.2, 0), r: 2.4, short: 'СМЕНА', label: () => on() ? 'Ординаторская: закончить смену' : job() ? 'Ординаторская: начать смену' : 'Шкафчики врачей (для сотрудников)', use: () => G.jobs.locker('ems') },
@@ -1420,11 +1420,11 @@
         use: () => {
           const why = NB.net ? NB.net.cantBuy('home', 'villa') : 'Нет связи с сервером';
           if (why) { G.flash(why, 2.6); G.audio.deny(); return; }
-          if (!G.money.spend(VILLA_PRICE, 'Покупка виллы')) return;
+          if (!G.money.spend(VILLA_PRICE, 'Покупка виллы', 'home:villa')) return;
           G.progress.villa = true; G.save(); G.flash('Вилла ваша! Дверь открыта, гараж на две машины — ваш', 4); G.audio.fare();
           NB.net.claim('home', 'villa').then(ok => {
             if (ok || !G.progress.villa) return;
-            G.progress.villa = false; G.money.add(VILLA_PRICE, 'Возврат: вилла'); G.save();
+            G.progress.villa = false; G.money.add(VILLA_PRICE, 'Возврат: вилла', 'home:villa'); G.save();
             G.flash('Виллу купили чуть раньше вас — деньги вернули', 4);
           });
         } });

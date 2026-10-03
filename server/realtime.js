@@ -15,16 +15,21 @@ const MAX_MSGS_PER_SEC = 40;
 // once per 30 minutes; nothing drops from guests, from accounts younger than 2 hours, or in safe places
 // (the spawn beach, the hospital, your own home — the victim's game says where it is)
 // one world for everybody: players close together (the same building, or within GROUP_R outdoors) form a
-// group; the one who has been in the game longest (lowest id) runs the city's traffic and people for the whole
-// group and sends them out ('ents'); the others draw them. Each player also sends what only they run (their own
+// group; the one with the best connection runs the city's traffic and people for the whole group and sends them
+// out ('ents'); the others draw them. The server pings everybody every PING_MS; a host keeps the job until
+// someone's connection is clearly better or theirs stalls (no 'st' for STALE_MS: a hidden tab, a lost signal). Each player also sends what only they run (their own
 // police units, bodyguards). Requests about someone else's car or person (a punch, an arrest, taking a car) go to
 // whoever runs it ('ent_req' -> 'ent_res').
 const GROUP_R = 240;
+// a host keeps the job unless its game has said nothing for STALE_MS, or its connection has been much worse
+// than the best one (twice the round trip + 150 ms) for WORSE_TICKS seconds in a row: phones' connections jitter
+const PING_MS = 2000, STALE_MS = 2000, WORSE_TICKS = 5;
 const KO_SHARE = .005, KO_CAP = 10000, KO_PAIR_MS = 30 * 60 * 1000, NEWBIE_MS = 2 * 3600 * 1000, CASH_LIFE_MS = 60000;
 
 function attach(httpServer, o) {
-  // o: { verifyToken(token) -> accountId|null, store, origins: [RegExp], world (shared state, optional) }
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 16 * 1024 });
+  // o: { verifyToken(token) -> accountId|null, store, origins: [RegExp], world (shared state, optional), wallet (money, optional) }
+  const W = o.wallet;
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 64 * 1024 });   // a host's cars and people in a busy street are ~20 KB
   const players = new Map();   // id -> player
   const chat = [];
   let nextId = 1, cashId = 0;
@@ -42,16 +47,20 @@ function attach(httpServer, o) {
   wss.on('connection', (ws, req) => {
     const origin = req.headers.origin;
     if (origin && !o.origins.some(re => re.test(origin))) { ws.close(4003, 'origin'); return; }
-    const p = { id: nextId++, ws, ready: false, nick: '', guest: true, accountId: 0, look: null, outfit: 'own',
+    const p = { q: Promise.resolve(), sendMoney: money => sendMoney(p, money), id: nextId++, ws, ready: false, nick: '', guest: true, accountId: 0, look: null, outfit: 'own',
       s: null, room: '', known: new Set(), msgs: 0, win: 0, alive: true };
-    ws.on('pong', () => { p.alive = true; });
+    ws.on('pong', () => {
+      p.alive = true;
+      if (p.pingAt) { const rtt = Date.now() - p.pingAt; p.pingAt = 0; p.rtt = p.rtt == null ? rtt : p.rtt * .7 + rtt * .3; }
+    });
     ws.on('message', raw => {
       const now = Date.now();
       if (now - p.win > 1000) { p.win = now; p.msgs = 0; }
       if (++p.msgs > MAX_MSGS_PER_SEC) return;
       let m; try { m = JSON.parse(raw); } catch (e) { return; }
       if (!m || typeof m !== 'object') return;
-      onMessage(p, m).catch(e => console.error('[ws]', m.t, e.message));
+      // one message at a time, in order (a purchase's money is counted before the claim that follows it)
+      p.q = p.q.then(() => onMessage(p, m)).catch(e => console.error('[ws]', m.t, e.message));
     });
     ws.on('close', () => leave(p));
     ws.on('error', () => {});
@@ -61,16 +70,17 @@ function attach(httpServer, o) {
     if (m.t === 'hello') {
       if (p.ready) return;
       const id = m.token ? o.verifyToken(m.token) : null, acc = id ? await o.store.byId(id) : null;
+      if (acc && +acc.banned_until > Date.now()) { send(p, { t: 'banned', until: +acc.banned_until, reason: acc.ban_reason || '' }); try { p.ws.close(4005, 'banned'); } catch (e) {} return; }
       if (acc) {
         // the same account in another tab or phone: the old connection goes
         for (const q of players.values()) if (q.accountId === acc.id) { send(q, { t: 'kicked' }); try { q.ws.close(4004, 'kicked'); } catch (e) {} leave(q); }
-        p.nick = acc.nick; p.guest = false; p.accountId = acc.id; p.createdAt = acc.created_at ? new Date(acc.created_at).getTime() : 0;
+        p.nick = acc.nick; p.guest = false; p.accountId = acc.id; p.mutedUntil = +acc.muted_until || 0; p.createdAt = acc.created_at ? new Date(acc.created_at).getTime() : 0;
       } else {
         const n = String(m.guest || '').replace(/\D/g, '').slice(0, 4) || String(1000 + Math.floor(Math.random() * 9000));
         p.nick = 'Гость ' + n; p.guest = true;
       }
       p.look = sanitizeLook(m.look); p.outfit = str(m.outfit, 12) || 'own';
-      p.ready = true; players.set(p.id, p);
+      p.ready = true; p.joinedAt = Date.now(); players.set(p.id, p);
       send(p, { t: 'welcome', id: p.id, nick: p.nick, guest: p.guest, online: players.size });
       send(p, { t: 'chat_history', list: chat });
       for (const [id, c] of cash) send(p, { t: 'cash', id, x: c.x, y: c.y, z: c.z, n: c.n, room: c.room });
@@ -85,7 +95,7 @@ function attach(httpServer, o) {
         const c = m.c;
         p.s = { x: num(m.x, -5000, 5000), y: num(m.y, -200, 2000), z: num(m.z, -5000, 5000), h: num(m.h, -10, 10), f: num(m.f, 0, 1e6) | 0, w: str(m.w, 10), pc: num(m.pc, 0, 1e9) | 0,
           car: c && typeof c === 'object' ? { m: str(c.m, 16), c: str(c.c, 9), a: str(c.a, 9), x: num(c.x, -5000, 5000), y: num(c.y, -200, 2000), z: num(c.z, -5000, 5000), h: num(c.h, -10, 10), p: num(c.p, -3, 3), b: num(c.b, -3, 3), v: num(c.v, -200, 200), s: c.s ? 1 : 0 } : null };
-        p.room = str(m.r, 40);
+        p.room = str(m.r, 40); p.stAt = Date.now();
         break;
       }
       case 'look': {
@@ -96,6 +106,7 @@ function attach(httpServer, o) {
       }
       case 'chat': {
         if (p.guest) { send(p, { t: 'chat_denied' }); break; }
+        if (p.mutedUntil > Date.now()) { send(p, { t: 'chat_muted', until: p.mutedUntil }); break; }
         const text = String(m.m || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX_LEN);
         if (!text) break;
         if (Date.now() - (p.chatT || 0) < 800) break;   // no machine-gun messages
@@ -122,10 +133,14 @@ function attach(httpServer, o) {
         const key = (a.accountId || 'g' + a.id) + '>' + (p.accountId || 'g' + p.id);
         const why = m.safe ? 'safe' : p.guest || (p.createdAt && now - p.createdAt < NEWBIE_MS) ? 'newbie' : (koPairs.get(key) || 0) > now ? 'pair' : '';
         if (why) { send(p, { t: 'ko_safe', why, nick: a.nick }); break; }
-        const n = Math.min(KO_CAP, Math.floor(Math.max(0, +m.money || 0) * KO_SHARE));
+        // the victim's cash as the server knows it (the game's own word only before its money came over)
+        const have = W && p.accountId ? await W.money(p.accountId) : null;
+        const n = Math.min(KO_CAP, Math.floor(Math.max(0, have != null ? have : +m.money || 0) * KO_SHARE));
         if (n < 1) break;
         koPairs.set(key, now + KO_PAIR_MS);
-        send(p, { t: 'ko_drop', n, nick: a.nick });
+        const left = have != null ? await W.change(p.accountId, -n, 'Выронили при нокауте (' + a.nick + ')', 'ko') : null;
+        send(p, { t: 'ko_drop', n, nick: a.nick, w: left != null ? 1 : 0 });
+        if (left != null) sendMoney(p, left);
         const id = ++cashId, c = { x: p.s.x, y: p.s.y, z: p.s.z, n, room: p.room, until: now + CASH_LIFE_MS };
         cash.set(id, c);
         broadcast({ t: 'cash', id, x: c.x, y: c.y, z: c.z, n, room: c.room });
@@ -167,13 +182,45 @@ function attach(httpServer, o) {
         const c = cash.get(m.id);
         if (!c || !p.s || p.room !== c.room || Math.hypot(p.s.x - c.x, p.s.z - c.z) > 4) break;
         cash.delete(m.id);
-        broadcast({ t: 'cash_gone', id: m.id, by: p.id, nick: p.nick, n: c.n });
+        const got = W && p.accountId ? await W.change(p.accountId, c.n, 'Подобрано после драки', 'pile') : null;
+        broadcast({ t: 'cash_gone', id: m.id, by: p.id, nick: p.nick, n: c.n, w: got != null ? 1 : 0 });
+        if (got != null) sendMoney(p, got);
+        break;
+      }
+      // the money (wallet.js): which game session this is, then its changes
+      case '$hello': {
+        if (!W || !p.accountId) break;
+        p.sid = str(m.sid, 16);
+        const money = await W.money(p.accountId);
+        if (money == null) send(p, { t: '$init?' }); else sendMoney(p, money);
+        break;
+      }
+      case '$init': {
+        if (!W || !p.accountId) break;
+        sendMoney(p, await W.init(p.accountId, m.money, m.assets));
+        if (o.world && o.world.payOut) o.world.payOut(p);   // business income that waited for the money to come over
+        break;
+      }
+      case '$': {
+        if (!W || !p.accountId || !p.sid) break;
+        const r = await W.apply(p.accountId, p.sid, m.q);
+        if (r.money == null) { send(p, { t: '$init?' }); break; }
+        send(p, { t: '$r', money: r.money, s: r.seq, rej: r.rej });
+        if (o.world) for (const [id, n, why] of r.biz) o.world.sale(p, id, n, why).catch(e => console.error('[world] sale', e.message));
         break;
       }
       default:
         if (o.world) await o.world.message(p, m, send, players);
     }
   }
+
+  // the true balance, with how far this game session's changes are counted
+  async function sendMoney(p, money) {
+    if (money == null || !W || !p.accountId) return;
+    const r = await W.snap(p.accountId, p.sid);   // the balance and the count together, after anything still running
+    if (r.money != null) send(p, { t: '$m', money: r.money, s: r.s });
+  }
+  const byAccount = id => { for (const q of players.values()) if (q.accountId === id) return q; return null; };
 
   function leave(p) {
     if (!players.has(p.id) || players.get(p.id) !== p) return;
@@ -216,20 +263,37 @@ function attach(httpServer, o) {
     }
     const groups = new Map();
     for (const p of list) { const r = root(p); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(p); }
+    const now = Date.now();
+    // how good a host this one would be: lower is better (round trip in ms; a stalled game is the worst)
+    const score = q => (now - (q.stAt || 0) > STALE_MS ? 1e6 : 0) + (q.rtt == null ? 300 : q.rtt);
     for (const members of groups.values()) {
-      const host = members.reduce((a, b) => (a.id < b.id ? a : b)), ids = members.map(q => q.id).sort((a, b) => a - b), key = ids.join(',');
+      const best = members.reduce((a, b) => (score(a) < score(b) || (score(a) === score(b) && a.id < b.id) ? a : b));
+      const prev = members.find(q => q.group === q.id);   // who ran this group a second ago
+      if (prev) prev.worse = score(prev) > score(best) * 2 + 150 ? (prev.worse || 0) + 1 : 0;
+      const host = prev && score(prev) < 1e6 && prev.worse < WORSE_TICKS ? prev : best;
+      if (host !== prev) host.worse = 0;
+      const ids = members.map(q => q.id).sort((a, b) => a - b), key = host.id + '|' + ids.join(',');
       for (const q of members) {
         q.group = members.length > 1 ? host.id : 0;
         if (q.groupKey !== key) { q.groupKey = key; send(q, { t: 'role', host: host.id, members: ids }); }
       }
     }
   }, 1000).unref();
+  // the round trip to every game, for choosing hosts
+  setInterval(() => {
+    const t = Date.now();
+    for (const p of players.values()) if (p.ws.readyState === 1 && !p.pingAt) { p.pingAt = t; try { p.ws.ping(); } catch (e) {} }
+    else if (p.pingAt && t - p.pingAt > 5000) { p.rtt = 5000; p.pingAt = 0; }   // no answer for 5 s: as bad as it gets
+  }, PING_MS).unref();
   // dead connections (a phone that lost the network) are dropped after half a minute
   setInterval(() => {
     for (const p of players.values()) { if (!p.alive) { try { p.ws.terminate(); } catch (e) {} leave(p); continue; } p.alive = false; try { p.ws.ping(); } catch (e) {} }
   }, 30000).unref();
 
-  return { players, send, broadcast };
+  return { players, send, broadcast, sendMoney, byAccount,
+    kick(p, why) { send(p, { t: 'kicked', why: why || 'admin' }); try { p.ws.close(4006, 'kicked'); } catch (e) {} leave(p); },
+    // a line in the common chat from the server itself
+    announce(text) { const entry = { u: '★ СЕРВЕР', m: String(text).slice(0, CHAT_MAX_LEN), id: 0, sys: 1 }; chat.push(entry); if (chat.length > CHAT_HISTORY) chat.shift(); broadcast({ t: 'chat', ...entry }); } };
 }
 
 // clothes: slot -> key, short strings only

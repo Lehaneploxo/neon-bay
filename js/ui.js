@@ -42,8 +42,9 @@
         const b = e.target.closest('.buy'); if (!b || b.disabled) return;
         const it = m.items()[+b.dataset.i]; if (!it || it.disabled) return;
         const price = it.price || 0;
-        if (price > 0 && !o.money.spend(price, m.title)) { note('Не хватает ' + fmt(price - o.money.get())); return; }
-        const msg = it.buy(); if (price < 0) o.money.add(-price, m.title);
+        // asset: a home, business or car bought or sold (the server remembers what was paid); earn: what the money is for
+        if (price > 0 && !o.money.spend(price, m.title, it.asset)) { note('Не хватает ' + fmt(price - o.money.get())); return; }
+        const msg = it.buy(); if (price < 0) o.money.add(-price, it.earn || m.title, it.asset);
         note(msg || ''); render();
       };
       render();

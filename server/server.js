@@ -39,7 +39,46 @@ class PgStore {
     await q(`CREATE TABLE IF NOT EXISTS gta_owners (
       kind TEXT NOT NULL, item TEXT NOT NULL, account_id INTEGER NOT NULL REFERENCES gta_accounts(id) ON DELETE CASCADE, nick TEXT NOT NULL,
       pending BIGINT NOT NULL DEFAULT 0, earned BIGINT NOT NULL DEFAULT 0, t BIGINT NOT NULL, PRIMARY KEY (kind, item))`);
+    // the money lives here, not in the save (wallet.js); bans and mutes (admin.js)
+    for (const c of ['money BIGINT', 'money_seq TEXT', 'banned_until BIGINT NOT NULL DEFAULT 0', 'ban_reason TEXT', 'muted_until BIGINT NOT NULL DEFAULT 0'])
+      await q('ALTER TABLE gta_accounts ADD COLUMN IF NOT EXISTS ' + c);
+    // what was paid for homes, businesses and cars: selling one back can't bring more than was paid
+    await q(`CREATE TABLE IF NOT EXISTS gta_assets (id SERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES gta_accounts(id) ON DELETE CASCADE,
+      tag TEXT NOT NULL, price BIGINT NOT NULL, t BIGINT NOT NULL)`);
+    await q('CREATE INDEX IF NOT EXISTS gta_assets_acc ON gta_assets(account_id, tag)');
+    // every change of money: for the admin page (where it came from, roll back to a moment)
+    await q(`CREATE TABLE IF NOT EXISTS gta_money_log (id BIGSERIAL PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES gta_accounts(id) ON DELETE CASCADE,
+      t BIGINT NOT NULL, delta BIGINT NOT NULL, why TEXT NOT NULL, bal BIGINT NOT NULL, ok BOOLEAN NOT NULL, src TEXT NOT NULL DEFAULT '')`);
+    await q('CREATE INDEX IF NOT EXISTS gta_money_log_acc ON gta_money_log(account_id, id)');
+    await q('CREATE INDEX IF NOT EXISTS gta_money_log_bad ON gta_money_log(id) WHERE NOT ok');
+    await this.pool.query('DELETE FROM gta_money_log WHERE t < $1', [Date.now() - 60 * 24 * 3600 * 1000]);
   }
+  async wallet(id) { const r = (await this.pool.query('SELECT money, money_seq FROM gta_accounts WHERE id=$1', [id])).rows[0]; return r ? { money: r.money == null ? null : +r.money, seq: r.money_seq } : null; }
+  async setWallet(id, money, seq) { await this.pool.query('UPDATE gta_accounts SET money=$2, money_seq=$3 WHERE id=$1', [id, money, seq]); }
+  async assetAdd(id, tag, price) { await this.pool.query('INSERT INTO gta_assets(account_id,tag,price,t) VALUES($1,$2,$3,$4)', [id, tag, price, Date.now()]); }
+  async assetPeek(id, tag) { const r = (await this.pool.query('SELECT id, price FROM gta_assets WHERE account_id=$1 AND tag=$2 ORDER BY id DESC LIMIT 1', [id, tag])).rows[0]; return r ? { id: r.id, price: +r.price } : null; }
+  async assetDel(rowId) { await this.pool.query('DELETE FROM gta_assets WHERE id=$1', [rowId]); }
+  async assets(id) { return (await this.pool.query('SELECT tag, price, t FROM gta_assets WHERE account_id=$1 ORDER BY id', [id])).rows.map(r => ({ tag: r.tag, price: +r.price, t: +r.t })); }
+  async log(rows) {
+    if (!rows.length) return;
+    const v = [], a = [];
+    rows.forEach((r, i) => { const k = i * 7; v.push(`($${k + 1},$${k + 2},$${k + 3},$${k + 4},$${k + 5},$${k + 6},$${k + 7})`); a.push(r.acc, r.t, r.delta, r.why, r.bal, r.ok, r.src || ''); });
+    await this.pool.query('INSERT INTO gta_money_log(account_id,t,delta,why,bal,ok,src) VALUES ' + v.join(','), a);
+  }
+  async logOf(id, limit) { return (await this.pool.query('SELECT id, t, delta, why, bal, ok, src FROM gta_money_log WHERE account_id=$1 ORDER BY id DESC LIMIT $2', [id, limit])).rows.map(r => ({ id: +r.id, t: +r.t, delta: +r.delta, why: r.why, bal: +r.bal, ok: r.ok, src: r.src })); }
+  async logRow(id, rowId) { const r = (await this.pool.query('SELECT id, t, delta, bal, ok FROM gta_money_log WHERE account_id=$1 AND id=$2', [id, rowId])).rows[0]; return r ? { id: +r.id, t: +r.t, delta: +r.delta, bal: +r.bal, ok: r.ok } : null; }
+  async logBad(limit) { return (await this.pool.query('SELECT l.id, l.account_id, a.nick, l.t, l.delta, l.why, l.bal FROM gta_money_log l JOIN gta_accounts a ON a.id=l.account_id WHERE NOT l.ok ORDER BY l.id DESC LIMIT $1', [limit])).rows.map(r => ({ id: +r.id, acc: r.account_id, nick: r.nick, t: +r.t, delta: +r.delta, why: r.why, bal: +r.bal })); }
+  async findAccounts(q, limit) {
+    const r = await this.pool.query(`SELECT id, nick, money, created_at, last_seen, banned_until, ban_reason, muted_until FROM gta_accounts
+      WHERE ($1 = '' OR nick_lower LIKE '%' || $1 || '%') ORDER BY ${q ? 'nick_lower' : 'COALESCE(money,0) DESC'} LIMIT $2`, [q.toLowerCase(), limit]);
+    return r.rows.map(acctRow);
+  }
+  async setFlags(id, f) {
+    if ('banned_until' in f) await this.pool.query('UPDATE gta_accounts SET banned_until=$2, ban_reason=$3 WHERE id=$1', [id, f.banned_until, f.ban_reason || null]);
+    if ('muted_until' in f) await this.pool.query('UPDATE gta_accounts SET muted_until=$2 WHERE id=$1', [id, f.muted_until]);
+  }
+  async ownedBy(id) { return (await this.pool.query('SELECT kind, item FROM gta_owners WHERE account_id=$1', [id])).rows; }
+  async releaseAny(kind, item) { const r = (await this.pool.query('DELETE FROM gta_owners WHERE kind=$1 AND item=$2 RETURNING account_id', [kind, item])).rows[0]; return r ? r.account_id : null; }
   async meta(key, fallback) {
     await this.pool.query('INSERT INTO gta_meta(key,value) VALUES($1,$2) ON CONFLICT (key) DO NOTHING', [key, fallback]);
     return (await this.pool.query('SELECT value FROM gta_meta WHERE key=$1', [key])).rows[0].value;
@@ -83,14 +122,33 @@ class FileStore {
   async createAccount(nick, hash) {
     if (this.db.accounts.some(a => a.nick_lower === nick.toLowerCase())) throw new Error('taken');
     const id = this.db.accounts.length + 1;
-    this.db.accounts.push({ id, nick, nick_lower: nick.toLowerCase(), pass_hash: hash }); this.flush();
+    this.db.accounts.push({ id, nick, nick_lower: nick.toLowerCase(), pass_hash: hash, created_at: new Date().toISOString() }); this.flush();
     return id;
   }
   async byNick(nick) { return this.db.accounts.find(a => a.nick_lower === nick.toLowerCase()) || null; }
   async byId(id) { return this.db.accounts.find(a => a.id === id) || null; }
   async load(id) { return this.db.saves[id] || null; }
-  async save(id, data, t) { this.db.saves[id] = { data, t }; this.flush(); }
+  async save(id, data, t) { this.db.saves[id] = { data, t }; const a = this.acc(id); if (a) a.last_seen = new Date().toISOString(); this.flush(); }
+  acc(id) { return this.db.accounts.find(a => a.id === id); }
+  async wallet(id) { const a = this.acc(id); return a ? { money: a.money == null ? null : a.money, seq: a.money_seq || null } : null; }
+  async setWallet(id, money, seq) { const a = this.acc(id); if (a) { a.money = money; a.money_seq = seq; this.flush(); } }
+  A() { return this.db.assets || (this.db.assets = []); }
+  async assetAdd(id, tag, price) { this.db.assetN = (this.db.assetN || 0) + 1; this.A().push({ id: this.db.assetN, acc: id, tag, price, t: Date.now() }); this.flush(); }
+  async assetPeek(id, tag) { const r = this.A().filter(x => x.acc === id && x.tag === tag).pop(); return r ? { id: r.id, price: r.price } : null; }
+  async assetDel(rowId) { this.db.assets = this.A().filter(x => x.id !== rowId); this.flush(); }
+  async assets(id) { return this.A().filter(x => x.acc === id).map(r => ({ tag: r.tag, price: r.price, t: r.t })); }
+  L() { return this.db.mlog || (this.db.mlog = []); }
+  async log(rows) { for (const r of rows) { this.db.mlogN = (this.db.mlogN || 0) + 1; this.L().push(Object.assign({ id: this.db.mlogN }, r)); } if (this.L().length > 5000) this.L().splice(0, this.L().length - 5000); this.flush(); }
+  async logOf(id, limit) { return this.L().filter(r => r.acc === id).slice(-limit).reverse().map(r => ({ id: r.id, t: r.t, delta: r.delta, why: r.why, bal: r.bal, ok: r.ok, src: r.src })); }
+  async logRow(id, rowId) { const r = this.L().find(r => r.acc === id && r.id === rowId); return r ? { id: r.id, t: r.t, delta: r.delta, bal: r.bal, ok: r.ok } : null; }
+  async logBad(limit) { return this.L().filter(r => !r.ok).slice(-limit).reverse().map(r => ({ id: r.id, acc: r.acc, nick: (this.acc(r.acc) || {}).nick, t: r.t, delta: r.delta, why: r.why, bal: r.bal })); }
+  async findAccounts(q, limit) { q = q.toLowerCase(); return this.db.accounts.filter(a => !q || a.nick_lower.includes(q)).sort((a, b) => q ? a.nick_lower.localeCompare(b.nick_lower) : (b.money || 0) - (a.money || 0)).slice(0, limit).map(acctRow); }
+  async setFlags(id, f) { const a = this.acc(id); if (a) { Object.assign(a, f); this.flush(); } }
+  async ownedBy(id) { return Object.entries(this.own()).filter(([, r]) => r.accountId === id).map(([k]) => ({ kind: k.split(':')[0], item: k.slice(k.indexOf(':') + 1) })); }
+  async releaseAny(kind, item) { const k = kind + ':' + item, r = this.own()[k]; if (!r) return null; delete this.own()[k]; this.flush(); return r.accountId; }
 }
+const acctRow = a => ({ id: a.id, nick: a.nick, money: a.money == null ? null : +a.money, created: a.created_at ? new Date(a.created_at).getTime() : 0, seen: a.last_seen ? new Date(a.last_seen).getTime() : 0,
+  banned: +a.banned_until || 0, reason: a.ban_reason || '', muted: +a.muted_until || 0 });
 
 /* ---------- passwords and tokens ---------- */
 let secret = '';
@@ -145,6 +203,14 @@ app.all('/api/time', (req, res) => res.json({ now: Date.now() }));
 
 const body = express.text({ type: () => true, limit: SAVE_MAX + 4096 });
 const fail = (res, status, code, error) => res.status(status).json({ code, error });
+const banned = acc => +acc.banned_until > Date.now();
+const banText = acc => 'Аккаунт заблокирован' + (+acc.banned_until > Date.now() + 50 * 365 * 24 * 3600 * 1000 ? ' навсегда' : ' до ' + new Date(+acc.banned_until).toLocaleString('ru-RU', { timeZone: 'Europe/Kiev' })) + (acc.ban_reason ? '. Причина: ' + acc.ban_reason : '');
+// the save as the game gets it: with the money the server keeps (wallet.js), not what the game wrote
+async function withMoney(id, save) {
+  if (!save) return save;
+  const money = await wallet.money(id);
+  return money == null ? save : { data: Object.assign({}, save.data, { money }), t: save.t };
+}
 function route(name, fn, needAuth) {
   app.post('/api/' + name, body, async (req, res) => {
     if (!store) return fail(res, 503, 'starting', 'Сервер запускается, попробуйте через минуту');
@@ -154,6 +220,7 @@ function route(name, fn, needAuth) {
       if (needAuth) {
         const id = verifyToken(b.token), acc = id && await store.byId(id);
         if (!acc) return fail(res, 401, 'need_login', 'Нужно войти заново');
+        if (banned(acc)) return fail(res, 403, 'banned', banText(acc));
         req.acc = acc;
       }
       await fn(req, res, b);
@@ -176,11 +243,12 @@ route('login', async (req, res, { nick, pass }) => {
   if (tooMany(req.ip, 20)) return fail(res, 429, 'too_many', 'Слишком много попыток, подождите минуту');
   const acc = typeof nick === 'string' && typeof pass === 'string' ? await store.byNick(nick) : null;
   if (!acc || !(await checkPass(pass, acc.pass_hash))) return fail(res, 401, 'bad_creds', 'Неверный ник или пароль');
-  res.json({ token: signToken(acc.id), nick: acc.nick, save: await store.load(acc.id) });
+  if (banned(acc)) return fail(res, 403, 'banned', banText(acc));
+  res.json({ token: signToken(acc.id), nick: acc.nick, save: await withMoney(acc.id, await store.load(acc.id)) });
 });
 
 route('load', async (req, res) => {
-  res.json({ nick: req.acc.nick, save: await store.load(req.acc.id), now: Date.now() });
+  res.json({ nick: req.acc.nick, save: await withMoney(req.acc.id, await store.load(req.acc.id)), now: Date.now() });
 }, true);
 
 route('save', async (req, res, { data, t }) => {
@@ -190,6 +258,8 @@ route('save', async (req, res, { data, t }) => {
   // an older copy (a second tab or phone that was left open) never overwrites a newer one
   const cur = await store.load(req.acc.id);
   if (cur && cur.t > t) return res.json({ ok: false, stale: true, t: cur.t });
+  const money = await wallet.money(req.acc.id);
+  if (money != null) data.money = money;   // the money is the server's
   await store.save(req.acc.id, data, t);
   res.json({ ok: true, t });
 }, true);
@@ -214,8 +284,11 @@ if (fs.existsSync(path.join(GAME_DIR, 'index.html'))) {
 
 const httpServer = app.listen(PORT, () => console.log(`[server] LEHA NEPLOXO WORLD on :${PORT}`));
 // the live world: players see each other, the chat (realtime.js), the shared city (world.js)
-const world = require('./world').create({ get store() { return store; } });
-require('./realtime').attach(httpServer, { verifyToken, origins: ORIGINS, world, store: { byId: id => (store ? store.byId(id) : null) } });
+const wallet = require('./wallet').create({ get store() { return store; } });
+const world = require('./world').create({ get store() { return store; }, wallet });
+const rt = require('./realtime').attach(httpServer, { verifyToken, origins: ORIGINS, world, wallet, store: { byId: id => (store ? store.byId(id) : null) } });
+// the owner's page: players, money, bans (admin.js)
+require('./admin').attach(app, { route, fail, get store() { return store; }, wallet, world, rt, dir: __dirname });
 (function boot(delay) {
   start().catch(e => { console.error('[db] init failed:', e.message, '— retry in', delay / 1000, 's'); setTimeout(() => boot(Math.min(delay * 2, 60000)), delay); });
 })(2000);

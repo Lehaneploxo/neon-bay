@@ -81,7 +81,7 @@
       const buyMenu = m => o.ui.menu({ eyebrow: 'NEPLOXO MOTORS · ' + m.kind, title: m.name, items: () => {
         const rows = [{ name: 'Характеристики', desc: 'До ' + kmh(m) + ' км/ч · разгон ' + m.perf.accel + '/20 · ' + (m.bike ? 'мотоцикл' : 'автомобиль') + '. Только в этом салоне, в городе таких нет. Машина ваша навсегда: стоит там, где оставили', price: 0, disabled: fmt(m.price), buy: () => '' }];
         const full = P.cars.length + Object.values(P.garages).reduce((n, l) => n + l.length, 0) >= MAX_OWNED;
-        for (const color of m.palette) rows.push({ name: 'Купить · цвет: ' + (COLOR_NAME[color] || color), desc: m.name + ' в цвете «' + (COLOR_NAME[color] || color) + '»', price: full ? 0 : m.price, label: 'Купить', disabled: full ? 'У вас уже ' + MAX_OWNED + ' машин' : '', buy: () => purchase(m, color) });
+        for (const color of m.palette) rows.push({ name: 'Купить · цвет: ' + (COLOR_NAME[color] || color), desc: m.name + ' в цвете «' + (COLOR_NAME[color] || color) + '»', price: full ? 0 : m.price, label: 'Купить', disabled: full ? 'У вас уже ' + MAX_OWNED + ' машин' : '', asset: 'car:' + m.id, buy: () => purchase(m, color) });
         return rows;
       } });
       function purchase(m, color) {
@@ -93,8 +93,8 @@
       // selling back: half the price for an exclusive one, a little for anything else you own
       const sellMenu = () => o.ui.menu({ eyebrow: 'NEPLOXO MOTORS', title: 'Продать машину', items: () => {
         const rows = [];
-        for (const r of P.cars) { const m = byId[r.id], back = Math.round((m.price || 20000) / 2); rows.push({ name: m.name, desc: 'На улице · ' + (COLOR_NAME[r.c] || r.c), price: -back, label: 'Продать', buy: () => { const c = live.get(r.u); if (c && V.driving === c) return 'Сначала выйдите из машины'; if (c) V.dropRemote(c); live.delete(r.u); P.cars.splice(P.cars.indexOf(r), 1); o.save(); return 'Продано'; } }); }
-        for (const id in P.garages) for (const g of P.garages[id]) if (g.u && byId[g.id]) { const m = byId[g.id], back = Math.round((m.price || 20000) / 2); rows.push({ name: m.name, desc: 'В гараже', price: -back, label: 'Продать', buy: () => { P.garages[id].splice(P.garages[id].indexOf(g), 1); o.save(); return 'Продано'; } }); }
+        for (const r of P.cars) { const m = byId[r.id], back = Math.round((m.price || 20000) / 2); rows.push({ name: m.name, desc: 'На улице · ' + (COLOR_NAME[r.c] || r.c), price: -back, label: 'Продать', asset: 'car:' + m.id, earn: 'Продажа машины: ' + m.name, buy: () => { const c = live.get(r.u); if (c && V.driving === c) return 'Сначала выйдите из машины'; if (c) V.dropRemote(c); live.delete(r.u); P.cars.splice(P.cars.indexOf(r), 1); o.save(); return 'Продано'; } }); }
+        for (const id in P.garages) for (const g of P.garages[id]) if (g.u && byId[g.id]) { const m = byId[g.id], back = Math.round((m.price || 20000) / 2); rows.push({ name: m.name, desc: 'В гараже', price: -back, label: 'Продать', asset: 'car:' + m.id, earn: 'Продажа машины: ' + m.name, buy: () => { P.garages[id].splice(P.garages[id].indexOf(g), 1); o.save(); return 'Продано'; } }); }
         if (!rows.length) rows.push({ name: 'Нечего продавать', desc: 'Здесь выкупают машины, купленные в NEPLOXO MOTORS', price: 0, disabled: 'Пусто', buy: () => '' });
         return rows;
       } });
@@ -147,6 +147,13 @@
 
     return {
       snapshot,
+      // the cars bought here and what they cost, for the server's list of purchases (wallet.js, the first time)
+      assets() {
+        const out = [];
+        for (const r of P.cars) if (byId[r.id]) out.push(['car:' + r.id, byId[r.id].price || 20000]);
+        for (const id in P.garages) for (const g of P.garages[id]) if (g.u && byId[g.id]) out.push(['car:' + g.id, byId[g.id].price || 20000]);
+        return out;
+      },
       // the garage door of a home you own, when you stand by it
       interactions() {
         if (o.places.current || V.driving) return [];

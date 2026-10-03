@@ -1316,6 +1316,8 @@
       // another player's game takes over the city here: this game's own passers-by go (police units, bodyguards,
       // taxi fares and the scenes' puppets stay)
       clearAmbient() { for (const p of people.slice()) if (!p.mirror && !p.bodyguard && !p.unit && !p.puppet && !p.fare && !p.medic) despawn(p); },
+      // this game takes over the passers-by (sync.js): fill the streets at once, as at the start
+      refill() { first = true; popT = 0; },
       // paramedics got them back on their feet
       // two passers-by come to blows: a, the one who starts it, is a suspect for the police afterwards
       brawl(a, b, kind) {

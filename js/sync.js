@@ -27,9 +27,11 @@
       host = m.host; members = m.members || [];
       if (was && !runs()) {   // someone else runs the city now: our own traffic and passers-by give way to theirs
         V.clearAmbient(); C.clearAmbient(); if (o.onRuns) o.onRuns(false);
-      } else if (!was && runs() && o.onRuns) o.onRuns(true);
+      } else if (!was && runs()) takeOver();
     });
-    N.on('welcome', () => { const was = runs(); host = null; members = []; if (!was && o.onRuns) o.onRuns(true); });
+    // the city is ours now (the old host left, or our connection is the better one): fill it straight away
+    function takeOver() { if (V.refill) V.refill(); if (C.refill) C.refill(); if (o.onRuns) o.onRuns(true); }
+    N.on('welcome', () => { const was = runs(); host = null; members = []; if (!was) takeOver(); });
 
     /* ---------- out: what this game runs, for the others ---------- */
     const ownCar = c => !c.remote && !c.mirror && !c.wreck && c !== V.driving && !c.owned && !c.sid && !(c.parked && !c.awake) &&
@@ -157,7 +159,7 @@
       // getting into a car another game drives: ask for it (the answer puts the hero in)
       take(car) { const m = car.mirror; if (!m || pendingTake) return; pendingTake = { id: m.id, car }; req(m.owner, 'take', m.id); setTimeout(() => { if (pendingTake && pendingTake.car === car) pendingTake = null; }, 3000); },
       update(dt) {
-        if (!N.connected) { if (mirrorCars.size || mirrorPeople.size) clearMirrors(); if (!runs() && o.onRuns) { host = null; members = []; o.onRuns(true); } host = null; members = []; return; }
+        if (!N.connected) { if (mirrorCars.size || mirrorPeople.size) clearMirrors(); if (!runs()) { host = null; members = []; takeOver(); } host = null; members = []; return; }
         if ((sendT += dt * 1000) >= SEND_MS) { sendT = 0; if (members.length > 1) send(); }
         draw(dt);
       }

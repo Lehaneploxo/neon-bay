@@ -204,8 +204,19 @@
     const type = p.cop && !p.medic ? 'pistol' : p.gang === 'army' ? 'rifle' : null;
     if (type && Math.random() < chance) combat.dropWeapon(p.x, p.z, type);
   }
-  function addMoney(n, sub) { if (n <= 0) return; progress.money += n; audio.cash(n >= 100); moneyPop('+$' + n, sub); saveProgress(); }
-  function spend(n, sub) { n = Math.min(n, progress.money); if (n <= 0) return 0; progress.money -= n; moneyPop('−$' + n, sub, true); saveProgress(); if (business) business.spent(n, sub); return n; }
+  // every change of money goes to the server too (wallet.js), which keeps a signed-in player's cash.
+  // asset: 'home:id' / 'biz:id' / 'car:model' on buying or selling one; srv: the server already counted it (its new balance comes by itself)
+  function addMoney(n, sub, asset, srv) {
+    if (n <= 0) return;
+    if (!(srv && ledger && ledger.serverSide)) { progress.money += n; if (ledger) ledger.change(n, sub, asset); }
+    audio.cash(n >= 100); moneyPop('+$' + n, sub); saveProgress();
+  }
+  function spend(n, sub, asset) {
+    n = Math.min(n, progress.money); if (n <= 0) return 0;
+    progress.money -= n; moneyPop('−$' + n, sub, true);
+    if (ledger) ledger.change(-n, sub, asset, business ? business.saleAt(n, sub) : null);   // bought inside a player's business: half to its owner
+    saveProgress(); return n;
+  }
 
   Object.assign(crowdOpts, {
     onKill: (p, src) => {
@@ -236,7 +247,7 @@
   const sea = NB.createSeaLife(world, { vehicles, audio, police, player, flash: (t, s) => flashTip(t, s),
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
-  let jobs = null, net = null, business = null, autos = null, sync = null;   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
+  let jobs = null, net = null, business = null, autos = null, sync = null, ledger = null;   // ledger: the money on the server (wallet.js)   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
   const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
     hold: p => !!jobs && jobs.holdEMS(p),
@@ -310,12 +321,12 @@
     blink(() => { player.hp = 100; saveProgress(); flashTip(msg, 3); });
   }
   const ui = NB.createUI({
-    money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
+    money: { get: () => progress.money, spend: (n, note, asset) => { if (progress.money < n) { audio.deny(); return false; } spend(n, note, asset); return true; }, add: (n, note, asset, srv) => addMoney(n, note, asset, srv) },
     audio, progress, save: saveProgress, setOutfit, wear,
     onOpen: () => { if (state === 'playing') { state = 'panel'; input.reset(); if (document.pointerLockElement) document.exitPointerLock(); show('panelOnly'); } },
     onClose: () => { if (state === 'panel') play(); }
   });
-  const wallet = { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) };
+  const wallet = { get: () => progress.money, spend: (n, note, asset) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note, asset); return true; }, add: (n, note, asset, srv) => addMoney(n, note, asset, srv) };
   // the spray shop and the street: food carts, buskers, surfers, volleyball
   world.spray.attach({ vehicles, police, player, audio, money: wallet, flash: (t, s) => flashTip(t, s), blink: fn => blink(fn) });
   // Turtle Island: the pirate chest pays out, and a speedboat waits at the old jetty to take you back
@@ -329,7 +340,7 @@
     crowd, player, vehicles, audio, money: wallet, flash: (t, s) => flashTip(t, s), say: (p, t) => say(p, t) });
   const placeCtx = {
     player, combat, crowd, police, audio, vehicles, progress, ui,
-    money: { get: () => progress.money, spend: (n, note) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note); return true; }, add: (n, note) => addMoney(n, note) },
+    money: { get: () => progress.money, spend: (n, note, asset) => { if (progress.money < n) { audio.deny(); flashTip('Не хватает денег: нужно $' + n, 2); return false; } spend(n, note, asset); return true; }, add: (n, note, asset, srv) => addMoney(n, note, asset, srv) },
     flash: (t, s) => flashTip(t, s), save: saveProgress, setOutfit, sleep, teleport, drunk: s => { drunkT = s; },
     say: (p, t) => say(p, t), get input() { return input; }, day: () => Math.floor((START_MIN + time) / 1440), view: (yaw, pitch) => { rig.yaw = yaw; rig.pitch = pitch; },
     getArmor: () => progress.armor, setArmor: v => { progress.armor = v; saveProgress(); },
@@ -390,13 +401,21 @@
   setTimeout(() => jobs.resume(), 0);   // came back in the middle of a shift: still on it (once the whole game is set up)
   // the live world: the other players and the chat (net.js)
   net = NB.createNet({ scene, col: world.col, camera, player, vehicles, places, progress, get input() { return input; }, audio, flash: (t, s) => flashTip(t, s), playing: () => state === 'playing', lock: () => lock(),
-    hurt: d => heroDamage(d), star: () => police.star(), kickOut: () => leaveCar(), loseCash: n => spend(n, 'Выронили при нокауте'), addCash: n => addMoney(n, 'Подобрано'),
+    hurt: d => heroDamage(d), star: () => police.star(), kickOut: () => leaveCar(), loseCash: n => spend(n, 'Выронили при нокауте'), addCash: (n, srv) => addMoney(n, 'Подобрано', null, srv),
     // safe places for knockouts: the spawn beach, round the hospital, inside a home
     safe: () => { const pl = places.current; if (pl) return /^home_|^villa$/.test(pl.id); const h = world.hospital, sp = world.spawn; return (h && Math.hypot(player.x - h.x, player.z - h.z) < 45) || Math.hypot(player.x - sp.x, player.z - sp.z) < 60; } });
   // player businesses: bought at the desk in NEPLOXO TOWER, half of what others spend inside goes to the owner
   // your own cars: NEPLOXO MOTORS, cars that stay where you leave them, home garages (autos.js)
   autos = NB.createAutos({ vehicles, places, shops, player, progress, money: wallet, ui, audio, scene, flash: (t, s) => flashTip(t, s), save: saveProgress });
   business = NB.createBusiness({ places, shops, fronts: entFront, progress, money: wallet, ui, audio, flash: (t, s) => flashTip(t, s), save: saveProgress });
+  // the money on the server: every change is checked there (wallet.js); the first time, the save's money and purchases go over
+  ledger = NB.createWallet({ progress, net, flash: (t, s) => flashTip(t, s), save: () => saveProgress(),
+    assets: () => {
+      const out = [];
+      for (const id in progress.homes || {}) out.push(['home:' + id, (progress.homes[id] && progress.homes[id].price) || 0]);
+      for (const id in progress.biz || {}) out.push(['biz:' + id, (progress.biz[id] && progress.biz[id].price) || 0]);
+      return out.concat(autos.assets());
+    } });
   // one city for everybody near by: who runs the traffic and the passers-by, and showing the others' (sync.js)
   sync = NB.createSync({ net, crowd, vehicles, player, places, police, flash: (t, s) => flashTip(t, s), enterCar: car => enterCar(car), onRuns: on => { if (on) sea.resumeFleet(); else sea.pauseFleet(); } });
   Object.assign(crowdOpts, { ambient: () => sync.ambient(), focus: () => sync.focus(), onMirrorHit: (p, d, src) => sync.hitMirror(p, d, src) });

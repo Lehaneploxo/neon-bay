@@ -48,7 +48,12 @@
         lookKey = lookSig();
       };
       ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (er) { return; } onMessage(m); };
-      ws.onclose = ev => { ws = null; me = null; clearAll(); if (ev.code !== 4004) later(); else o.flash('Вы зашли в игру с другого устройства — здесь онлайн отключён', 5); };
+      ws.onclose = ev => {
+        ws = null; me = null; clearAll();
+        if (ev.code === 4004) o.flash('Вы зашли в игру с другого устройства — здесь онлайн отключён', 5);
+        else if (ev.code === 4005 || ev.code === 4006) o.flash(ev.code === 4005 ? 'Аккаунт заблокирован администратором' : 'Администратор отключил вас от онлайна. Перезапустите игру', 6);
+        else later();
+      };
       ws.onerror = () => {};
     }
     function later() { setTimeout(connect, retry); retry = Math.min(retry * 2, 30000); }
@@ -65,9 +70,14 @@
         case 'own_sync': emit('own_sync', m); break;
         case 'biz_income': emit('biz_income', m); break;
         case 'role': case 'ents': case 'ent_req': case 'ent_res': emit(m.t, m); break;
+        // the money (wallet.js)
+        case '$m': case '$r': case '$init?': emit(m.t, m); break;
+        case 'banned': { const d = m.until - Date.now() > 50 * 365 * 864e5 ? 'навсегда' : 'до ' + new Date(m.until).toLocaleString('ru-RU'); o.flash('Аккаунт заблокирован ' + d + (m.reason ? '. Причина: ' + m.reason : ''), 8); break; }
+        case 'admin_note': o.flash(m.text, 5); break;
+        case 'chat_muted': note('Администратор запретил вам писать в чат до ' + new Date(m.until).toLocaleString('ru-RU')); break;
         case 'hit': onHit(m); break;
         case 'ko_you': if (o.star) o.star(); o.flash('Вы вырубили игрока ' + m.nick + '! Полиция это видела', 3); break;
-        case 'ko_drop': if (o.loseCash) o.loseCash(m.n); setTimeout(() => o.flash('Вас вырубил ' + m.nick + ' — из кармана выпало ' + fmtM(m.n), 4), 3800); break;
+        case 'ko_drop': if (o.loseCash && !m.w) o.loseCash(m.n); setTimeout(() => o.flash('Вас вырубил ' + m.nick + ' — из кармана выпало ' + fmtM(m.n), 4), 3800); break;
         case 'ko_safe': setTimeout(() => o.flash('Вас вырубил ' + m.nick + (m.why === 'safe' ? '. Здесь безопасное место — деньги не выпали' : m.why === 'newbie' ? '. Вы новичок — деньги не выпали' : '. Деньги не выпали: он уже обирал вас недавно'), 4), 3800); break;
         case 'cash': addCash(m); break;
         case 'cars': for (const c of m.list) applyCar(c.id, c); break;
@@ -159,7 +169,7 @@
     function dropCashPile(m) {
       const c = piles.get(m.id); if (!c) return;
       o.scene.remove(c.g); piles.delete(m.id);
-      if (me && m.by === me.id) { if (o.addCash) o.addCash(m.n); o.flash('Подобрали ' + fmtM(m.n) + ' — выпало из кармана после драки', 2.6); }
+      if (me && m.by === me.id) { if (o.addCash) o.addCash(m.n, !!m.w); o.flash('Подобрали ' + fmtM(m.n) + ' — выпало из кармана после драки', 2.6); }
     }
     function updatePiles(dt) {
       const P = o.player, room = roomKey(), t = performance.now();
@@ -366,11 +376,10 @@
         const n = owners[kind][id]; if (n && n !== me.nick) return 'Владелец: ' + n;
         return '';
       },
-      claim: (kind, id) => request({ t: 'own_claim', kind, id }).then(r => !!(r && r.ok)),
+      // (the payment goes out first: the server counts it before the claim, wallet.js)
+      claim: (kind, id) => { if (NB.ledger) NB.ledger.flush(); return request({ t: 'own_claim', kind, id }).then(r => !!(r && r.ok)); },
       free(kind, id) { send({ t: 'own_free', kind, id }); if (me && owners[kind][id] === me.nick) delete owners[kind][id]; },
       sync(kind, ids) { send({ t: 'own_sync', kind, ids }); },
-      // a purchase in a business: its owner gets half
-      spent(bizId, n) { if (bizId && n > 0) send({ t: 'biz_spend', id: bizId, n: Math.floor(n) }); },
       // shared loot: how long until it's back (0: ready); claim it — true if it's yours, false if someone was first,
       // null when the server can't be reached (the caller falls back to the old per-player rule)
       lootLeft: key => Math.max(0, (timers[key] || 0) - srvNow()),

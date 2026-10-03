@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NEPLOXO Админка</title>
+<style>
+  :root { --bg: #0f0d14; --card: #1a1722; --line: #2c2838; --text: #f1edf7; --dim: #9a93a8; --acc: #ffd84f; --good: #6be38a; --bad: #ff5d6c; --blue: #63b3ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: #14111b; border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; color: var(--acc); letter-spacing: .5px; }
+  header .who { margin-left: auto; color: var(--dim); font-size: 13px; }
+  nav { display: flex; gap: 6px; overflow-x: auto; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  nav button { flex: none; }
+  main { padding: 12px 16px 80px; max-width: 980px; margin: 0 auto; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: #2a2536; border: 1px solid #3a3449; border-radius: 9px; padding: 7px 12px; cursor: pointer; }
+  button:hover { border-color: #5a5270; }
+  button.on { background: var(--acc); color: #141018; border-color: var(--acc); font-weight: 600; }
+  button.red { background: #4a1820; border-color: #7a2632; }
+  button.green { background: #173a22; border-color: #24603a; }
+  input, select { background: #120f18; border: 1px solid #3a3449; border-radius: 9px; padding: 8px 10px; min-width: 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 10px 0; }
+  .p { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .p:hover { background: #211d2b; }
+  .p b { font-size: 15px; } .p .m { font-weight: 600; color: var(--good); text-align: right; } .p small { color: var(--dim); grid-column: 1 / -1; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 6px; margin-left: 4px; vertical-align: 1px; background: #2c2838; color: var(--dim); }
+  .tag.ban { background: #4a1820; color: #ffb3bb; } .tag.mute { background: #3a2f12; color: #ffd98a; } .tag.on { background: #173a22; color: #9ff0b5; } .tag.host { background: #13304a; color: #a8d4ff; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; }
+  td.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .plus { color: var(--good); } .minus { color: var(--bad); }
+  tr.no td { background: #2a1219; }
+  .dim { color: var(--dim); } .err { color: var(--bad); min-height: 1.2em; }
+  .big { font-size: 26px; font-weight: 700; color: var(--good); }
+  #login { max-width: 360px; margin: 60px auto; }
+  #login input { width: 100%; margin: 6px 0; }
+  .scroll { overflow-x: auto; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #2a2536; border: 1px solid var(--acc); border-radius: 10px; padding: 10px 16px; display: none; z-index: 20; max-width: 90vw; }
+  h2 { font-size: 16px; margin: 4px 0 8px; } h3 { font-size: 14px; margin: 12px 0 6px; color: var(--dim); font-weight: 600; }
+  .hint { font-size: 13px; color: var(--dim); margin: 6px 0; }
+</style>
+</head>
+<body>
+<header><h1>LEHA NEPLOXO · Админка</h1><span class="who" id="who"></span></header>
+<div id="login" class="card" hidden>
+  <h2>Вход</h2>
+  <p class="hint">Ник и пароль вашего игрового аккаунта (только для аккаунтов-администраторов).</p>
+  <form id="lf"><input id="ln" placeholder="Ник" autocomplete="username"><input id="lp" type="password" placeholder="Пароль" autocomplete="current-password">
+  <button class="on" style="width:100%;margin-top:6px">Войти</button></form>
+  <p class="err" id="lerr"></p>
+</div>
+<div id="app" hidden>
+  <nav id="tabs">
+    <button data-t="online" class="on">Онлайн</button><button data-t="players">Все игроки</button><button data-t="bad">Подозрительное</button><button data-t="say">Объявление</button><button id="logout">Выйти</button>
+  </nav>
+  <main id="main"></main>
+</div>
+<div id="toast"></div>
+<script>
+'use strict';
+const API = location.origin + '/api/admin';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('ru-RU');
+const when = t => t ? new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+const ago = t => { if (!t) return '—'; const s = Math.max(0, (Date.now() - t) / 1000); return s < 60 ? Math.round(s) + ' с' : s < 3600 ? Math.round(s / 60) + ' мин' : s < 86400 ? Math.round(s / 3600) + ' ч' : Math.round(s / 86400) + ' дн'; };
+let token = localStorage.getItem('adm_token'), tab = 'online', timer = 0, openId = 0;
+
+function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = 'none'; }, 2600); }
+async function api(a, data) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(Object.assign({ token, a }, data || {})) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 || r.status === 403) { if (a === 'me') { signOut(); throw new Error(j.error || 'Нет доступа'); } }
+  if (!r.ok) throw new Error(j.error || 'Ошибка ' + r.status);
+  return j;
+}
+function signOut() { token = null; localStorage.removeItem('adm_token'); $('app').hidden = true; $('login').hidden = false; $('who').textContent = ''; clearInterval(timer); }
+$('lf').addEventListener('submit', async e => {
+  e.preventDefault(); $('lerr').textContent = 'Вхожу…';
+  try {
+    const r = await fetch(location.origin + '/api/login', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ nick: $('ln').value.trim(), pass: $('lp').value }) });
+    const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Не получилось');
+    token = j.token; localStorage.setItem('adm_token', token); $('lerr').textContent = ''; start();
+  } catch (er) { $('lerr').textContent = er.message; }
+});
+$('logout').addEventListener('click', signOut);
+$('tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; tab = b.dataset.t; openId = 0; for (const x of document.querySelectorAll('#tabs [data-t]')) x.classList.toggle('on', x === b); show(); });
+
+async function start() {
+  try { const me = await api('me'); $('who').textContent = me.nick; $('login').hidden = true; $('app').hidden = false; show(); }
+  catch (e) { $('login').hidden = false; $('lerr').textContent = e.message === 'Нет доступа' ? 'Этот аккаунт не администратор' : ''; }
+}
+function show() {
+  clearInterval(timer);
+  if (openId) return showAcct(openId);
+  if (tab === 'online') { showOnline(); timer = setInterval(showOnline, 4000); }
+  else if (tab === 'players') showPlayers('');
+  else if (tab === 'bad') showBad();
+  else if (tab === 'say') showSay();
+}
+const main = () => $('main');
+const where = p => p.x == null ? 'ещё не на карте' : (p.room ? 'в помещении «' + p.room + '»' : 'x ' + p.x + ', z ' + p.z) + (p.car ? ' · за рулём ' + p.car : '');
+async function showOnline() {
+  let r; try { r = await api('online'); } catch (e) { main().innerHTML = '<p class="err">' + esc(e.message) + '</p>'; return; }
+  if (tab !== 'online' || openId) return;
+  const list = r.list.sort((a, b) => (b.money || 0) - (a.money || 0));
+  main().innerHTML = '<h2>В игре сейчас: ' + list.length + '</h2><p class="hint">Обновляется само каждые 4 секунды. Нажмите на игрока, чтобы открыть его.</p><div class="card" style="padding:0">' +
+    (list.length ? list.map(p => `<div class="p" data-acc="${p.acc}"><div><b>${esc(p.nick)}</b>${p.guest ? '<span class="tag">гость</span>' : ''}${p.host ? '<span class="tag host">ведёт город</span>' : ''}${p.muted ? '<span class="tag mute">мут</span>' : ''}</div>
+      <div class="m">${money(p.money)}</div><small>${esc(where(p))} · связь ${p.rtt == null ? '—' : p.rtt + ' мс'} · в игре ${ago(p.since)}</small></div>`).join('') : '<p class="dim" style="padding:12px">Никого нет</p>') + '</div>';
+}
+async function showPlayers(q) {
+  main().innerHTML = `<div class="row"><input id="q" placeholder="Поиск по нику" value="${esc(q)}" style="flex:1"><button id="qb">Найти</button></div><p class="hint">Без поиска — самые богатые.</p><div id="pl" class="card" style="padding:0"><p class="dim" style="padding:12px">Загрузка…</p></div>`;
+  const go = async () => {
+    try {
+      const r = await api('find', { q: $('q').value });
+      $('pl').innerHTML = r.list.length ? r.list.map(a => `<div class="p" data-acc="${a.id}"><div><b>${esc(a.nick)}</b>${a.online ? '<span class="tag on">в игре</span>' : ''}${a.banned > Date.now() ? '<span class="tag ban">бан</span>' : ''}${a.muted > Date.now() ? '<span class="tag mute">мут</span>' : ''}</div>
+        <div class="m">${money(a.money)}</div><small>был ${a.online ? 'сейчас' : a.seen ? ago(a.seen) + ' назад' : 'давно'} · аккаунт с ${when(a.created)}</small></div>`).join('') : '<p class="dim" style="padding:12px">Не найдено</p>';
+    } catch (e) { $('pl').innerHTML = '<p class="err" style="padding:12px">' + esc(e.message) + '</p>'; }
+  };
+  $('qb').onclick = go; $('q').onkeydown = e => { if (e.key === 'Enter') go(); };
+  go();
+}
+async function showBad() {
+  main().innerHTML = '<h2>Подозрительное</h2><p class="hint">Деньги, которые игра просила начислить, а сервер не засчитал: больше, чем можно заработать честно. Одна-две строки — обычно случайность (например, плохая связь). Много строк подряд у одного игрока — похоже на читы.</p><div id="bl" class="card scroll">Загрузка…</div>';
+  try {
+    const r = await api('bad');
+    $('bl').innerHTML = r.list.length ? '<table><tr><th>Когда</th><th>Игрок</th><th>За что</th><th class="n">Сумма</th></tr>' + r.list.map(x => `<tr><td>${when(x.t)}</td><td><a href="#" data-acc="${x.acc}" style="color:var(--blue)">${esc(x.nick)}</a></td><td>${esc(x.why)}</td><td class="n ${x.delta > 0 ? 'plus' : 'minus'}">${x.delta > 0 ? '+' : ''}${money(x.delta)}</td></tr>`).join('') + '</table>' : '<p class="dim">Пока ничего — все чисто 👍</p>';
+  } catch (e) { $('bl').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; }
+}
+function showSay() {
+  main().innerHTML = '<h2>Объявление в чат</h2><p class="hint">Сообщение увидят все игроки в общем чате, от имени «★ СЕРВЕР».</p><div class="card"><div class="row"><input id="say" maxlength="200" placeholder="Например: через 5 минут перезапуск сервера" style="flex:1"><button class="on" id="sayb">Отправить</button></div></div>';
+  $('sayb').onclick = async () => { try { await api('announce', { text: $('say').value }); $('say').value = ''; toast('Отправлено'); } catch (e) { toast(e.message); } };
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-acc]'); if (!a) return;
+  e.preventDefault(); const id = +a.dataset.acc; if (!id) { toast('Это гость — у него нет аккаунта'); return; }
+  openId = id; clearInterval(timer); showAcct(id);
+});
+const KIND = { home: 'Жильё', biz: 'Бизнес', car: 'Машина' };
+async function showAcct(id) {
+  let a; try { a = await api('acct', { id }); } catch (e) { main().innerHTML = '<p class="err">' + esc(e.message) + '</p>'; return; }
+  const banned = a.banned > Date.now(), muted = a.muted > Date.now();
+  main().innerHTML = `<button id="back">← Назад</button>
+  <div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(a.nick)} ${a.online ? '<span class="tag on">в игре</span>' : ''}${banned ? '<span class="tag ban">бан</span>' : ''}${muted ? '<span class="tag mute">мут</span>' : ''}</h2><span class="big">${money(a.money)}</span></div>
+    <p class="dim" style="margin:6px 0 0">Аккаунт с ${when(a.created)} · был ${a.online ? 'сейчас' : a.seen ? ago(a.seen) + ' назад' : 'давно'}${banned ? ' · <b style="color:var(--bad)">бан до ' + (a.banned - Date.now() > 50 * 365 * 864e5 ? 'навсегда' : when(a.banned)) + (a.reason ? ' — ' + esc(a.reason) : '') + '</b>' : ''}${muted ? ' · мут до ' + when(a.muted) : ''}</p>
+    ${a.money == null ? '<p class="hint">Деньги этого игрока ещё в его сохранении: они перейдут на сервер, когда он зайдёт в игру после обновления.</p>' : ''}</div>
+  <div class="card"><h3>Деньги</h3><div class="row"><input id="mn" type="number" inputmode="numeric" placeholder="Сумма" style="width:130px"><input id="mw" placeholder="Причина (необязательно)" style="flex:1"></div>
+    <div class="row" style="margin-top:8px"><button class="green" id="give">Выдать</button><button class="red" id="take">Забрать</button><button id="set">Установить ровно</button></div></div>
+  <div class="card"><h3>Наказания</h3><div class="row"><select id="dur"><option value="60">1 час</option><option value="1440">1 день</option><option value="10080">7 дней</option><option value="43200">30 дней</option><option value="0">навсегда</option></select><input id="why" placeholder="Причина бана" style="flex:1"></div>
+    <div class="row" style="margin-top:8px">${banned ? '<button class="green" id="unban">Снять бан</button>' : '<button class="red" id="ban">Забанить</button>'}${muted ? '<button class="green" id="unmute">Снять мут</button>' : '<button id="mute">Мут в чате</button>'}${a.online ? '<button id="kick">Выкинуть из игры</button>' : ''}</div>
+    <p class="hint">Бан — не может войти в игру. Мут — играет, но не пишет в чат. «Выкинуть» — отключает от онлайна до перезагрузки игры.</p></div>
+  <div class="card"><h3>Имущество на сервере</h3>${a.owned.length ? '<table>' + a.owned.map(o => `<tr><td>${KIND[o.kind] || o.kind}</td><td>${esc(o.item)}</td><td class="n"><button class="red" data-revoke="${esc(o.kind)}:${esc(o.item)}">Отобрать</button></td></tr>`).join('') + '</table>' : '<p class="dim">Нет домов и бизнесов</p>'}
+    <h3>Что куплено (сколько заплачено)</h3>${a.assets.length ? '<table>' + a.assets.map(x => `<tr><td>${KIND[x.tag.split(':')[0]] || ''}</td><td>${esc(x.tag.split(':')[1])}</td><td class="n">${money(x.price)}</td></tr>`).join('') + '</table>' : '<p class="dim">Пусто</p>'}</div>
+  <div class="card scroll"><h3>История денег (последние 200)</h3><p class="hint">Красные строки — сервер не засчитал. «Откат» ставит деньги, какие были прямо перед этой строкой.</p>
+    ${a.log.length ? '<table><tr><th>Когда</th><th>За что</th><th class="n">Сумма</th><th class="n">Стало</th><th></th></tr>' + a.log.map(l => `<tr class="${l.ok ? '' : 'no'}"><td>${when(l.t)}</td><td>${esc(l.why)}${l.ok ? '' : ' <span class="tag ban">не засчитано</span>'}</td><td class="n ${l.delta > 0 ? 'plus' : 'minus'}">${l.delta > 0 ? '+' : ''}${money(l.delta)}</td><td class="n">${money(l.bal)}</td><td class="n"><button data-roll="${l.id}" title="Откатить к моменту перед этой строкой">Откат</button></td></tr>`).join('') + '</table>' : '<p class="dim">Пока пусто</p>'}</div>`;
+  $('back').onclick = () => { openId = 0; show(); };
+  const act = async (name, data, msg) => { try { await api(name, Object.assign({ id }, data)); toast(msg); showAcct(id); } catch (e) { toast(e.message); } };
+  const sum = () => { const n = Math.floor(+$('mn').value); if (!(n >= 0) || !$('mn').value) { toast('Введите сумму'); return null; } return n; };
+  $('give').onclick = () => { const n = sum(); if (n != null) act('money', { n, why: $('mw').value }, 'Выдано ' + money(n)); };
+  $('take').onclick = () => { const n = sum(); if (n != null) act('money', { n: -n, why: $('mw').value }, 'Забрано ' + money(n)); };
+  $('set').onclick = () => { const n = sum(); if (n != null && confirm('Поставить ' + a.nick + ' ровно ' + money(n) + '?')) act('setmoney', { n, why: $('mw').value }, 'Теперь ' + money(n)); };
+  if ($('ban')) $('ban').onclick = () => { if (confirm('Забанить ' + a.nick + '?')) act('ban', { minutes: +$('dur').value, reason: $('why').value }, 'Забанен'); };
+  if ($('unban')) $('unban').onclick = () => act('unban', {}, 'Бан снят');
+  if ($('mute')) $('mute').onclick = () => act('mute', { minutes: +$('dur').value }, 'Мут включён');
+  if ($('unmute')) $('unmute').onclick = () => act('unmute', {}, 'Мут снят');
+  if ($('kick')) $('kick').onclick = () => act('kick', {}, 'Выкинут из игры');
+  for (const b of main().querySelectorAll('[data-roll]')) b.onclick = () => { if (confirm('Откатить деньги ' + a.nick + ' к моменту перед этой строкой?')) act('rollback', { row: +b.dataset.roll }, 'Откатили'); };
+  for (const b of main().querySelectorAll('[data-revoke]')) b.onclick = () => { const [kind, item] = b.dataset.revoke.split(':'); if (confirm('Отобрать ' + item + ' у ' + a.nick + '? Деньги за него не вернутся')) act('revoke', { kind, item }, 'Отобрано'); };
+}
+if (token) start(); else $('login').hidden = false;
+</script>
+</body>
+</html>

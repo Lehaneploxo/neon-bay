@@ -199,7 +199,7 @@
       if (N()) N().claim('home', h.id).then(okd => {
         if (okd || !P.homes[h.id]) return;
         delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null;
-        o.money.add(h.price, 'Возврат: ' + h.name); o.save(); refresh(h);
+        o.money.add(h.price, 'Возврат: ' + h.name, 'home:' + h.id); o.save(); refresh(h);
         o.flash(h.name + ': кто-то купил чуть раньше вас — деньги вернули', 4);
       });
       return 'Поздравляем! Теперь это ваше жильё: ' + h.name + '. Заходите в дверь';
@@ -212,7 +212,7 @@
       const T = TIER[h.tier];
       o.ui.menu({ eyebrow: T.word + ' · ' + h.where, title: h.name, items: () => owned(h) ? [{ name: 'Это ваше жильё', desc: 'Заходите', price: 0, disabled: 'Ваше', buy: () => '' }] :
         takenBy(h) ? [{ name: 'Здесь живёт ' + takenBy(h), desc: 'Этот дом уже купили. Свободное жильё — на карте и у дверей с надписью «ПРОДАЁТСЯ»', price: 0, disabled: 'Занято', buy: () => '' }] :
-        [{ name: 'Купить: ' + T.word.toLowerCase(), desc: 'Цена ' + fmt(h.price) + ' · аренда ' + fmt(h.rent) + ' в сутки (первые сутки включены)', price: cantBuy(h) ? 0 : h.price, label: 'Купить', disabled: cantBuy(h), buy: () => buy(h) }].concat(about(h)) });
+        [{ name: 'Купить: ' + T.word.toLowerCase(), desc: 'Цена ' + fmt(h.price) + ' · аренда ' + fmt(h.rent) + ' в сутки (первые сутки включены)', price: cantBuy(h) ? 0 : h.price, label: 'Купить', disabled: cantBuy(h), asset: 'home:' + h.id, buy: () => buy(h) }].concat(about(h)) });
     }
     // the door of a block: pick a flat (one per block for each player)
     function blockMenu(B) {
@@ -221,7 +221,7 @@
         return B.units.map(u => {
           const who = takenBy(u), why = owned(u) ? 'Ваша' : who ? 'Занята' : mine ? 'У вас уже есть квартира здесь' : cantBuy(u);
           return { name: (B.tier === 'studio' ? 'Студия' : 'Квартира') + ' №' + u.n + ' · ' + u.floor + ' этаж', desc: who ? 'Живёт: ' + who : 'Аренда ' + fmt(u.rent) + ' в сутки', price: why ? 0 : u.price, label: 'Купить',
-            current: owned(u), disabled: why, buy: () => buy(u) };
+            current: owned(u), disabled: why, asset: 'home:' + u.id, buy: () => buy(u) };
         }).concat(about(B.units[0]));
       } });
     }
@@ -240,7 +240,7 @@
           { name: 'Оплачено ещё ' + d + ' сут. ' + hh + ' ч', desc: 'Аренда ' + fmt(h.rent) + ' в сутки, списывается сама', price: 0, disabled: 'Ок', buy: () => '' },
           { name: 'Оплатить вперёд на 7 суток', desc: 'Чтобы точно не остаться без дома', price: h.rent * 7, label: 'Оплатить', buy: () => { r.paid += 7 * DAY; o.save(); return 'Оплачено на неделю вперёд'; } },
           { name: P.homeSpawn === h.id ? 'Игра начинается здесь' : 'Начинать игру здесь', desc: 'При входе в игру вы появитесь в этом доме (так же бывает, когда просто заходите домой)', price: 0, label: 'Выбрать', disabled: P.homeSpawn === h.id ? 'Выбрано' : '', buy: () => { P.homeSpawn = h.id; o.save(); return 'Теперь вы просыпаетесь здесь'; } },
-          { name: 'Продать', desc: 'Вернётся половина цены: ' + fmt(back), price: -back, buy: () => { delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null; if (N()) N().free('home', h.id); o.save(); refresh(h); setTimeout(() => { o.ui.close(); o.leave(); }, 600); return 'Продано'; } }
+          { name: 'Продать', desc: 'Вернётся половина цены: ' + fmt(back), price: -back, asset: 'home:' + h.id, earn: 'Продажа жилья: ' + h.name, buy: () => { delete P.homes[h.id]; if (P.homeSpawn === h.id) P.homeSpawn = null; if (N()) N().free('home', h.id); o.save(); refresh(h); setTimeout(() => { o.ui.close(); o.leave(); }, 600); return 'Продано'; } }
         ];
       } });
     }
@@ -290,14 +290,19 @@
     function hook() {
       hooked = true;
       N().on('owners', () => { if (!N().guest) N().sync('home', Object.keys(P.homes)); tickT = 0; });
-      N().on('own', m => { if (m.kind === 'home') tickT = 0; });
+      N().on('own', m => {
+        if (m.kind !== 'home') return;
+        tickT = 0;
+        // taken away by the administrator: gone without a refund
+        if (!m.nick && m.revoked && P.homes[m.id]) { delete P.homes[m.id]; if (m.id === 'villa') P.villa = false; if (P.homeSpawn === m.id) P.homeSpawn = null; o.save(); }
+      });
       N().on('own_sync', m => {
         if (m.kind !== 'home') return;
         for (const id of m.lost) {
           const h = ALL[id], r = P.homes[id]; if (!h || !r) continue;
           delete P.homes[id]; if (id === 'villa') P.villa = false; if (P.homeSpawn === id) P.homeSpawn = null;
-          o.money.add(r.price || h.price, 'Возврат: ' + h.name);
-          o.flash(h.name + ' уже принадлежит другому игроку — деньги за покупку вернули', 5);
+          o.money.add(r.price || h.price, 'Возврат: ' + h.name, 'home:' + id);
+          o.flash(h.name + ': по данным сервера это жильё не ваше — если вы за него платили, деньги вернутся', 5);
         }
         for (const id of m.mine) if (ALL[id] && !P.homes[id]) { P.homes[id] = { paid: now() + DAY, t: now(), price: ALL[id].price }; if (id === 'villa') P.villa = true; }
         o.save(); tickT = 0;
@@ -316,7 +321,7 @@
         if (t - r.paid >= GRACE_DAYS * DAY) {
           const back = Math.round(paidPrice(h) / 2);
           delete P.homes[id]; if (id === 'villa') P.villa = false; if (P.homeSpawn === id) P.homeSpawn = null; if (N()) N().free('home', id);
-          o.money.add(back, 'Жильё продано за долги');
+          o.money.add(back, 'Жильё продано за долги', 'home:' + id);
           o.flash(h.name + ': 14 дней без оплаты — жильё ушло в продажу, вернули ' + fmt(back), 5); o.save();
         } else if (t > r.paid && !r.warned) { r.warned = true; o.flash('Не хватает на аренду: ' + h.name + ' закрыто до оплаты', 4); }
         else if (t <= r.paid) r.warned = false;
