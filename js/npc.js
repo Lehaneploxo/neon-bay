@@ -1154,7 +1154,9 @@
         for (let i = 0; i < people.length; i++) for (let j = i + 1; j < people.length; j++) {
           const a = people[i], b = people[j];
           if ((a.spot && b.spot) || a.dead || b.dead) continue;
-          const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+          const dx = b.x - a.x, dz = b.z - a.z;
+          if (dx > .55 || dx < -.55 || dz > .55 || dz < -.55) continue;   // far apart: no square root (most of the ~11 000 pairs)
+          const d = Math.hypot(dx, dz);
           if (d < .55 && d > 1e-4) { const k = (.55 - d) / d * .5; if (!a.spot) { a.x -= dx * k; a.z -= dz * k; } if (!b.spot) { b.x += dx * k; b.z += dz * k; } }
         }
         mesh.instanceMatrix.needsUpdate = true; blobs.instanceMatrix.needsUpdate = true; faces.instanceMatrix.needsUpdate = true;

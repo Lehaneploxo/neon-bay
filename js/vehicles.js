@@ -340,14 +340,23 @@
         }
       }
     }
+    // only a car moving on its own physics (the hero's, one shoved awake) can bump into another: traffic is
+    // kinematic and parked cars sleep. So each such car is checked against all the others (each pair once,
+    // the lower index first as before) instead of every pair of the ~200 cars in the city, every frame
+    const movesAlone = c => !c.ai && (c.awake || c.driver === 'player');
+    let moverFlags = new Uint8Array(0);
     function collideCars() {
-      for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) {
-        const a = cars[i], b = cars[j];
+      const n = cars.length, movers = [];
+      for (let i = 0; i < n; i++) if (movesAlone(cars[i])) movers.push(i);
+      if (!movers.length) return;
+      if (moverFlags.length < n) moverFlags = new Uint8Array(n * 2);
+      moverFlags.fill(0, 0, n); for (const i of movers) moverFlags[i] = 1;
+      for (const m of movers) for (let k = 0; k < n; k++) {
+        if (k === m || (moverFlags[k] && k < m)) continue;   // two movers: that pair is done once
+        const a = cars[Math.min(m, k)], b = cars[Math.max(m, k)];
         const reach = (a.model.l + b.model.l) / 2;
         if (Math.abs(a.x - b.x) > reach || Math.abs(a.z - b.z) > reach) continue;
         if (a.ghostT > 0 || b.ghostT > 0 || Math.abs(a.y - b.y) > 2) continue;   // a helicopter overhead doesn't touch the cars below
-        const aMove = !a.ai && (a.awake || a.driver === 'player'), bMove = !b.ai && (b.awake || b.driver === 'player');
-        if (!aMove && !bMove) continue;
         for (const ca of circles(a)) for (const cb of circles(b)) {
           const dx = cb[0] - ca[0], dz = cb[1] - ca[1], d = Math.hypot(dx, dz), min = ca[2] + cb[2] - .15;
           if (d >= min || d < 1e-4) continue;

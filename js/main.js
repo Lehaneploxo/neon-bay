@@ -597,17 +597,26 @@
   let scale = 1, shadowsOn = true, autoMax = 1;
   function setScale(s) { scale = s; renderer.setPixelRatio(s); renderer.setSize(innerWidth, innerHeight, false); }
   function setShadows(on) { shadowsOn = on; sun.castShadow = on; if (on) renderer.shadowMap.needsUpdate = true; }
+  // auto quality, when the frame rate drops: shadows go first, then the view distance (the far city fades into the
+  // haze, so there's less to draw), and only then a little sharpness — never below MIN_SCALE, so the picture stays
+  // clear. When the frame rate comes back: sharpness first, then the distance.
+  const FAR_STEPS = [1, .84, .7], MIN_SCALE = isTouchDevice ? .85 : .75;
+  let baseFar = 250, farCut = 0;
   function applyQuality() {
     const dpr = window.devicePixelRatio || 1, q = settings.quality;
-    let far;
-    if (q === 'high') { setScale(Math.min(dpr, 1.5)); setShadows(true); far = 300; }
-    else if (q === 'low') { setScale(Math.min(dpr, 1) * .7); setShadows(false); far = 180; }
+    farCut = 0;
+    if (q === 'high') { setScale(Math.min(dpr, 1.5)); setShadows(true); baseFar = 300; }
+    else if (q === 'low') { setScale(Math.min(dpr, 1) * .7); setShadows(false); baseFar = 180; }
     // auto: start at full size; a phone with a sharp screen may go a little above it while the frame rate allows
-    else { autoMax = isTouchDevice ? Math.min(dpr, 1.3) : Math.min(dpr, 1); setScale(Math.min(dpr, 1)); setShadows(!isTouchDevice); far = 250; }
+    else { autoMax = isTouchDevice ? Math.min(dpr, 1.3) : Math.min(dpr, 1); setScale(Math.min(dpr, 1)); setShadows(!isTouchDevice); baseFar = 250; }
+    applyFar();
+    document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
+  }
+  function applyFar() {
+    const far = Math.round(baseFar * FAR_STEPS[farCut]);
     scene.fog.near = far * .28; scene.fog.far = far; fogNear0 = far * .28; fogFar0 = far; camera.far = far + 60; camera.updateProjectionMatrix();
     sky.scale.setScalar(camera.far * .9 / 480);   // keep the sky dome inside the far clipping plane
     world.setFog(scene.fog.near, scene.fog.far);
-    document.querySelectorAll('[data-q]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.q === q)));
   }
   let perfT = 0, perfN = 0, good = 0;
   function adapt(raw) {
@@ -615,12 +624,13 @@
     perfT += raw; perfN++;
     if (perfT < 1.5) return;
     const fps = perfN / perfT; perfT = 0; perfN = 0;
-    if (fps < 45) {
+    if (fps < (isTouchDevice ? 40 : 45)) {
       good = 0;
       if (shadowsOn) setShadows(false);
-      else if (scale > .8) setScale(Math.max(.75, scale - .1));
-    } else if (fps > 57) {
-      if (++good >= 3 && scale < autoMax) { good = 0; setScale(Math.min(autoMax, scale + .1)); }
+      else if (farCut < FAR_STEPS.length - 1) { farCut++; applyFar(); }
+      else if (scale > MIN_SCALE + .001) setScale(Math.max(MIN_SCALE, scale - .05));
+    } else if (fps > 56) {
+      if (++good >= 3) { good = 0; if (scale < autoMax - .001) setScale(Math.min(autoMax, scale + .05)); else if (farCut > 0) { farCut--; applyFar(); } }
     } else good = 0;
   }
   function onResize() {
@@ -1040,8 +1050,10 @@
     vignette *= Math.exp(-2.5 * dt);
     const hv = Math.max(vignette, player.hp <= 30 ? .35 + Math.sin(time * 5) * .12 : 0).toFixed(2);
     if ($('hurt').style.opacity !== hv) $('hurt').style.opacity = hv;
-    drawMap();
+    // the minimap 25 times a second is plenty (redrawing it every frame cost as much as all the passers-by)
+    if ((mapT += dt) >= .04) { mapT = 0; drawMap(); }
   }
+  let mapT = 1;
 
   /* ---------- loop ---------- */
   function stepPlaying(dt, raw) {
@@ -1175,7 +1187,7 @@
   onResize();
   show('menu');
   document.body.classList.add('ready');
-  NB.debug = { get jobs() { return jobs; }, get net() { return net; }, player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
+  NB.debug = { renderer, scene, camera, get jobs() { return jobs; }, get net() { return net; }, player, vehicles, radio, audio, plane, guards, wildlife, crowd, animals, world, fire, weather, sea, rig, toggleCar, input, play, police, combat, heroDamage, ems, taxi, shop, dn, progress, addMoney, openShop, closeShop, places, ui, enterPlace, exitPlace, teleport, saveProgress, get interact() { return interact; },
     simulate(n, dt = 1 / 60) { state = 'playing'; for (let i = 0; i < n; i++) { stepPlaying(dt, dt); if (state !== 'playing') break; } },
     setHour(h) { clockShift = 0; const cur = (START_MIN + sharedTime()) % 1440; clockShift = ((h * 60 - cur) % 1440 + 1440) % 1440; time = sharedTime(); },
     get state() { return state; }, get promptCar() { return promptCar; } };
