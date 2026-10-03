@@ -63,7 +63,7 @@
 
     function onMessage(m) {
       switch (m.t) {
-        case 'welcome': me = m; online = m.online; renderOnline(); emit('welcome', m); break;
+        case 'welcome': me = m; online = m.online; renderOnline(); $('btnAdmin').hidden = !m.admin; emit('welcome', m); break;
         case 'owners': owners.home = m.home || {}; owners.biz = m.biz || {}; Object.assign(timers, m.timers || {}); emit('owners', m); break;
         case 'own': if (m.nick) owners[m.kind][m.id] = m.nick; else delete owners[m.kind][m.id]; emit('own', m); break;
         case 'timer': timers[m.key] = m.readyAt; emit('timer', m); break;
@@ -325,6 +325,19 @@
       if (o.playing() && !o.input.touch) o.lock();
     }
     $('btnChat').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); openChat(); });
+    // the owner's admin page, inside the game (only an admin's game shows the 👑 button; the server checks every action anyway)
+    let adminOpen = false;
+    function openAdmin() {
+      if (adminOpen || !me || !me.admin) return;
+      adminOpen = true; o.input.reset(); if (document.pointerLockElement) document.exitPointerLock();
+      const f = $('adminFrame');
+      if (!f.src) f.src = WS_URL.replace(/^ws/, 'http').replace(/\/ws$/, '/admin') + '#t=' + encodeURIComponent(get('nb_token') || '');
+      $('adminBox').hidden = false;
+    }
+    function closeAdmin() { if (!adminOpen) return; adminOpen = false; $('adminBox').hidden = true; o.input.reset(); if (o.playing() && !o.input.touch) o.lock(); }
+    $('btnAdmin').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); openAdmin(); });
+    $('adminClose').addEventListener('click', closeAdmin);
+    addEventListener('keydown', e => { if (adminOpen && e.code === 'Escape') { e.preventDefault(); closeAdmin(); } });
     $('chatClose').addEventListener('click', closeChat);
     $('chatForm').addEventListener('submit', e => {
       e.preventDefault();
@@ -340,7 +353,7 @@
     });
 
     const api = {
-      get chatting() { return chatting; },
+      get chatting() { return chatting || adminOpen; },
       get online() { return online; },
       get nick() { return me ? me.nick : null; },
       get connected() { return !!me; },

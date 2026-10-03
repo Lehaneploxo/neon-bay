@@ -37,6 +37,7 @@
   .dim { color: var(--dim); } .err { color: var(--bad); min-height: 1.2em; }
   .big { font-size: 26px; font-weight: 700; color: var(--good); }
   #login { max-width: 360px; margin: 60px auto; }
+  .embed header { display: none; } .embed #logout { display: none; }
   #login input { width: 100%; margin: 6px 0; }
   .scroll { overflow-x: auto; }
   #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #2a2536; border: 1px solid var(--acc); border-radius: 10px; padding: 10px 16px; display: none; z-index: 20; max-width: 90vw; }
@@ -68,7 +69,11 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
 const money = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('ru-RU');
 const when = t => t ? new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 const ago = t => { if (!t) return '—'; const s = Math.max(0, (Date.now() - t) / 1000); return s < 60 ? Math.round(s) + ' с' : s < 3600 ? Math.round(s / 60) + ' мин' : s < 86400 ? Math.round(s / 3600) + ' ч' : Math.round(s / 86400) + ' дн'; };
+// opened from inside the game (the 👑 button): the game's own sign-in comes in the address after # and is kept here
+const EMBED = /[#&]t=/.test(location.hash);
+if (EMBED) { const t = decodeURIComponent(location.hash.replace(/^.*[#&]t=([^&]*).*$/, '$1')); if (t) localStorage.setItem('adm_token', t); history.replaceState(null, '', location.pathname + '?embed=1'); }
 let token = localStorage.getItem('adm_token'), tab = 'online', timer = 0, openId = 0;
+if (EMBED || /embed=1/.test(location.search)) document.documentElement.classList.add('embed');
 
 function toast(t) { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => { el.style.display = 'none'; }, 2600); }
 async function api(a, data) {

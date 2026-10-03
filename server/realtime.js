@@ -81,7 +81,7 @@ function attach(httpServer, o) {
       }
       p.look = sanitizeLook(m.look); p.outfit = str(m.outfit, 12) || 'own';
       p.ready = true; p.joinedAt = Date.now(); players.set(p.id, p);
-      send(p, { t: 'welcome', id: p.id, nick: p.nick, guest: p.guest, online: players.size });
+      send(p, { t: 'welcome', id: p.id, nick: p.nick, guest: p.guest, online: players.size, admin: !!(acc && o.isAdmin && o.isAdmin(acc)) });
       send(p, { t: 'chat_history', list: chat });
       for (const [id, c] of cash) send(p, { t: 'cash', id, x: c.x, y: c.y, z: c.z, n: c.n, room: c.room });
       send(p, { t: 'cars', list: [...cars].map(([id, c]) => Object.assign({ id }, c)) });

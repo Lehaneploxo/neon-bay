@@ -286,7 +286,7 @@ const httpServer = app.listen(PORT, () => console.log(`[server] LEHA NEPLOXO WOR
 // the live world: players see each other, the chat (realtime.js), the shared city (world.js)
 const wallet = require('./wallet').create({ get store() { return store; } });
 const world = require('./world').create({ get store() { return store; }, wallet });
-const rt = require('./realtime').attach(httpServer, { verifyToken, origins: ORIGINS, world, wallet, store: { byId: id => (store ? store.byId(id) : null) } });
+const rt = require('./realtime').attach(httpServer, { verifyToken, origins: ORIGINS, world, wallet, isAdmin: require('./admin').isAdmin, store: { byId: id => (store ? store.byId(id) : null) } });
 // the owner's page: players, money, bans (admin.js)
 require('./admin').attach(app, { route, fail, get store() { return store; }, wallet, world, rt, dir: __dirname });
 (function boot(delay) {

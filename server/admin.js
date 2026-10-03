@@ -15,10 +15,12 @@ const fs = require('fs'), path = require('path');
 const DEFAULT_ADMINS = ['lehaneploxo', 'leha_neploxo'];
 const FOREVER = 100 * 365 * 24 * 3600 * 1000;
 
+const admins = () => (process.env.GTA_ADMINS ? process.env.GTA_ADMINS.split(',') : DEFAULT_ADMINS).map(s => s.trim().toLowerCase()).filter(Boolean);
+// an admin's game shows the 👑 button, which opens this page inside the game (realtime.js tells it on 'welcome')
+const isAdmin = acc => !!acc && admins().includes(String(acc.nick).toLowerCase());
+
 function attach(app, o) {
   // o: route(name, fn, needAuth), fail(res, status, code, text), store (getter), wallet, world, rt (realtime), dir
-  const admins = () => (process.env.GTA_ADMINS ? process.env.GTA_ADMINS.split(',') : DEFAULT_ADMINS).map(s => s.trim().toLowerCase()).filter(Boolean);
-  const isAdmin = acc => admins().includes(String(acc.nick).toLowerCase());
   const page = path.join(o.dir, 'admin.html');
   app.get('/admin', (req, res) => { res.setHeader('Cache-Control', 'no-store'); res.type('html').send(fs.readFileSync(page, 'utf8')); });
 
@@ -114,4 +116,4 @@ function attach(app, o) {
     }
   }, true);
 }
-module.exports = { attach };
+module.exports = { attach, isAdmin };
