@@ -14,4 +14,4 @@ OpenGameArt.org
 
 BigSoundBank / LaSonotheque (bigsoundbank.com)
   pistol (0438), smg (0437), shotgun (0532), rifle (2853), explosion (1023), skid (2370),
-  heli (0263), boat (0697), street (2372 "Cheerful street"), night (0680 "Paris by night")
+  heli (0263), boat (0697)

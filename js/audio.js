@@ -636,19 +636,11 @@
       const base = surface === 'sand' ? 'stepS' : surface === 'floor' ? 'stepW' : 'stepC';
       play(variant(base, 4), { vol: (surface === 'sand' ? .2 : .26) + run * .18, rate: .95 + run * .1, lp: surface === 'sand' ? 2500 : 0 });
     };
-    // the background: o = { city 0..1, night, sea 0..1, inside } — a street by day or by night, waves on the shore
-    let amb = null, indoors = false, waveT = 0;
+    // the background: o = { sea 0..1, inside, inCar } — waves on the shore
+    let indoors = false, waveT = 0;
     A.ambience = function (o, dt) {
       if (!ok()) return;
       indoors = !!o.inside;
-      const t = AC.currentTime;
-      if (!amb && has('street') && has('night')) amb = { day: loopVoice('street'), night: loopVoice('night') };
-      if (amb) {
-        const lvl = o.inside ? 0 : Math.min(1, o.city || 0) * .55;
-        amb.day.g.gain.setTargetAtTime(o.night ? 0 : lvl, t, 1.2);
-        amb.night.g.gain.setTargetAtTime(o.night ? lvl * 1.1 : 0, t, 1.2);
-        for (const v of [amb.day, amb.night]) v.f.frequency.setTargetAtTime(o.inCar ? 1200 : 20000, t, .3);
-      }
       // waves breaking now and then while you're by the water
       if ((waveT -= dt || 0) <= 0) {
         waveT = 3 + Math.random() * 4;
