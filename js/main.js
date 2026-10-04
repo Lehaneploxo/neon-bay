@@ -725,6 +725,17 @@
   $('playBtn').addEventListener('click', play);
   $('resumeBtn').addEventListener('click', play);
   $('endShiftBtn').addEventListener('click', () => { jobs.end(); play(); });
+  // how to play (start screen and pause): the page for this device first
+  const helpPage = p => {
+    document.querySelectorAll('.helpPage').forEach(e => e.classList.toggle('on', e.dataset.page === p));
+    document.querySelectorAll('.helpTabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.help === p)));
+    $('help').scrollTop = 0;
+  };
+  const openHelp = () => { helpPage(input.touch || matchMedia('(pointer: coarse)').matches ? 'touch' : 'desk'); $('help').hidden = false; };
+  const closeHelp = () => { $('help').hidden = true; };
+  $('helpBtn').addEventListener('click', openHelp); $('helpBtn2').addEventListener('click', openHelp); $('helpClose').addEventListener('click', closeHelp);
+  document.querySelectorAll('.helpTabs button').forEach(b => b.addEventListener('click', () => helpPage(b.dataset.help)));
+  addEventListener('keydown', e => { if (!$('help').hidden && e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeHelp(); } }, true);
   $('btnPause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pause(); });
   $('fsBtn').addEventListener('click', fullscreen);
   $('fsBtn2').addEventListener('click', fullscreen);

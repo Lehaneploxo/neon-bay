@@ -20,7 +20,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20261004d';
+  var BUILD = '20261004e';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -207,6 +207,19 @@ body.touch .forDesk{display:none;}
 .seg button{font:600 13px/1 Rubik,sans-serif;color:var(--ink);background:transparent;border:0;padding:9px 14px;cursor:pointer;touch-action:manipulation;}
 .seg button[aria-pressed="true"]{background:var(--pink);color:#2a0c1c;}
 .note{font-size:13px;color:var(--dim);max-width:48ch;line-height:1.45;}
+.lede:empty{display:none;}
+/* how to play */
+#help{background:rgba(21,15,38,.96);z-index:30;}
+#help .card{gap:14px;}
+.helpTabs{align-self:flex-start;flex-wrap:wrap;}
+.helpPage{display:none;flex-direction:column;gap:10px;}
+.helpPage.on{display:flex;}
+.helpPage h3{margin:10px 0 2px;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);}
+.helpPage .controls{grid-template-columns:1fr;gap:8px;font-size:15px;}
+.helpPage .controls kbd{min-width:96px;}
+.helpRules p,.helpRules li{margin:0;font-size:15px;line-height:1.5;}
+.helpRules ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;}
+#helpClose{margin-top:8px;}
 /* gun shop counter and the menus inside places */
 .shopHead{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;}
 #shopMoney,#panelMoney{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 10px rgba(107,255,138,.5);}
@@ -385,8 +398,9 @@ body.touch .fsOnly{display:inline-block;}
     <svg class="brandLogo" viewBox="0 0 100 100" aria-label="NOT BAD"><circle cx="50" cy="50" r="49" fill="#000"/><circle cx="50" cy="50" r="44" fill="none" stroke="#fff" stroke-width="2.8"/><circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-width="2.8"/><text x="50" y="47" text-anchor="middle" font-family="Rubik, Arial Black, Arial, sans-serif" font-weight="900" font-size="23" fill="#fff">NOT</text><text x="50" y="70" text-anchor="middle" font-family="Rubik, Arial Black, Arial, sans-serif" font-weight="900" font-size="23" fill="#fff">BAD</text></svg>
     <div class="eyebrow">Неплохо Сити · 21</div>
     <h1 class="script">LEHA NEPLOXO WORLD</h1>
-    <p class="lede" id="lede">Неплохо Сити — приморский город в духе 80-х: неон, пальмы и океан. В десяток зданий теперь можно зайти — ищите светящиеся круги у дверей: банк (его можно ограбить), казино, зал игровых автоматов, закусочная, отель с бассейном на крыше, больница, полицейский участок, оружейная Ammo Bay. Заработайте на такси и купите виллу на пляже с гаражом. Вечером загляните в клуб NEPLOXO 21 и тики-бар.</p>
+    <p class="lede" id="lede"></p>
     <button id="playBtn" class="btn" type="button">Играть</button>
+    <button id="helpBtn" class="ghost" type="button">📖 Как играть</button>
     <div id="acct" class="acct">
       <div id="acctOut">
         <button id="acctOpen" class="ghost" type="button">Войти / создать аккаунт</button>
@@ -400,37 +414,6 @@ body.touch .fsOnly{display:inline-block;}
         </form>
       </div>
       <div id="acctIn" hidden>Вы вошли как <b id="acctNick"></b> — прогресс сохраняется на сервере · <button id="acctLogout" class="linkBtn" type="button">Выйти</button></div>
-    </div>
-    <div class="controls forDesk">
-      <div><kbd>W A S D</kbd>Ходьба</div>
-      <div><kbd>Мышь</kbd>Камера</div>
-      <div><kbd>Shift</kbd>Бег</div>
-      <div><kbd>Пробел</kbd>Прыжок</div>
-      <div><kbd>Колесо</kbd>Ближе / дальше</div>
-      <div><kbd>Esc</kbd>Пауза</div>
-      <div><kbd>F</kbd>Сесть в машину / действие</div>
-      <div><kbd>W / S</kbd>Газ / тормоз, задний ход</div>
-      <div><kbd>Пробел</kbd>Ручник (в машине)</div>
-      <div><kbd>H</kbd>Сигнал</div>
-      <div><kbd>ЛКМ</kbd>Удар / выстрел</div>
-      <div><kbd>ПКМ</kbd>Прицелиться</div>
-      <div><kbd>Q, 1–6</kbd>Сменить оружие</div>
-      <div><kbd>Такси</kbd>Сядьте в жёлтое такси</div>
-      <div><kbd>M</kbd>Звук вкл / выкл</div>
-      <div><kbd>Tab</kbd>Карта города</div>
-      <div><kbd>Пробел / Shift</kbd>Вертолёт: вверх / вниз</div>
-    </div>
-    <div class="controls forTouch">
-      <div><kbd>Левый палец</kbd>Ходьба</div>
-      <div><kbd>Правый палец</kbd>Камера</div>
-      <div><kbd>БЕГ</kbd>Включить бег</div>
-      <div><kbd>ПРЫЖОК</kbd>Прыгнуть</div>
-      <div><kbd>СЕСТЬ</kbd>Сесть в машину или действие рядом</div>
-      <div><kbd>ГАЗ / ТОРМОЗ</kbd>Ехать, джойстик — руль</div>
-      <div><kbd>УДАР / ОГОНЬ</kbd>Автоприцел по ближайшему</div>
-      <div><kbd>ОРУЖ.</kbd>Сменить оружие</div>
-      <div><kbd>Такси</kbd>Сядьте в жёлтое такси</div>
-      <div><kbd>Мини-карта</kbd>Нажмите — откроется вся карта</div>
     </div>
     <div class="row">Графика
       <div class="seg" role="group" aria-label="Качество графики">
@@ -450,6 +433,7 @@ body.touch .fsOnly{display:inline-block;}
     <h2 class="script">Перерыв</h2>
     <button id="resumeBtn" class="btn" type="button">Продолжить</button>
     <button id="endShiftBtn" class="ghost" type="button" hidden>Закончить смену</button>
+    <button id="helpBtn2" class="ghost" type="button">📖 Как играть</button>
     <div class="row">Графика
       <div class="seg" role="group" aria-label="Качество графики">
         <button type="button" data-q="low">Низкая</button><button type="button" data-q="auto">Авто</button><button type="button" data-q="high">Высокая</button>
@@ -458,6 +442,130 @@ body.touch .fsOnly{display:inline-block;}
     <label class="row" for="sens2">Чувствительность камеры <input id="sens2" type="range" min="0.3" max="2.5" step="0.05" value="1"><output id="sensOut2">1.00</output></label>
     <div class="row">Звук <input id="vol2" type="range" min="0" max="1" step="0.05" value="1" aria-label="Громкость"><output id="volOut2">100%</output><button id="muteBtn2" class="ghost mute" type="button">Выключить</button></div>
     <button id="fsBtn2" class="ghost fsOnly" type="button">На весь экран</button>
+  </div>
+</div>
+
+<div id="help" class="screen" hidden>
+  <div class="card">
+    <div class="eyebrow">LEHA NEPLOXO WORLD</div>
+    <h2 class="script">Как играть</h2>
+    <div class="seg helpTabs" role="tablist" aria-label="Разделы">
+      <button type="button" role="tab" data-help="touch">📱 Телефон</button><button type="button" role="tab" data-help="desk">🖥 Компьютер</button><button type="button" role="tab" data-help="rules">📖 Правила</button>
+    </div>
+
+    <div class="helpPage" data-page="touch">
+      <h3>Пешком</h3>
+      <div class="controls">
+        <div><kbd>Левый палец</kbd>Ходьба: ведите по левой половине экрана</div>
+        <div><kbd>Правый палец</kbd>Камера: ведите по правой половине</div>
+        <div><kbd>БЕГ</kbd>Включить / выключить бег</div>
+        <div><kbd>ПРЫЖОК</kbd>Прыгнуть</div>
+        <div><kbd>УДАР</kbd>Удар или выстрел — прицел сам наводится на ближайшего</div>
+        <div><kbd>ОРУЖ.</kbd>Сменить оружие</div>
+        <div><kbd>СЕСТЬ</kbd>Появляется рядом с машиной, дверью или кнопкой: сесть, войти, купить, сесть на лавку</div>
+      </div>
+      <h3>В машине</h3>
+      <div class="controls">
+        <div><kbd>ГАЗ</kbd>Ехать вперёд</div>
+        <div><kbd>ТОРМОЗ</kbd>Тормоз, а стоя — задний ход</div>
+        <div><kbd>Левый палец</kbd>Руль</div>
+        <div><kbd>РУЧНИК</kbd>Ручной тормоз, занос</div>
+        <div><kbd>БИП</kbd>Сигнал</div>
+        <div><kbd>🚨</kbd>Мигалки и сирена (полиция, скорая, пожарная, береговая охрана)</div>
+        <div><kbd>СЕСТЬ</kbd>Выйти (машина должна почти стоять)</div>
+        <div><kbd>Радио</kbd>Нажмите на название станции вверху — следующая</div>
+      </div>
+      <h3>Вертолёт и самолёт</h3>
+      <div class="controls">
+        <div><kbd>ВПЕРЁД / НАЗАД</kbd>Лететь вперёд / назад</div>
+        <div><kbd>ВВЕРХ / ВНИЗ</kbd>Набрать / сбросить высоту</div>
+        <div><kbd>Левый палец</kbd>Поворот</div>
+        <div><kbd>СЕСТЬ</kbd>Высоко в воздухе — выпрыгнуть, потом ПРЫЖОК — парашют</div>
+      </div>
+      <h3>Экран</h3>
+      <div class="controls">
+        <div><kbd>Мини-карта</kbd>Нажмите — откроется карта всего города</div>
+        <div><kbd>💬</kbd>Чат со всеми игроками</div>
+        <div><kbd>II</kbd>Пауза и настройки</div>
+        <div><kbd>🔊</kbd>Звук вкл / выкл</div>
+      </div>
+      <p class="note">Совет: добавьте игру на экран «Домой» — она откроется на весь экран, как приложение. Если тормозит — в паузе поставьте графику «Низкая».</p>
+    </div>
+
+    <div class="helpPage" data-page="desk">
+      <h3>Пешком</h3>
+      <div class="controls">
+        <div><kbd>W A S D</kbd>Ходьба</div>
+        <div><kbd>Мышь</kbd>Камера (щёлкните по игре, чтобы захватить мышь)</div>
+        <div><kbd>Shift</kbd>Бег</div>
+        <div><kbd>Пробел</kbd>Прыжок</div>
+        <div><kbd>F или E</kbd>Сесть в машину, войти в дверь, действие рядом</div>
+        <div><kbd>ЛКМ</kbd>Удар / выстрел</div>
+        <div><kbd>ПКМ</kbd>Прицелиться</div>
+        <div><kbd>Q, 1–6</kbd>Сменить оружие</div>
+        <div><kbd>Колесо</kbd>Камера ближе / дальше</div>
+      </div>
+      <h3>В машине</h3>
+      <div class="controls">
+        <div><kbd>W / S</kbd>Газ / тормоз и задний ход</div>
+        <div><kbd>A / D</kbd>Руль</div>
+        <div><kbd>Пробел</kbd>Ручник</div>
+        <div><kbd>H</kbd>Сигнал</div>
+        <div><kbd>G</kbd>Мигалки и сирена (служебные машины)</div>
+        <div><kbd>R</kbd>Следующая радиостанция</div>
+        <div><kbd>F</kbd>Выйти (машина должна почти стоять)</div>
+      </div>
+      <h3>Вертолёт и самолёт</h3>
+      <div class="controls">
+        <div><kbd>W / S</kbd>Вперёд / назад</div>
+        <div><kbd>A / D</kbd>Поворот</div>
+        <div><kbd>Пробел / H или Shift</kbd>Вверх / вниз</div>
+        <div><kbd>F, потом Пробел</kbd>Высоко в воздухе — выпрыгнуть и раскрыть парашют</div>
+      </div>
+      <h3>Общее</h3>
+      <div class="controls">
+        <div><kbd>Tab</kbd>Карта города</div>
+        <div><kbd>T или Enter</kbd>Чат</div>
+        <div><kbd>M</kbd>Звук вкл / выкл</div>
+        <div><kbd>Esc</kbd>Пауза</div>
+      </div>
+    </div>
+
+    <div class="helpPage helpRules" data-page="rules">
+      <h3>Город один на всех</h3>
+      <p>Все игроки в одном городе: вы видите друг друга, ники над головой, общий чат 💬. Создайте аккаунт в главном меню — тогда деньги, дома и машины хранятся на сервере и не пропадут, играйте хоть с телефона, хоть с компьютера. Без аккаунта всё живёт только в этом браузере.</p>
+      <p>Зайти можно туда, где у двери светится круг. Деньги в игре — только наличные.</p>
+
+      <h3>Как заработать</h3>
+      <ul>
+        <li><b>Работа в службах</b> — полиция, больница, пожарная. Устройтесь в кабинете начальника, переоденьтесь в раздевалке — начнётся смена. Зарплата каждую минуту, премии за вызовы, за вызовы растёт звание и зарплата.</li>
+        <li><b>Такси</b> — сядьте в жёлтое такси, пассажир машет у жёлтой метки.</li>
+        <li><b>Развоз пиццы</b> — в Pizza NEPLOXO или в пиццерии «Черепа»: «Подработка» в меню, скутер у входа, адреса — красные метки.</li>
+        <li><b>Ограбления</b> — банк и кассы магазинов 24/7 (нужен ствол в руках), ящик военных на острове Омега. Банк и ящик — раз в 15 минут на весь сервер, каждый магазин — раз в 10 минут. Полиция приедет.</li>
+        <li><b>Развлечения с призами</b> — казино, тир, бокс, гонки NEON RACER, лотерея в 24/7.</li>
+        <li><b>Клады</b> — в городе и на островах кое-что спрятано. Ищите сами 😉</li>
+      </ul>
+
+      <h3>На что тратить</h3>
+      <ul>
+        <li><b>Жильё</b> — от студии за $6 000 до особняка. Аренда списывается сама раз в сутки. Нет денег — дверь закрыта до оплаты; 14 дней долга — жильё уходит в продажу, вернут половину цены. У каждого дома один хозяин на весь сервер. Вы появляетесь в доме, куда зашли последним.</li>
+        <li><b>Машины</b> — салон NEPLOXO MOTORS: эксклюзивные машины, они остаются вашими там, где вы их оставили; у домов есть гаражи.</li>
+        <li><b>Бизнесы</b> — стол в холле NEPLOXO TOWER: клубы, кафе, казино. Вам идёт 50% того, что тратят там другие игроки.</li>
+        <li><b>Одежда, еда, оружие</b> — бутики, кафе (еда лечит), Ammo Bay.</li>
+      </ul>
+
+      <h3>Полиция</h3>
+      <p>За преступления — звёзды розыска. Чтобы оторваться, уезжайте подальше и не попадайтесь на глаза. Арест: штраф $100 за звезду, оружие забирают. Если погибли — больница за $100, половина патронов теряется.</p>
+
+      <h3>Драки с игроками</h3>
+      <ul>
+        <li>Если вырубить игрока, у него выпадает 0,5% наличных (не больше $10 000) — пачку может подобрать любой в течение минуты. Нокаутёру — звезда розыска.</li>
+        <li>Того же игрока снова «обобрать» можно только через 30 минут, после нокаута 30 секунд неуязвимости.</li>
+        <li>Не выпадает ничего: у новичков в первые 2 часа, на пляже у старта, у больницы и у своего дома.</li>
+      </ul>
+    </div>
+
+    <button id="helpClose" class="btn" type="button">Понятно</button>
   </div>
 </div>
 
@@ -501,50 +609,50 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261004d"></script>
-<script src="js/online.js?v=20261004d"></script>
-<script src="js/net.js?v=20261004d"></script>
-<script src="js/sync.js?v=20261004d"></script>
-<script src="js/wallet.js?v=20261004d"></script>
-<script src="js/club.js?v=20261004d"></script>
-<script src="js/places.js?v=20261004d"></script>
-<script src="js/spray.js?v=20261004d"></script>
-<script src="js/street.js?v=20261004d"></script>
-<script src="js/northside.js?v=20261004d"></script>
-<script src="js/bayview.js?v=20261004d"></script>
-<script src="js/tropic.js?v=20261004d"></script>
-<script src="js/hideaway.js?v=20261004d"></script>
-<script src="js/military.js?v=20261004d"></script>
-<script src="js/island.js?v=20261004d"></script>
-<script src="js/brand.js?v=20261004d"></script>
-<script src="js/world.js?v=20261004d"></script>
-<script src="js/faces.js?v=20261004d"></script>
-<script src="js/player.js?v=20261004d"></script>
-<script src="js/wardrobe.js?v=20261004d"></script>
-<script src="js/npc.js?v=20261004d"></script>
-<script src="js/animals.js?v=20261004d"></script>
-<script src="js/wildlife.js?v=20261004d"></script>
-<script src="js/cars.js?v=20261004d"></script>
-<script src="js/vehicles.js?v=20261004d"></script>
-<script src="js/audio.js?v=20261004d"></script>
-<script src="js/radio.js?v=20261004d"></script>
-<script src="js/guards.js?v=20261004d"></script>
-<script src="js/combat.js?v=20261004d"></script>
-<script src="js/police.js?v=20261004d"></script>
-<script src="js/weather.js?v=20261004d"></script>
-<script src="js/sealife.js?v=20261004d"></script>
-<script src="js/plane.js?v=20261004d"></script>
-<script src="js/fire.js?v=20261004d"></script>
-<script src="js/ems.js?v=20261004d"></script>
-<script src="js/daynight.js?v=20261004d"></script>
-<script src="js/taxi.js?v=20261004d"></script>
-<script src="js/pizza.js?v=20261004d"></script>
-<script src="js/shop.js?v=20261004d"></script>
-<script src="js/entrances.js?v=20261004d"></script>
-<script src="js/shops.js?v=20261004d"></script>
-<script src="js/jobs.js?v=20261004d"></script>
-<script src="js/business.js?v=20261004d"></script>
-<script src="js/autos.js?v=20261004d"></script>
-<script src="js/ui.js?v=20261004d"></script>
-<script src="js/input.js?v=20261004d"></script>
-<script src="js/main.js?v=20261004d"></script>
+<script src="js/engine.js?v=20261004e"></script>
+<script src="js/online.js?v=20261004e"></script>
+<script src="js/net.js?v=20261004e"></script>
+<script src="js/sync.js?v=20261004e"></script>
+<script src="js/wallet.js?v=20261004e"></script>
+<script src="js/club.js?v=20261004e"></script>
+<script src="js/places.js?v=20261004e"></script>
+<script src="js/spray.js?v=20261004e"></script>
+<script src="js/street.js?v=20261004e"></script>
+<script src="js/northside.js?v=20261004e"></script>
+<script src="js/bayview.js?v=20261004e"></script>
+<script src="js/tropic.js?v=20261004e"></script>
+<script src="js/hideaway.js?v=20261004e"></script>
+<script src="js/military.js?v=20261004e"></script>
+<script src="js/island.js?v=20261004e"></script>
+<script src="js/brand.js?v=20261004e"></script>
+<script src="js/world.js?v=20261004e"></script>
+<script src="js/faces.js?v=20261004e"></script>
+<script src="js/player.js?v=20261004e"></script>
+<script src="js/wardrobe.js?v=20261004e"></script>
+<script src="js/npc.js?v=20261004e"></script>
+<script src="js/animals.js?v=20261004e"></script>
+<script src="js/wildlife.js?v=20261004e"></script>
+<script src="js/cars.js?v=20261004e"></script>
+<script src="js/vehicles.js?v=20261004e"></script>
+<script src="js/audio.js?v=20261004e"></script>
+<script src="js/radio.js?v=20261004e"></script>
+<script src="js/guards.js?v=20261004e"></script>
+<script src="js/combat.js?v=20261004e"></script>
+<script src="js/police.js?v=20261004e"></script>
+<script src="js/weather.js?v=20261004e"></script>
+<script src="js/sealife.js?v=20261004e"></script>
+<script src="js/plane.js?v=20261004e"></script>
+<script src="js/fire.js?v=20261004e"></script>
+<script src="js/ems.js?v=20261004e"></script>
+<script src="js/daynight.js?v=20261004e"></script>
+<script src="js/taxi.js?v=20261004e"></script>
+<script src="js/pizza.js?v=20261004e"></script>
+<script src="js/shop.js?v=20261004e"></script>
+<script src="js/entrances.js?v=20261004e"></script>
+<script src="js/shops.js?v=20261004e"></script>
+<script src="js/jobs.js?v=20261004e"></script>
+<script src="js/business.js?v=20261004e"></script>
+<script src="js/autos.js?v=20261004e"></script>
+<script src="js/ui.js?v=20261004e"></script>
+<script src="js/input.js?v=20261004e"></script>
+<script src="js/main.js?v=20261004e"></script>
