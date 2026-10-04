@@ -968,7 +968,8 @@
         case 'hail': { const w = Math.sin(t * 7 + p.seed); P.bob = breathe; aR = -2.7 + w * .22; eR = -.3 + w * .3; aL = .05; P.headP = -.06; P.twist = -.1; break; }
         case 'talk': {
           P.bob = breathe;
-          const speaking = (((t + p.seed * 3) / 2.6) | 0) % p.spot.n === p.spot.idx;
+          const sp = p.spot && p.spot.n ? p.spot : { n: 3, idx: (p.seed * 7 | 0) % 3 };   // another player's person has no spot here
+          const speaking = (((t + p.seed * 3) / 2.6) | 0) % sp.n === sp.idx;
           if (speaking) { aR = -.5 + Math.sin(t * 2.7 + p.seed) * .35; eR = -1.1 + Math.sin(t * 3.9 + p.seed) * .35; aL = -.2 + Math.sin(t * 2.1) * .15; eL = -.7; P.headP = Math.sin(t * 2.2 + p.seed) * .06; }
           else { aL = aR = .05; P.headP = Math.sin(t * .9 + p.seed) * .04; }
           P.twist = Math.sin(t * .5 + p.seed) * .05;
