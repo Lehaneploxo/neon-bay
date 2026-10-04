@@ -71,6 +71,7 @@
   const weather = NB.createWeather(scene, camera, { audio, lowQuality: () => settings.quality === 'low' || isTouchDevice });   // fewer raindrops on phones
   crowdOpts.rain = () => weather.rain;
   player.onSplash = big => audio.splash(big); player.onStroke = () => audio.stroke();
+  player.onStep = run => audio.step(places.current ? 'floor' : /Пляж|пляж/.test(world.districtAt(player.x, player.z)) || (world.beachAt && world.beachAt(player.x, player.z)) ? 'sand' : 'stone', run);
   const vehOpts = { audio, slip: () => weather.slip(), onImpact: s => { shake = Math.min(.6, shake + s * .025); if (taxi) taxi.onImpact(s); if (s > 11 && vehicles.driving && vehicles.driving.model.bike) setTimeout(() => thrownOff(s)); } };
   const vehicles = NB.createVehicles(scene, world, vehOpts);
   // the car radio: on while you're in a vehicle; tap the station name (or press R) for the next one
@@ -313,8 +314,8 @@
       if (title) showDistrict(title);
     });
   }
-  function enterPlace(p) { teleport(p.inside.x, p.inside.z, p.inside.heading, p, p.name); }
-  function exitPlace(p) { const d = p.door; teleport(d.x + d.nx * .9, d.z + d.nz * .9, d.heading, null, world.districtAt(d.x, d.z), d.y); }
+  function enterPlace(p) { audio.door(); teleport(p.inside.x, p.inside.z, p.inside.heading, p, p.name); }
+  function exitPlace(p) { const d = p.door; audio.door(); teleport(d.x + d.nx * .9, d.z + d.nz * .9, d.heading, null, world.districtAt(d.x, d.z), d.y); }
   function leavePlace() { if (places.current && places.current.onLeave) places.current.onLeave(); places.current = null; }
   // a rest: full health and a save. The clock never jumps (the game is headed online: one time for everyone)
   function sleep(msg) {
@@ -868,6 +869,7 @@
     }
     g.strokeStyle = 'rgba(255,241,228,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.stroke();
   }
+  let ambT = 0;   // the background sound is looked at twice a second
   /* ---------- the full-screen map (tap the minimap, or Tab) ---------- */
   const bm = { cv: $('bigmapCv'), open: false, sc: 1, cx: 217, cz: 0, drag: null, ptrs: new Map(), pinch: 0 };
   const bmG = bm.cv.getContext('2d');
@@ -1178,6 +1180,14 @@
       }
       audio.venue(name, active ? level : 0, full);
       const bank = places.byId('bank');
+      if ((ambT -= raw) <= 0) {
+        const iv = .5 - ambT; ambT = .5;
+        // how much sea there is around (waves on the shore), and whether this is the city or out on the water
+        let wet = 0; const W = NB.water;
+        if (W && !inside) for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; for (const r of [14, 30]) if (W.at(player.x + Math.sin(a) * r, player.z + Math.cos(a) * r)) wet += r < 20 ? .09 : .045; }
+        const atSea = W && W.at(player.x, player.z);
+        audio.ambience({ inside: !!inside || !active, night: (env.night || 0) > .5, city: atSea ? .25 : 1 - Math.min(.6, wet), sea: atSea ? 0 : wet, inCar: player.inCar }, iv);
+      }
       audio.alarm(active && ((places.current && places.current !== bank && places.current.alarm && places.current.alarm()) || (bank && bank.alarm() && (places.current === bank || Math.hypot(player.x - bank.door.x, player.z - bank.door.z) < 70)) || (world.military && world.military.alarm)));
     }
     vehicles.setNight(env.night);

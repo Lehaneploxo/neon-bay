@@ -186,7 +186,7 @@
       this.hp = 100; this.dead = false; this.deadT = 0; this.punchT = 0; this.aimT = 0; this.aimYaw = 0; this.aimPitch = 0; this.recoil = 0; this.weapon = 'fists';
       // in the water: swim (deep), wade (waist-deep, slower); tilt 0.25 treading water .. 1 front crawl
       this.swim = false; this.wade = 0; this.tilt = .25; this.rippleT = 0; this.strokeT = 0;
-      this.onSplash = null; this.onStroke = null;
+      this.onSplash = null; this.onStroke = null; this.onStep = null;
       // another player (net.js) is only drawn: no splashes of their own
       this.fx = opt && opt.remote ? { ripple() {}, drops() {}, splash() {}, update() {} } : makeWaterFx(scene);
     }
@@ -414,7 +414,10 @@
       const m = this.m;
       this.run = U.damp(this.run, U.clamp((sp - JOG * .6) / (SPRINT - JOG * .6), 0, 1), 6, dt);
       const moving = U.clamp(sp / 2, 0, 1);
+      const was = Math.floor(this.phase / Math.PI);
       this.phase += dt * (sp < .1 ? 0 : 2.6 + sp * 1.25);
+      // a foot comes down twice a cycle: a footstep
+      if (this.onStep && this.onGround && !this.inCar && sp > .6 && Math.floor(this.phase / Math.PI) !== was) this.onStep(this.run);
       const ph = this.phase, s = Math.sin(ph), c = Math.cos(ph);
       const A = (.55 + this.run * .45) * moving;
       let thL = -s * A, thR = s * A;

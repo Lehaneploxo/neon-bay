@@ -381,7 +381,7 @@
           if (G.police.wanted > 0) { say(p, pick(['Копы на хвосте! Проезжай!', 'Не сейчас, красавчик, за тобой полиция'])); R.waitT = -6; return; }
           if (G.money.get() < 100) { say(p, 'Сто долларов, милый. Приходи с деньгами'); R.waitT = -6; return; }
           R.look = p.look; R.spot = s; s.vacated = true; G.crowd.despawnPerson(p);
-          R.car = car; R.rider = seat(car, R.look); R.state = 'ride'; R.t = 0; G.audio.door();
+          R.car = car; R.rider = seat(car, R.look); R.state = 'ride'; R.t = 0; G.audio.door('car');
           G.flash('«Поехали, красавчик!» — остановитесь в тихом месте', 3);
           return;
         }

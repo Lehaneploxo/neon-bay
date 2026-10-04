@@ -886,7 +886,7 @@
         if (car.barR) car.sirenOn = false;
         car.exited = false;
         car.driver = 'player'; car.parked = false; car.awake = true; car.driverMesh.visible = true;
-        driving = car; audio.door(); audio.engineOn(true);
+        driving = car; audio.door('car'); audio.engineOn(true, car.model.id);
         return ejected;
       },
       exit(player, force) {
@@ -901,7 +901,7 @@
             player.place(car.x - rx * s, car.z - rz * s, car.h); player.y = car.y + .5; player.vy = 0; player.onGround = false; player.air = .5;
             player.vx = car.vx * .6; player.vz = car.vz * .6; player.fallTop = player.y;
             car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
-            audio.door(); if (audio.rotor) audio.rotor(0, 1); if (car.model.jet) audio.engineOn(false);
+            audio.door('car'); if (audio.rotor) audio.rotor(0, 1); if (car.model.jet) audio.engineOn(false);
             return 'bail';
           }
           if (car.y > heliGround(car) + .6 && !force) return false;   // (a crash throws you out wherever it happens)
@@ -909,7 +909,7 @@
           for (const side of [-1, 1]) { const x = car.x + rx * side * (car.model.w / 2 + .9), z = car.z + rz * side * (car.model.w / 2 + .9), f = player.floorAt(x, z, car.y + .6); if (f > by) { by = f; bx = x; bz = z; } }
           player.place(bx, bz, car.h); player.y = by;
           car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
-          audio.door(); if (audio.rotor) audio.rotor(0, 1); if (car.model.jet) audio.engineOn(false);
+          audio.door('car'); if (audio.rotor) audio.rotor(0, 1); if (car.model.jet) audio.engineOn(false);
           return true;
         }
         if (car.model.boat) {
@@ -921,7 +921,7 @@
           }
           player.place(best[0], best[1], car.h);
           car.driver = null; car.driverMesh.visible = false; driving = null; car.parked = false;
-          audio.door(); audio.engineOn(false);
+          audio.door('car'); audio.engineOn(false);
           return true;
         }
         // door on the driver's (left) side, or the other side if that is blocked
@@ -932,7 +932,7 @@
           }
         }
         car.driver = null; car.driverMesh.visible = false; driving = null;
-        audio.door(); audio.engineOn(false);
+        audio.door('car'); audio.engineOn(false);
         return true;
       },
       // cars that people should get out of the way of
@@ -1111,6 +1111,14 @@
         }
         sirens.sort((a, b) => a[0] - b[0]);
         audio.sirens(sirens.slice(0, 2).filter(s => s[0] < 110).map(s => [s[1].x, 1.4, s[1].z]));
+        // the two nearest cars driving by are heard
+        if (audio.traffic && (api.trafT = (api.trafT || 0) - dt) <= 0) {
+          api.trafT = .25;
+          const near = [];
+          for (const c of cars) if (c !== driving && c.ai && c.visible && !c.model.boat && !c.model.heli) { const d = Math.hypot(c.x - player.x, c.z - player.z), v = Math.abs(speedOf(c)); if (d < 45 && v > 1.5) near.push([d, c, v]); }
+          near.sort((a, b) => a[0] - b[0]);
+          audio.traffic(near.slice(0, 2).map(([, c, v]) => [c.x, .6, c.z, Math.min(1, v / 20)]));
+        }
         // sound for the hero's car
         if (driving && driving.model.jet) audio.engine(.35 + Math.min(1, Math.abs(driving.spd) / driving.model.perf.top) * .65, Math.max(.3, input.throttle), 'jet');
         else if (driving && driving.model.heli) { if (audio.rotor) audio.rotor(driving.spool, 1 + Math.abs(speedOf(driving)) / 60 + Math.max(0, driving.vy) * .02); }
@@ -1119,7 +1127,8 @@
           const gears = [0, .22, .42, .62, .82, 1.01], rel = v / top;
           let g = 1; while (g < gears.length - 1 && rel > gears[g]) g++;
           const rpm = U.clamp((rel - gears[g - 1]) / (gears[g] - gears[g - 1]), 0, 1) * .8 + .2;
-          audio.engine(rpm, Math.abs(input.throttle), driving.model.id);
+          const fwd = speedOf(driving);
+          audio.engine(rpm, Math.abs(input.throttle), driving.model.id, input.throttle < -.2 && fwd > 8 && !driving.model.boat ? U.clamp((fwd - 8) / 20, 0, 1) * -input.throttle : 0);
           audio.skid(U.clamp(((driving.slip || 0) - 2.5) / 5, 0, 1) + (input.handbrake && v > 5 ? .4 : 0));
           if (input.horn && !api.hornHeld) audio.horn(null);
           api.hornHeld = input.horn;

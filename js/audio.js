@@ -1,4 +1,6 @@
-// All sound is synthesised: engine hum that follows the revs, tyre squeal, horns, impacts, doors.
+// The game's sound. Recorded where it matters (sfx/*.mp3, CC0 — see sfx/CREDITS.txt): engines that follow the revs,
+// tyres, crashes, fights, guns, doors, footsteps, water, rain, the street. Synthesised: the music, sirens, alarms,
+// money and menu blips, animals — and every recorded sound's stand-in until the recordings have loaded.
 (function (NB) {
   'use strict';
   NB.createAudio = function () {
@@ -11,12 +13,13 @@
       if (master) master.gain.setTargetAtTime(.7 * volume, AC.currentTime, .05);
     };
     A.init = function () {
-      if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+      if (AC) { if (AC.state === 'suspended') AC.resume(); loadSfx(); return; }
       try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
       const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4;
       master = AC.createGain(); master.gain.value = .7 * volume; master.connect(comp); comp.connect(AC.destination);
       noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      loadSfx();
     };
     const ok = () => AC && AC.state === 'running';
     // for the car radio (radio.js): the context, the master bus, white noise, the volume setting
@@ -30,6 +33,61 @@
       } else g.connect(master);
       return g;
     }
+    /* ---------- recorded sounds (sfx/*.mp3, CC0, see sfx/CREDITS.txt) ----------
+       Loaded once the sound is switched on; until a sound has arrived its synthesised stand-in below plays instead.
+       A loop file holds its period twice over: the middle period is looped, clear of the mp3's padding at the ends. */
+    const SFX = {}, META = {};
+    let sfxAsked = false, voices = 0;
+    const MAX_VOICES = 24;
+    function loadSfx() {
+      if (sfxAsked) return; sfxAsked = true;
+      const v = (document.querySelector('script[src*="audio.js"]') || { src: '' }).src.split('?v=')[1] || '1';
+      fetch('sfx/sfx.json?v=' + v).then(r => r.json()).then(list => {
+        // one at a time, the short ones first: a phone decodes them without a hiccup
+        const names = Object.keys(list).sort((a, b) => (list[a].loop ? 1 : 0) - (list[b].loop ? 1 : 0));
+        let i = 0;
+        const next = () => {
+          if (i >= names.length) return;
+          const n = names[i++]; META[n] = list[n];
+          fetch('sfx/' + n + '.mp3?v=' + v).then(r => r.arrayBuffer())
+            .then(b => new Promise((ok, no) => AC.decodeAudioData(b, ok, no)))
+            .then(buf => { SFX[n] = buf; }, () => {}).then(next, next);
+        };
+        next(); next();
+      }).catch(() => {});
+    }
+    const has = n => !!SFX[n];
+    const variant = (base, n) => { const k = (Math.random() * n) | 0; for (let j = 0; j < n; j++) { const s = base + ((k + j) % n); if (SFX[s]) return s; } return null; };
+    // a recorded sound once: false if it hasn't loaded (the caller then synthesises)
+    function play(name, o) {
+      o = o || {};
+      if (!ok() || !name || !SFX[name]) return false;
+      if (voices >= MAX_VOICES && (o.vol || 1) < .5) return true;   // too busy: quiet ones are skipped
+      const src = AC.createBufferSource(); src.buffer = SFX[name];
+      src.playbackRate.value = (o.rate || 1) * (o.vary === false ? 1 : 1 + (Math.random() - .5) * .1);
+      const g = out(o.pos); g.gain.value = o.vol == null ? 1 : o.vol;
+      let last = src;
+      if (o.lp) { const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; src.connect(f); last = f; }
+      last.connect(g); voices++;
+      src.onended = () => { voices--; g.disconnect(); };
+      src.start(AC.currentTime + (o.at || 0));
+      return true;
+    }
+    // a looping recorded sound with its own gain (and filter, and optional position)
+    function loopVoice(name, o) {
+      o = o || {};
+      const src = AC.createBufferSource(), P = META[name].loop;
+      src.buffer = SFX[name]; src.loop = true; src.loopStart = P / 2; src.loopEnd = P * 1.5;
+      const g = AC.createGain(); g.gain.value = 0;
+      const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp || 20000;
+      src.connect(f); f.connect(g);
+      let p = null;
+      if (o.pan) { p = AC.createPanner(); p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = o.ref || 6; p.rolloffFactor = 1.3; g.connect(p); p.connect(master); }
+      else g.connect(master);
+      src.start(0, P / 2 + Math.random() * P * .9);
+      return { src, g, f, p, name };
+    }
+    const setPos = (p, x, y, z) => { if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z); };
     function env(g, t, a, peak, dur) { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + dur); }
     function noise(dest, t, dur, type, f, q, peak, f2) {
       const s = AC.createBufferSource(); s.buffer = noiseBuf;
@@ -42,9 +100,29 @@
       if (L.positionX) { L.positionX.value = x; L.positionY.value = y; L.positionZ.value = z; L.forwardX.value = fx; L.forwardY.value = 0; L.forwardZ.value = fz; L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0; }
       else { L.setPosition(x, y, z); L.setOrientation(fx, 0, fz, 0, 1, 0); }
     };
-    // engine: two detuned oscillators through a low-pass filter; pitch follows the revs, filter follows the throttle
-    A.engineOn = function (on) {
+    // engine. Recorded: one engine at three revs (eng0/1/2), each sped up or slowed down to the wanted pitch and
+    // crossfaded by how close it is (a sample sounds right near the pitch it was recorded at); the throttle opens
+    // a low-pass filter and adds volume. Boats have their own outboard, every model its own voice (VOICE).
+    // Until the recordings arrive: two detuned oscillators through a low-pass filter, as before.
+    let rec = null, engOn = false, curId = null, lastSkid = 0;
+    const ENG_F = [43, 65, 77];   // the recordings' firing pitch, Hz
+    const BOATS = { speedboat: 1, jetski: 1, sailboat: 1, cruiser: 1, policeboat: 1 };
+    const NO_START = { vento: 1, hog: 1, vespino: 1, hyper21: 1, jet: 1, heli: 1, milheli: 1, volt: 1, speedboat: 1, jetski: 1, sailboat: 1, cruiser: 1, policeboat: 1 };
+    function recEngine() {
+      if (rec || !has('eng0') || !has('eng1') || !has('eng2') || !has('skid')) return rec;
+      rec = { eng: ['eng0', 'eng1', 'eng2'].map(n => loopVoice(n)), skid: loopVoice('skid'), boat: has('boat') ? loopVoice('boat', { lp: 1800 }) : null };
+      if (eng) eng.g.gain.setTargetAtTime(0, AC.currentTime, .05);
+      if (skid) skid.sg.gain.setTargetAtTime(0, AC.currentTime, .05);
+      return rec;
+    }
+    function recSilence() { if (!rec) return; const t = AC.currentTime; for (const v of rec.eng) v.g.gain.setTargetAtTime(0, t, .12); rec.skid.g.gain.setTargetAtTime(0, t, .05); if (rec.boat) rec.boat.g.gain.setTargetAtTime(0, t, .2); }
+    // on: the hero gets in (id: the model, a car's engine is heard starting) or out
+    A.engineOn = function (on, id) {
       if (!ok()) return;
+      if (on && !engOn && id && !NO_START[id]) play('start', { vol: .5, vary: false, rate: VOICE[id] > 1.2 ? 1.2 : VOICE[id] < .75 ? .85 : 1 });
+      engOn = on; if (id) curId = id;
+      if (!on) recSilence();
+      if (recEngine()) return;
       if (on && !eng) {
         const o1 = AC.createOscillator(), o2 = AC.createOscillator(), o3 = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
         o1.type = 'sawtooth'; o2.type = 'square'; o3.type = 'sine'; f.type = 'lowpass'; f.Q.value = 2; g.gain.value = 0;
@@ -59,30 +137,82 @@
       if (eng) eng.g.gain.setTargetAtTime(on ? .05 : 0, AC.currentTime, .15);
       if (!on && skid) skid.sg.gain.setTargetAtTime(0, AC.currentTime, .05);
     };
-    const VOICE = { zefiro: 1.25, corsaro: .8, hayride: .7, beachcomber: .75, outbacker: .75, royale: .85, piccolo: 1.35, speedboat: .72, jetski: 1.55, vento: 1.6, hog: .6, vespino: 1.9, jet: 2.6, tank: .45 };
-    A.engine = function (rpm, load, id) {
-      if (!eng) { A.engineOn(true); if (!eng) return; }
-      const t = AC.currentTime, base = 34 * (VOICE[id] || 1), f = base + rpm * base * 2.4;
-      eng.o1.frequency.setTargetAtTime(f, t, .04); eng.o2.frequency.setTargetAtTime(f * .5 + 1.5, t, .04); eng.o3.frequency.setTargetAtTime(f * .5, t, .04);
-      eng.f.frequency.setTargetAtTime(260 + rpm * 900 + load * 900, t, .06);
-      eng.g.gain.setTargetAtTime(.045 + load * .05 + rpm * .02, t, .08);
+    const VOICE = { zefiro: 1.25, corsaro: .8, hayride: .7, beachcomber: .75, outbacker: .75, royale: .85, piccolo: 1.35, speedboat: .72, jetski: 1.55, vento: 1.6, hog: .6, vespino: 1.9, jet: 2.6, tank: .45,
+      firetruck: .62, mtruck: .62, mjeep: .8, gwagon: .82, raptor: .78, cobra: .82, veloce: 1.3, gt21: 1.2, panamo: 1.05, phantom: .9, prezident: .9, hyper21: 1.7, ambulance: .85 };
+    // rpm 0..1, load = throttle 0..1, brake 0..1 (the brake pressed while rolling forward)
+    A.engine = function (rpm, load, id, brake) {
+      if (!ok()) return;
+      if (!engOn) A.engineOn(true);
+      curId = id;
+      const R = recEngine();
+      if (!R) {
+        if (rec) recSilence();
+        if (!eng) { A.engineOn(true); if (!eng) return; }
+        const t = AC.currentTime, base = 34 * (VOICE[id] || 1), f = base + rpm * base * 2.4;
+        eng.g.gain.cancelScheduledValues(t);
+        eng.o1.frequency.setTargetAtTime(f, t, .04); eng.o2.frequency.setTargetAtTime(f * .5 + 1.5, t, .04); eng.o3.frequency.setTargetAtTime(f * .5, t, .04);
+        eng.f.frequency.setTargetAtTime(260 + rpm * 900 + load * 900, t, .06);
+        eng.g.gain.setTargetAtTime(.045 + load * .05 + rpm * .02, t, .08);
+        return;
+      }
+      const t = AC.currentTime, voice = VOICE[id] || 1;
+      if (BOATS[id] && R.boat) {
+        for (const v of R.eng) v.g.gain.setTargetAtTime(0, t, .1);
+        R.boat.src.playbackRate.setTargetAtTime((.7 + rpm * .75) * (id === 'jetski' ? 1.5 : id === 'cruiser' ? .7 : 1), t, .08);
+        R.boat.f.frequency.setTargetAtTime(700 + load * 2500, t, .1);
+        R.boat.g.gain.setTargetAtTime(.25 + load * .3, t, .12);
+        return;
+      }
+      if (R.boat) R.boat.g.gain.setTargetAtTime(0, t, .1);
+      // the pitch the engine should have, and how much of each recording
+      const f = (36 + rpm * 92) * Math.pow(voice, .85), lf = Math.log(f), L = ENG_F.map(Math.log);
+      const w = L.map((c, i) => {
+        if (lf <= L[0]) return i === 0 ? 1 : 0;
+        if (lf >= L[2]) return i === 2 ? 1 : 0;
+        const j = lf < L[1] ? 0 : 1, k = (lf - L[j]) / (L[j + 1] - L[j]);
+        return i === j ? Math.cos(k * Math.PI / 2) : i === j + 1 ? Math.sin(k * Math.PI / 2) : 0;
+      });
+      const vol = (.2 + load * .28 + rpm * .1) * (voice < .75 ? 1.15 : 1), cut = 700 + load * 3800 + rpm * 2200;
+      R.eng.forEach((v, i) => {
+        v.src.playbackRate.setTargetAtTime(Math.min(4, f / ENG_F[i]), t, .05);
+        v.f.frequency.setTargetAtTime(cut, t, .07);
+        v.g.gain.setTargetAtTime(w[i] * vol, t, .07);
+      });
+      // braking hard at speed: the tyres complain a little
+      if (brake > 0) A.skid(Math.max(lastSkid, brake * .35), true);
     };
-    A.skid = function (k) { if (skid) skid.sg.gain.setTargetAtTime(Math.min(1, k) * .22, AC.currentTime, .05); };
+    A.skid = function (k, fromBrake) {
+      if (!ok()) return;
+      if (!fromBrake) lastSkid = k;
+      if (rec) { if (!engOn) k = 0; rec.skid.g.gain.setTargetAtTime(Math.min(1, k) * .5, AC.currentTime, .06); rec.skid.src.playbackRate.setTargetAtTime(.9 + Math.min(1, k) * .25, AC.currentTime, .1); return; }
+      if (skid) skid.sg.gain.setTargetAtTime(Math.min(1, k) * .22, AC.currentTime, .05);
+    };
     A.horn = function (pos) {
       if (!ok()) return;
+      if (play('horn', { pos, vol: pos ? 1 : .55, vary: false, rate: curId && VOICE[curId] > 1.4 ? 1.25 : curId && VOICE[curId] < .75 ? .8 : 1 })) return;
       const t = AC.currentTime, d = out(pos), f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800; f.connect(d);
       for (const hz of [392, 494]) { const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = hz; const g = AC.createGain(); env(g, t, .01, pos ? .5 : .12, .45); o.connect(g); g.connect(f); o.start(t); o.stop(t + .5); }
     };
+    // a crash: a light knock of metal, a heavy one with a crunch, the hardest ones with glass
     A.impact = function (strength, pos) {
       if (!ok()) return;
-      const t = AC.currentTime, d = out(pos), k = Math.min(1, strength / 14);
+      const k = Math.min(1, strength / 14);
+      if (has('crash')) {
+        const vol = .35 + k * .65;
+        if (strength < 4) play(variant('bump', 3), { pos, vol: vol * .8 });
+        else { play(variant('metal', 2), { pos, vol }); if (strength > 7) play('crash', { pos, vol, rate: .9 + Math.random() * .2 }); if (strength > 12) play('glass', { pos, vol: vol * .7, at: .03 }); }
+        return;
+      }
+      const t = AC.currentTime, d = out(pos);
       noise(d, t, .25 + k * .3, 'lowpass', 900, .8, .3 + k * .6, 120);
       noise(d, t, .12, 'bandpass', 2600, 2, .15 + k * .3);
       const o = AC.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(40, t + .2);
       const g = AC.createGain(); env(g, t, .004, .3 + k * .4, .25); o.connect(g); g.connect(d); o.start(t); o.stop(t + .3);
     };
-    A.door = function () {
+    // kind: 'car' (a car door), otherwise a building's door
+    A.door = function (kind) {
       if (!ok()) return;
+      if (play(kind === 'car' ? 'carClose' : 'doorOpen', { vol: kind === 'car' ? .6 : .45 })) return;
       const t = AC.currentTime, d = out(null);
       noise(d, t, .09, 'lowpass', 700, 1, .5); noise(d, t + .02, .05, 'bandpass', 2400, 3, .25);
     };
@@ -90,18 +220,26 @@
       const o = AC.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
       const g = AC.createGain(); env(g, t, .003, peak, dur); o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + .05);
     };
-    // gunshots: a noise crack, a low thump, and a filtered tail; each weapon has its own weight
+    // gunshots: recorded (pistol, SMG, shotgun, rifle; the police pistol a little lower). Stand-in: a noise crack,
+    // a low thump and a filtered tail, each weapon with its own weight
     const GUN = { pistol: [1, 150, .7], smg: [.7, 190, .45], shotgun: [1.4, 110, 1], rifle: [1.1, 135, .75], cop: [.9, 160, .6] };
+    const GUN_REC = { pistol: ['pistol', 1, 1], smg: ['smg', 1, .85], shotgun: ['shotgun', 1, 1], rifle: ['rifle', 1, 1], cop: ['pistol', .92, .9] };
     A.shot = function (kind, pos) {
       if (!ok()) return;
+      const r = GUN_REC[kind] || GUN_REC.pistol;
+      if (play(r[0], { pos, rate: r[1], vol: r[2] })) return;
       const [w, thump, len] = GUN[kind] || GUN.pistol, t = AC.currentTime, d = out(pos);
       noise(d, t, .06, 'highpass', 2200, .7, .5 * w);
       noise(d, t, .22 * len + .1, 'lowpass', 4200, .9, .8 * w, 300);
       tone(d, t, .14 * len, 'sine', thump, .8 * w, 42);
     };
     A.dry = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .02, 'highpass', 4000, .7, .3); };
+    // a punch landing (heavy: the bat); pos null = the hero is the one hit
     A.punch = function (pos, heavy) {
-      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      if (!ok()) return;
+      if (heavy ? (play(variant('bat', 2), { pos, vol: .9 }) ? (play(variant('punchH', 3), { pos, vol: .5 }), true) : false)
+        : play(pos ? variant('punch', 4) : variant('punchH', 3), { pos, vol: pos ? .8 : .7 })) return;
+      const t = AC.currentTime, d = out(pos);
       noise(d, t, .12, 'lowpass', 700, 1, .7, 150); tone(d, t, .1, 'sine', 110, .5, 55);
       if (heavy) { noise(d, t, .08, 'bandpass', 1200, 3, .5); tone(d, t, .16, 'triangle', 190, .35, 70); }   // wooden crack of the bat
     };
@@ -114,7 +252,11 @@
     };
     A.deny = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); tone(d, t, .12, 'square', 220, .07); tone(d, t + .13, .18, 'square', 165, .07); };
     A.fare = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); [784, 988, 1175].forEach((f, i) => tone(d, t + i * .09, .16, 'square', f, .05)); };
-    A.hurt = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); noise(d, t, .2, 'lowpass', 500, 1, .5, 90); tone(d, t, .18, 'sine', 90, .4, 45); };
+    A.hurt = function () {
+      if (!ok()) return;
+      if (play(variant('punchH', 3), { vol: .6, rate: .85, lp: 2500 })) return;
+      const t = AC.currentTime, d = out(null); noise(d, t, .2, 'lowpass', 500, 1, .5, 90); tone(d, t, .18, 'sine', 90, .4, 45);
+    };
     A.scream = function (pos) {
       if (!ok()) return; const t = AC.currentTime, d = out(pos), f = 500 + Math.random() * 500;
       const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * 1.5, t + .15); o.frequency.linearRampToValueAtTime(f * .9, t + .6);
@@ -304,11 +446,18 @@
       }
       if (alarm) alarm.g.gain.setTargetAtTime(on ? .05 : 0, AC.currentTime, .05);
     };
-    // helicopter: the whop-whop of the blades (filtered noise chopped by a pulse) over a turbine whine
-    let rotorV = null;
+    // helicopter: the recorded blades, faster and louder with the spool and the climb. Stand-in: filtered noise
+    // chopped by a pulse over a turbine whine
+    let rotorV = null, rotorRec = null;
     A.rotor = function (level, pitch) {
       if (!ok()) return;
       const t = AC.currentTime;
+      if (!rotorRec && has('heli') && level > .01) { rotorRec = loopVoice('heli', { lp: 6000 }); if (rotorV) rotorV.out.gain.setTargetAtTime(0, t, .1); }
+      if (rotorRec) {
+        rotorRec.g.gain.setTargetAtTime(Math.min(1, level) * .8, t, .15);
+        rotorRec.src.playbackRate.setTargetAtTime(Math.max(.4, Math.min(1.6, .45 + level * .55 * pitch)), t, .2);
+        return;
+      }
       if (!rotorV && level > .01) {
         const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
         const bp = AC.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.value = 420; bp.Q.value = 1.2;
@@ -328,31 +477,41 @@
       rotorV.lfo.frequency.setTargetAtTime(2 + level * 9 * pitch, t, .2);
       rotorV.whine.frequency.setTargetAtTime(90 + level * 380 * pitch, t, .25);
     };
-    // water: a splash when jumping in, a soft swish for each swimming stroke
+    // water: a splash when jumping in, a swish for each swimming stroke
     A.splash = function (big) {
-      if (!ok()) return; const t = AC.currentTime, d = out(null);
+      if (!ok()) return;
+      if (play(big ? 'splashBig' : 'splash', { vol: big ? .9 : .6 })) return;
+      const t = AC.currentTime, d = out(null);
       noise(d, t, big ? .9 : .5, 'lowpass', big ? 2600 : 1800, .7, big ? .55 : .3, 300);
       noise(d, t + .03, big ? .6 : .35, 'bandpass', 900, 1.2, big ? .35 : .2, 200);
       tone(d, t, .18, 'sine', big ? 120 : 160, big ? .35 : .15, 50);
     };
-    A.stroke = function () { if (!ok()) return; const t = AC.currentTime, d = out(null); noise(d, t, .32, 'bandpass', 700 + Math.random() * 400, 1.1, .09, 250); };
+    A.stroke = function () {
+      if (!ok()) return;
+      if (play(variant('stroke', 2), { vol: .3, lp: 3000 })) return;
+      const t = AC.currentTime, d = out(null); noise(d, t, .32, 'bandpass', 700 + Math.random() * 400, 1.1, .09, 250);
+    };
     // slot machine reel tick and roulette ball
     A.tick = function () { if (!ok()) return; const d = out(null); noise(d, AC.currentTime, .015, 'bandpass', 3500, 3, .25); };
 
-    // an explosion: a deep thump, a roar that dies away, and crackling bits falling
+    // an explosion: the recording over a deep thump of its own (phones' speakers lose the low end of a recording)
     A.explosion = function (pos) {
       if (!ok()) return; const t = AC.currentTime, d = out(pos);
-      tone(d, t, .9, 'sine', 90, .9, 28);
+      tone(d, t, .9, 'sine', 90, .7, 28);
+      if (play('explosion', { pos, vol: 1, rate: .85 + Math.random() * .2 })) return;
       noise(d, t, 1.8, 'lowpass', 2400, .6, .9, 90);
       noise(d, t + .05, .5, 'bandpass', 700, .8, .5, 200);
       for (let k = 0; k < 8; k++) noise(d, t + .4 + Math.random() * 1.2, .05, 'highpass', 2500, 1, .12);
     };
 
     /* ---------- weather ---------- */
-    // rain: a bed of filtered noise that swells with the downpour
-    let rainV = null;
+    // rain: a recorded downpour, louder the harder it rains (stand-in: a bed of filtered noise)
+    let rainV = null, rainRec = null;
     A.rain = function (level) {
       if (!ok()) return;
+      const t = AC.currentTime;
+      if (!rainRec && has('rain') && level > .01) { rainRec = loopVoice('rain'); if (rainV) rainV.g.gain.setTargetAtTime(0, t, .3); }
+      if (rainRec) { rainRec.g.gain.setTargetAtTime(Math.min(1, level) * .7 * (indoors ? .35 : 1), t, .5); rainRec.f.frequency.setTargetAtTime(indoors ? 900 : 20000, t, .3); return; }
       if (!rainV) {
         const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
         const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
@@ -360,7 +519,7 @@
         const g = AC.createGain(); g.gain.value = 0; s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s.start();
         rainV = { g };
       }
-      rainV.g.gain.setTargetAtTime(Math.min(1, level) * .16, AC.currentTime, .4);
+      rainV.g.gain.setTargetAtTime(Math.min(1, level) * .16, t, .4);
     };
     // thunder: a crack close by, a long rolling rumble further off
     A.thunder = function (dist) {
@@ -417,11 +576,17 @@
 
     /* ---------- the street ---------- */
     A.splashAt = function (pos) {
-      if (!ok()) return; const t = AC.currentTime, d = out(pos);
+      if (!ok()) return;
+      if (play(has('splash') ? 'splash' : 'splashS', { pos, vol: .8 })) return;
+      const t = AC.currentTime, d = out(pos);
       noise(d, t, .6, 'lowpass', 2200, .7, .4, 300); noise(d, t + .03, .4, 'bandpass', 900, 1.2, .25, 200);
     };
     // a wave building and breaking under a surfer
-    A.wave = function (pos) { if (!ok()) return; const t = AC.currentTime, d = out(pos); noise(d, t, 1.8, 'lowpass', 300, .8, .25, 1400); };
+    A.wave = function (pos) {
+      if (!ok()) return;
+      if (play('wave' + (1 + ((Math.random() * 3) | 0)), { pos, vol: 1 })) return;
+      const t = AC.currentTime, d = out(pos); noise(d, t, 1.8, 'lowpass', 300, .8, .25, 1400);
+    };
     // a volleyball: slap of a hand, or a soft thud on the sand
     A.volley = function (pos, sand) {
       if (!ok()) return; const t = AC.currentTime, d = out(pos);
@@ -460,6 +625,44 @@
         const pos = list[i];
         v.g.gain.setTargetAtTime(pos ? .09 : 0, AC.currentTime, .1);
         if (pos) { if (v.p.positionX) { v.p.positionX.value = pos[0]; v.p.positionY.value = pos[1]; v.p.positionZ.value = pos[2]; } else v.p.setPosition(pos[0], pos[1], pos[2]); }
+      });
+    };
+    /* ---------- the hero's footsteps, the city around, the traffic going by ---------- */
+    // surface: 'stone' (streets), 'sand', 'floor' (indoors); run: 0..1
+    A.step = function (surface, run) {
+      if (!ok()) return;
+      const base = surface === 'sand' ? 'stepS' : surface === 'floor' ? 'stepW' : 'stepC';
+      play(variant(base, 4), { vol: (surface === 'sand' ? .2 : .26) + run * .18, rate: .95 + run * .1, lp: surface === 'sand' ? 2500 : 0 });
+    };
+    // the background: o = { city 0..1, night, sea 0..1, inside } — a street by day or by night, waves on the shore
+    let amb = null, indoors = false, waveT = 0;
+    A.ambience = function (o, dt) {
+      if (!ok()) return;
+      indoors = !!o.inside;
+      const t = AC.currentTime;
+      if (!amb && has('street') && has('night')) amb = { day: loopVoice('street'), night: loopVoice('night') };
+      if (amb) {
+        const lvl = o.inside ? 0 : Math.min(1, o.city || 0) * .55;
+        amb.day.g.gain.setTargetAtTime(o.night ? 0 : lvl, t, 1.2);
+        amb.night.g.gain.setTargetAtTime(o.night ? lvl * 1.1 : 0, t, 1.2);
+        for (const v of [amb.day, amb.night]) v.f.frequency.setTargetAtTime(o.inCar ? 1200 : 20000, t, .3);
+      }
+      // waves breaking now and then while you're by the water
+      if ((waveT -= dt || 0) <= 0) {
+        waveT = 3 + Math.random() * 4;
+        if (!o.inside && (o.sea || 0) > .05) play('wave' + (1 + ((Math.random() * 3) | 0)), { vol: Math.min(1, o.sea) * (o.inCar ? .35 : .7), lp: o.inCar ? 1200 : 0 });
+      }
+    };
+    // two voices for the nearest moving cars of the traffic: list of [x, y, z, speed 0..1]
+    const traffic = [];
+    A.traffic = function (list) {
+      if (!ok() || !has('eng1')) return;
+      while (traffic.length < 2) traffic.push(loopVoice('eng1', { pan: true, ref: 5, lp: 2200 }));
+      const t = AC.currentTime;
+      traffic.forEach((v, i) => {
+        const c = list[i];
+        v.g.gain.setTargetAtTime(c ? .22 + c[3] * .3 : 0, t, .25);
+        if (c) { setPos(v.p, c[0], c[1], c[2]); v.src.playbackRate.setTargetAtTime(.8 + c[3] * .9, t, .2); v.f.frequency.setTargetAtTime(1200 + c[3] * 2500, t, .2); }
       });
     };
     return A;

@@ -1,0 +1,17 @@
+Recorded sounds of LEHA NEPLOXO WORLD. All of them are CC0 (public domain): free to use, no credit required.
+They were trimmed, levelled, made into seamless loops and converted to mp3 for the game.
+
+Kenney (www.kenney.nl) — Impact Sounds, RPG Audio
+  punch*, punchH*, bat*, bump*, metal*, glass, step*, doorOpen, doorClose
+
+OpenGameArt.org
+  eng0, eng1, eng2  — "racing car engine sound loops" by domasx2
+  carOpen, carClose, horn, start — "Car Sound Effects Pack (Low Quality)"
+  crash — "Crash Collision" by qubodup
+  splash*, stroke* — "40 CC0 water / splash / slime SFX"
+  wave1..3 — "Beach Ocean Waves" (jasinski, alkaibeach)
+  rain — "Rain (loopable)"
+
+BigSoundBank / LaSonotheque (bigsoundbank.com)
+  pistol (0438), smg (0437), shotgun (0532), rifle (2853), explosion (1023), skid (2370),
+  heli (0263), boat (0697), street (2372 "Cheerful street"), night (0680 "Paris by night")

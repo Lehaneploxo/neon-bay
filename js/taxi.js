@@ -123,7 +123,7 @@
       const [x, z, h] = sideDoor(S.car);
       const p = o.crowd.dropOff(x, z, h, S.look, text);
       if (p && flee) { p.fleeT = rand(5, 8); p.fleeX = S.car.x; p.fleeZ = S.car.z; }
-      S.look = null; removeRider(); o.audio.door();
+      S.look = null; removeRider(); o.audio.door('car');
     }
     function loseFare() { if (S.p) o.crowd.releaseFare(S.p); S.p = null; }
     function end() {
@@ -168,7 +168,7 @@
     function board() {
       const p = S.p;
       S.look = p.look; o.crowd.despawnPerson(p); S.p = null;
-      seatPassenger(S.car, S.look); o.audio.door();
+      seatPassenger(S.car, S.look); o.audio.door('car');
       const d = pickDestination();
       S.dest = d.s; S.base = Math.round(12 + d.len * .2); S.limit = S.timer = Math.round(14 + d.len / 8);
       S.hits = 0; S.late = false; S.phase = 'ride';
