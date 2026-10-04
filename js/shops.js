@@ -157,6 +157,14 @@
     const now = () => (NB.online && NB.online.now ? NB.online.now() : Date.now());
     const G = { player: o.player, money: o.money, drunk: o.drunk };
 
+    // the pizzerias hire couriers (pizza.js)
+    function pizzaJob(s) {
+      const J = NB.pizzaJob; if (!J) return [];
+      if (J.at(s)) return [{ name: 'Закончить подработку', desc: 'Сдать сумку и скутер', price: 0, label: 'Закончить', buy: () => { J.end(); setTimeout(() => o.ui.close(), 500); return 'До встречи!'; } }];
+      if (J.active) return [{ name: 'Подработка: развоз пиццы', desc: 'Вы уже развозите пиццу из другой пиццерии', price: 0, disabled: 'Занято', buy: () => '' }];
+      return [{ name: 'Подработка: развоз пиццы', desc: 'Скутер у входа, 1–3 адреса за раз, оплата за каждую пиццу + чаевые за скорость', price: 0, label: 'Начать', buy: () => { J.start(s); setTimeout(() => { o.ui.close(); o.leave(); }, 500); return 'Сумка ваша — скутер у входа!'; } }];
+    }
+
     /* ---------- shops ---------- */
     for (const s of SHOPS) {
       const d = doorOf(s, o.fronts); d.hex = s.hex; s.door = d;
@@ -164,7 +172,7 @@
       const info = { name: s.name, title: s.name, sub: s.sub, hex: s.hex, biz: s.id, use: what => {
         if (s.kind === 'clothes') { if (what === 'buy') o.ui.boutique(s.name, STOCK[s.stock]); return; }
         const list = s.kind === 'market' ? MENUS.market : MENUS[s.menu];
-        o.ui.menu({ eyebrow: s.name, title: s.kind === 'market' ? 'Касса' : 'Меню', items: () => list.map(([name, price, f]) => Object.assign({ name, price }, f(G))) });
+        o.ui.menu({ eyebrow: s.name, title: s.kind === 'market' ? 'Касса' : 'Меню', items: () => list.map(([name, price, f]) => Object.assign({ name, price }, f(G))).concat(s.menu === 'pizza' ? pizzaJob(s) : []) });
       } };
       o.places.addDoor(ROOM[s.kind], d, info);
     }

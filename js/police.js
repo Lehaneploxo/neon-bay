@@ -34,8 +34,8 @@
     const api = {
       get wanted() { return S.wanted; },
       get searching() { return S.wanted > 0 && !S.seen; },
-      // a bank robbery: the alarm goes straight to the station
-      robbery() { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, 3)); },
+      // a robbery: the alarm goes straight to the station (a bank: 3 stars, a 24/7 store: 2)
+      robbery(n) { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, n || 3)); },
       // knocked out another player: one star more
       star() { S.searchT = 0; S.seen = true; raise(S.wanted + 1); },
       reportCrime(kind, x, z) {

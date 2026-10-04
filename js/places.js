@@ -2337,9 +2337,45 @@
       pl.sign = liveSign('-x', 7.83, 2.7, 3, 4, 1.1);
       spots.push(K.spot({ kind: 'idle', x: 5.8, z: -2.9, heading: Math.PI, type: 'business_m', home: true }));
       for (const [x, z] of [[-2, 2], [2.1, 4.5]]) spots.push(K.spot({ kind: 'idle', x, z, heading: Math.random() * 6, mix: 'downtown' }));
+      // a hold-up: a gun in hand at the till, stay by it while the cashier empties it. Each store's till is robbed
+      // once for everybody and again 10 minutes later (server/world.js, key store_<id>); offline: once per player
+      const R = { t: 0, id: null, alarmT: 0 }, TAKE = 6;
+      const key = () => 'store_' + ((pl.info && pl.info.biz) || 'x');
+      const online = () => !!(NB.net && NB.net.connected);
+      const robbed = () => { const P = G.progress; if (!P.storeT || typeof P.storeT !== 'object') P.storeT = {}; return P.storeT; };
+      const ready = () => online() ? NB.net.lootLeft(key()) <= 0 : Date.now() - (robbed()[key()] || 0) > 10 * 60 * 1000;
+      let asking = false;
+      function holdUp() {
+        if (R.id) return;
+        if (!ready()) { G.flash('Кассу недавно уже выгребли — пусто. Загляните минут через десять', 2.6); G.audio.deny(); return; }
+        if (G.combat.isMelee()) { G.flash('Для ограбления нужен ствол в руках', 2.2); G.audio.deny(); return; }
+        if (asking) return;
+        asking = true;
+        const k = key();
+        (online() ? NB.net.loot(k) : Promise.resolve(null)).then(r => {
+          asking = false;
+          if (r === false) { G.flash('Этот магазин только что ограбил другой игрок — касса пустая', 3); G.audio.deny(); return; }
+          if (api.current !== pl) return;
+          robbed()[k] = Date.now(); G.save();
+          R.id = k; R.t = TAKE; R.alarmT = 40;
+          G.police.robbery(2); G.crowd.panic(pl.X(5.6), pl.Z(-3), 20, true);
+          G.flash('Кассир: «Не стреляйте! Всё отдам!» — стойте у кассы', 3);
+        });
+      }
       pl.attach = () => {
-        pl.interactions = [{ ...pl.P(5.6, -5), r: 1.8, short: 'КАССА', label: () => pl.info ? 'Касса · ' + pl.info.title : 'Касса', use: ask(pl, 'menu') }];
+        pl.interactions = [{ ...pl.P(5.6, -5), r: 1.8, short: 'КАССА', label: () => pl.info ? 'Касса · ' + pl.info.title : 'Касса', use: ask(pl, 'menu') },
+          { ...pl.P(4.6, -4.9), r: 1.6, short: 'ГРАБИТЬ', label: () => R.id || G.combat.isMelee() || !ready() ? null : 'Ограбить кассу', use: holdUp }];
       };
+      pl.update = (dt) => {
+        if (R.alarmT > 0) R.alarmT -= dt;
+        if (!R.id) { pl.hudInfo = null; return; }
+        const p = G.player, near = Math.hypot(p.x - pl.X(5.6), p.z - pl.Z(-3.2)) < 3.2 && !p.dead;
+        if (near) R.t -= dt;
+        pl.hudInfo = { tag: 'ОГРАБЛЕНИЕ', text: near ? 'Кассир выгребает кассу…' : 'Вернитесь к кассе!', time: Math.ceil(Math.max(0, R.t)) + ' с', warn: !near };
+        if (R.t <= 0) { R.id = null; pl.hudInfo = null; G.money.add(Math.round(rand(150, 400)), 'Касса'); G.flash('Деньги ваши! Уходите, пока не приехала полиция', 3); }
+      };
+      pl.alarm = () => R.alarmT > 0;
+      pl.onLeave = () => { if (R.id) { R.id = null; pl.hudInfo = null; G.flash('Вы ушли без денег', 2); } };
     }
 
     /* --- homes: the same three things to do in each --- */

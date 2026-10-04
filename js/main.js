@@ -177,8 +177,8 @@
     if (online && online.replacing) return;   // the server's copy is being loaded in: don't write over it
     progress.garage = garageCars();
     if (autos) autos.snapshot();
-    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages } = progress, guardsN = guards ? guards.list : progress.guards;
-    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, guards: guardsN, _t: online ? online.now() : Date.now() };
+    const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, storeT } = progress, guardsN = guards ? guards.list : progress.guards;
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, storeT, guards: guardsN, _t: online ? online.now() : Date.now() };
     try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
     if (online) online.push(data, urgent === true);
     saveT = 0;
@@ -389,6 +389,8 @@
   // shops, cafés, 24/7 stores and homes for sale all over the city (shops.js)
   const shops = NB.createShops({ places, fronts, ui, player, progress, money: wallet, audio, drunk: s => { drunkT = s; },
     flash: (t, s) => flashTip(t, s), save: saveProgress, sleep, leave: () => { if (places.current) exitPlace(places.current); }, villa: { price: places.VILLA_PRICE } });
+  // side job: pizza delivery from the pizzerias (pizza.js; started at the counter, shops.js)
+  const pizza = NB.createPizza(scene, world, { vehicles, shops, police, player, audio, route: taxi.findRoute, flash: (t, s) => flashTip(t, s), onPay: (n, note) => addMoney(n, note) });
   placeCtx.homeOk = id => shops.ok(id);   // the villa's door opens only while its rent is paid
   fronts.finish();
   // city jobs: get hired in the boss's office, start and end each shift in the locker room (jobs.js)
@@ -783,13 +785,13 @@
     // gang turf, tinted
     if (world.north) for (const t of world.north.territories) { g.fillStyle = t.color; g.globalAlpha = .18; g.fillRect((t.x0 - player.x) * M.s, (t.z0 - player.z) * M.s, (t.x1 - t.x0) * M.s, (t.z1 - t.z0) * M.s); g.globalAlpha = 1; }
     // taxi route along the streets
-    const route = taxi.route;
+    const route = taxi.route.length ? taxi.route : pizza.route, routeHex = taxi.route.length ? '#ffd84f' : '#ff4f4f';
     if (route.length > 1) {
       const k = M.s / pxPerM;
       g.lineJoin = g.lineCap = 'round';
       g.beginPath(); route.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo']((x - player.x) * M.s, (z - player.z) * M.s));
       g.strokeStyle = 'rgba(30,18,40,.8)'; g.lineWidth = W * .05 * k; g.stroke();
-      g.strokeStyle = '#ffd84f'; g.lineWidth = W * .026 * k; g.stroke();
+      g.strokeStyle = routeHex; g.lineWidth = W * .026 * k; g.stroke();
     }
     g.restore();
     // north marker
@@ -859,10 +861,10 @@
     if (world.north && world.north.prison) icon(world.north.prison.x, world.north.prison.z, '#5a6270', '#fff', '⛓', false);
     const ns = world.street.nightSpot(); if (ns) icon(ns.x, ns.z, '#ff2d7a', '#fff', '♥', false);   // the girls outside Hotel OCEAN, at night   // with stars on, the spray shop shows at the edge
     // taxi: the waiting fare blinks, the destination is a ring that sticks to the edge when far away
-    for (const m of taxi.markers) {
-      const q = toMap(m.x, m.z, true);
-      if (m.kind === 'fare') { if ((time * 3 | 0) % 2 === 0) dot(q, W * .045, '#ffd84f'); dot(q, W * .022, '#2a1c05'); }
-      else { dot(q, W * .055, '#ffd84f'); dot(q, W * .03, '#2a1c05'); dot(q, W * .016, '#ffd84f'); }
+    for (const m of taxi.markers.concat(pizza.markers)) {
+      const q = toMap(m.x, m.z, true), c = m.color || '#ffd84f';
+      if (m.kind === 'fare') { if ((time * 3 | 0) % 2 === 0) dot(q, W * .045, c); dot(q, W * .022, '#2a1c05'); }
+      else { dot(q, W * .055, c); dot(q, W * .03, '#2a1c05'); dot(q, W * .016, c); }
     }
     g.strokeStyle = 'rgba(255,241,228,.35)'; g.lineWidth = 2; g.beginPath(); g.arc(Rr, Rr, Rr - 1, 0, 7); g.stroke();
   }
@@ -926,8 +928,8 @@
     // gang turf on the North Side
     if (world.north) for (const t of world.north.territories) { g.fillStyle = t.color; g.globalAlpha = .16; g.fillRect(sx(t.x0), sz(t.z0), (t.x1 - t.x0) * sc, (t.z1 - t.z0) * sc); g.globalAlpha = 1; }
     // the taxi route
-    const route = taxi.route;
-    if (route.length > 1) { g.lineJoin = g.lineCap = 'round'; g.beginPath(); route.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo'](sx(x), sz(z))); g.strokeStyle = 'rgba(30,18,40,.8)'; g.lineWidth = 7 * r; g.stroke(); g.strokeStyle = '#ffd84f'; g.lineWidth = 3.5 * r; g.stroke(); }
+    const route = taxi.route.length ? taxi.route : pizza.route, routeHex = taxi.route.length ? '#ffd84f' : '#ff4f4f';
+    if (route.length > 1) { g.lineJoin = g.lineCap = 'round'; g.beginPath(); route.forEach(([x, z], i) => g[i ? 'lineTo' : 'moveTo'](sx(x), sz(z))); g.strokeStyle = 'rgba(30,18,40,.8)'; g.lineWidth = 7 * r; g.stroke(); g.strokeStyle = routeHex; g.lineWidth = 3.5 * r; g.stroke(); }
     // places
     const ir = Math.max(9, Math.min(15, sc * 2.4)) * r;
     for (const ic of mapIcons()) {
@@ -936,7 +938,7 @@
       g.fillStyle = ic.bg; g.beginPath(); g.arc(X, Z, ir, 0, 7); g.fill(); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1.5 * r; g.stroke();
       g.fillStyle = ic.fg; g.font = `800 ${Math.round(ir * 1.1)}px Rubik, sans-serif`; g.fillText(ic.ch, X, Z + r);
     }
-    for (const m of taxi.markers) { g.fillStyle = '#ffd84f'; g.beginPath(); g.arc(sx(m.x), sz(m.z), ir * .8, 0, 7); g.fill(); }
+    for (const m of taxi.markers.concat(pizza.markers)) { g.fillStyle = m.color || '#ffd84f'; g.beginPath(); g.arc(sx(m.x), sz(m.z), ir * .8, 0, 7); g.fill(); }
     // where you are (at the door of the building you're in)
     let px = player.x, pz = player.z;
     if (places.current && places.current.door) { px = places.current.door.x; pz = places.current.door.z; }
@@ -1024,7 +1026,7 @@
     $('armor').classList.toggle('mega', progress.armor > 100);
     const wi = weather.info, wt = wi.icon + ' ' + wi.name; if ($('weather').textContent !== wt) $('weather').textContent = wt;
     const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;
-    const job = places.hud || taxi.hud || jobs.hud;
+    const job = places.hud || taxi.hud || pizza.hud || jobs.hud;
     $('job').hidden = !job;
     if (job) {
       const tag = job.tag || 'ТАКСИ'; if ($('jobTag').textContent !== tag) $('jobTag').textContent = tag;
@@ -1096,7 +1098,7 @@
       if (!sync || sync.runsCity) ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       if (!sync || sync.runsCity) fire.update(dt, player);
       sea.update(dt);
-      taxi.update(dt);
+      taxi.update(dt); pizza.update(dt);
       if (seatSpot && !player.seat) { seatSpot.taken = false; seatSpot = null; }   // got up: passers-by may sit there again
       places.update(dt); shops.tick(dt); jobs.update(dt); net.update(dt); sync.update(dt); business.update(dt); autos.update(dt);
       world.spray.update(dt); world.street.update(dt);
@@ -1176,7 +1178,7 @@
       }
       audio.venue(name, active ? level : 0, full);
       const bank = places.byId('bank');
-      audio.alarm(active && ((bank && bank.alarm() && (places.current === bank || Math.hypot(player.x - bank.door.x, player.z - bank.door.z) < 70)) || (world.military && world.military.alarm)));
+      audio.alarm(active && ((places.current && places.current !== bank && places.current.alarm && places.current.alarm()) || (bank && bank.alarm() && (places.current === bank || Math.hypot(player.x - bank.door.x, player.z - bank.door.z) < 70)) || (world.military && world.military.alarm)));
     }
     vehicles.setNight(env.night);
     renderer.render(scene, camera);

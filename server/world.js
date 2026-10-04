@@ -10,6 +10,8 @@ const ID_RE = /^[a-z0-9_]{1,40}$/;
 let PRICES = { home: {}, biz: {} };
 try { PRICES = require('./prices.json'); } catch (e) { console.warn('[world] prices.json missing — run node server/tools/prices.js'); }
 const KINDS = ['home', 'biz'];
+// a 24/7 store's till: robbed once for everybody, again 10 minutes later (key 'store_<shop id>')
+const STORE_RE = /^store_[a-z0-9_]{1,30}$/, STORE_MS = 10 * 60 * 1000;
 const TIMERS = { bank: 15 * 60 * 1000, crate: 15 * 60 * 1000, chest: 24 * 3600 * 1000, medkit: 15 * 60 * 1000 };
 const BIZ_SHARE = .5;              // the owner's half; the other half is the business's expenses
 
@@ -142,7 +144,7 @@ function create(o) {
         case 'biz_spend': return;
         // once-for-everybody loot
         case 'claim': {
-          const period = TIMERS[m.key]; if (!period) return reply({ t: 'claim', ok: false });
+          const period = TIMERS[m.key] || (STORE_RE.test(m.key) ? STORE_MS : 0); if (!period) return reply({ t: 'claim', ok: false });
           const now = Date.now();
           if ((timers[m.key] || 0) > now) return reply({ t: 'claim', ok: false, readyAt: timers[m.key] });
           timers[m.key] = now + period; saveTimers();
