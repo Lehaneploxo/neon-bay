@@ -73,7 +73,7 @@
           r = { car }; mirrorCars.set(k, r);
         }
         r.e = e; r.t = t;
-        const c = r.car; c.driverMesh.visible = !!(e[9] & 2); if (c.police || c.ems) c.sirenOn = !!(e[9] & 1);
+        const c = r.car; c.driverMesh.visible = !!(e[9] & 2); if (c.barR) c.sirenOn = !!(e[9] & 1);
       }
       for (const e of m.p) {
         const k = m.o + ':' + e[0];

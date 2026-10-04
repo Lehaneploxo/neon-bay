@@ -20,7 +20,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20261004c';
+  var BUILD = '20261004d';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -150,6 +150,10 @@ body.touch.driving.tank .tankOnly{display:flex;}
 #btnBrake{right:calc(132px + var(--safe-r));bottom:calc(24px + var(--safe-b));width:74px;height:74px;}
 #btnHand{right:calc(40px + var(--safe-r));bottom:calc(136px + var(--safe-b));width:66px;height:66px;font-size:11px;}
 #btnHorn{right:calc(128px + var(--safe-r));bottom:calc(116px + var(--safe-b));width:56px;height:56px;font-size:11px;}
+.sirenOnly{display:none;}
+body.touch.driving.siren .sirenOnly{display:flex;}
+#btnSiren{right:calc(196px + var(--safe-r));bottom:calc(124px + var(--safe-b));width:56px;height:56px;font-size:20px;}
+#btnSiren.lit{background:rgba(40,90,255,.6);border-color:#fff;box-shadow:0 0 16px rgba(255,40,70,.8),0 0 22px rgba(40,90,255,.7);}
 #btnEnter{display:none;top:calc(118px + var(--safe-t));right:calc(18px + var(--safe-r));width:70px;height:70px;background:rgba(255,79,163,.55);}
 body.touch #btnEnter.avail{display:flex;}
 #speedo{position:absolute;top:calc(14px + var(--safe-t));left:50%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:2px;padding:6px 18px 8px;background:var(--panel);box-shadow:0 0 0 1px var(--line);border-radius:14px;}
@@ -352,6 +356,7 @@ body.touch .fsOnly{display:inline-block;}
   <button id="btnBrake" class="tbtn driveOnly" type="button" aria-label="Тормоз и задний ход">ТОРМОЗ</button>
   <button id="btnHand" class="tbtn driveOnly" type="button" aria-label="Ручной тормоз">РУЧНИК</button>
   <button id="btnHorn" class="tbtn driveOnly" type="button" aria-label="Сигнал">БИП</button>
+  <button id="btnSiren" class="tbtn sirenOnly" type="button" aria-label="Мигалки и сирена">🚨</button>
   <button id="btnEnter" class="tbtn" type="button" aria-label="Сесть или выйти">СЕСТЬ</button>
   <div id="speedo"><span id="carName"></span><div><b id="speedNum">0</b><span class="u">км/ч</span></div></div>
   <button id="radio" type="button" aria-label="Радио: следующая станция" title="Радио (R)"></button>
@@ -496,50 +501,50 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261004c"></script>
-<script src="js/online.js?v=20261004c"></script>
-<script src="js/net.js?v=20261004c"></script>
-<script src="js/sync.js?v=20261004c"></script>
-<script src="js/wallet.js?v=20261004c"></script>
-<script src="js/club.js?v=20261004c"></script>
-<script src="js/places.js?v=20261004c"></script>
-<script src="js/spray.js?v=20261004c"></script>
-<script src="js/street.js?v=20261004c"></script>
-<script src="js/northside.js?v=20261004c"></script>
-<script src="js/bayview.js?v=20261004c"></script>
-<script src="js/tropic.js?v=20261004c"></script>
-<script src="js/hideaway.js?v=20261004c"></script>
-<script src="js/military.js?v=20261004c"></script>
-<script src="js/island.js?v=20261004c"></script>
-<script src="js/brand.js?v=20261004c"></script>
-<script src="js/world.js?v=20261004c"></script>
-<script src="js/faces.js?v=20261004c"></script>
-<script src="js/player.js?v=20261004c"></script>
-<script src="js/wardrobe.js?v=20261004c"></script>
-<script src="js/npc.js?v=20261004c"></script>
-<script src="js/animals.js?v=20261004c"></script>
-<script src="js/wildlife.js?v=20261004c"></script>
-<script src="js/cars.js?v=20261004c"></script>
-<script src="js/vehicles.js?v=20261004c"></script>
-<script src="js/audio.js?v=20261004c"></script>
-<script src="js/radio.js?v=20261004c"></script>
-<script src="js/guards.js?v=20261004c"></script>
-<script src="js/combat.js?v=20261004c"></script>
-<script src="js/police.js?v=20261004c"></script>
-<script src="js/weather.js?v=20261004c"></script>
-<script src="js/sealife.js?v=20261004c"></script>
-<script src="js/plane.js?v=20261004c"></script>
-<script src="js/fire.js?v=20261004c"></script>
-<script src="js/ems.js?v=20261004c"></script>
-<script src="js/daynight.js?v=20261004c"></script>
-<script src="js/taxi.js?v=20261004c"></script>
-<script src="js/pizza.js?v=20261004c"></script>
-<script src="js/shop.js?v=20261004c"></script>
-<script src="js/entrances.js?v=20261004c"></script>
-<script src="js/shops.js?v=20261004c"></script>
-<script src="js/jobs.js?v=20261004c"></script>
-<script src="js/business.js?v=20261004c"></script>
-<script src="js/autos.js?v=20261004c"></script>
-<script src="js/ui.js?v=20261004c"></script>
-<script src="js/input.js?v=20261004c"></script>
-<script src="js/main.js?v=20261004c"></script>
+<script src="js/engine.js?v=20261004d"></script>
+<script src="js/online.js?v=20261004d"></script>
+<script src="js/net.js?v=20261004d"></script>
+<script src="js/sync.js?v=20261004d"></script>
+<script src="js/wallet.js?v=20261004d"></script>
+<script src="js/club.js?v=20261004d"></script>
+<script src="js/places.js?v=20261004d"></script>
+<script src="js/spray.js?v=20261004d"></script>
+<script src="js/street.js?v=20261004d"></script>
+<script src="js/northside.js?v=20261004d"></script>
+<script src="js/bayview.js?v=20261004d"></script>
+<script src="js/tropic.js?v=20261004d"></script>
+<script src="js/hideaway.js?v=20261004d"></script>
+<script src="js/military.js?v=20261004d"></script>
+<script src="js/island.js?v=20261004d"></script>
+<script src="js/brand.js?v=20261004d"></script>
+<script src="js/world.js?v=20261004d"></script>
+<script src="js/faces.js?v=20261004d"></script>
+<script src="js/player.js?v=20261004d"></script>
+<script src="js/wardrobe.js?v=20261004d"></script>
+<script src="js/npc.js?v=20261004d"></script>
+<script src="js/animals.js?v=20261004d"></script>
+<script src="js/wildlife.js?v=20261004d"></script>
+<script src="js/cars.js?v=20261004d"></script>
+<script src="js/vehicles.js?v=20261004d"></script>
+<script src="js/audio.js?v=20261004d"></script>
+<script src="js/radio.js?v=20261004d"></script>
+<script src="js/guards.js?v=20261004d"></script>
+<script src="js/combat.js?v=20261004d"></script>
+<script src="js/police.js?v=20261004d"></script>
+<script src="js/weather.js?v=20261004d"></script>
+<script src="js/sealife.js?v=20261004d"></script>
+<script src="js/plane.js?v=20261004d"></script>
+<script src="js/fire.js?v=20261004d"></script>
+<script src="js/ems.js?v=20261004d"></script>
+<script src="js/daynight.js?v=20261004d"></script>
+<script src="js/taxi.js?v=20261004d"></script>
+<script src="js/pizza.js?v=20261004d"></script>
+<script src="js/shop.js?v=20261004d"></script>
+<script src="js/entrances.js?v=20261004d"></script>
+<script src="js/shops.js?v=20261004d"></script>
+<script src="js/jobs.js?v=20261004d"></script>
+<script src="js/business.js?v=20261004d"></script>
+<script src="js/autos.js?v=20261004d"></script>
+<script src="js/ui.js?v=20261004d"></script>
+<script src="js/input.js?v=20261004d"></script>
+<script src="js/main.js?v=20261004d"></script>

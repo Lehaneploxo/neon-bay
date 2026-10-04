@@ -662,6 +662,8 @@
     onZoom: s => { rig.dist = U.clamp(rig.dist + s * .6, 2.6, 9); },
     onMute: () => toggleMute(),
     onRadio: () => { if (vehicles.driving) radio.next(); },
+    // police car, ambulance, fire engine, coast guard: the lights and the siren (G / the 🚨 button)
+    onSiren: () => { const c = vehicles.driving; if (!c || !c.barR || c.wreck) return; c.sirenOn = !c.sirenOn; flashTip(c.sirenOn ? 'Мигалки и сирена включены' : 'Мигалки выключены', 1.4); },
     onMap: () => openMap(),
     onMode: () => onResize()
   });
@@ -1010,6 +1012,8 @@
     // touch buttons read as flight controls in the helicopter
     const heli = !!(drv && drv.model.heli) && (drv.model.jet ? 'jet' : 'heli');
     document.body.classList.toggle('tank', !!(drv && drv.model.id === 'tank'));
+    document.body.classList.toggle('siren', !!(drv && drv.barR));
+    $('btnSiren').classList.toggle('lit', !!(drv && drv.sirenOn));
     if (heli !== hudHeli) {
       hudHeli = heli;
       const L = heli === 'jet' ? ['ГАЗ', 'ТОРМОЗ', 'ВВЕРХ', 'ВНИЗ'] : heli ? ['ВПЕРЁД', 'НАЗАД', 'ВВЕРХ', 'ВНИЗ'] : ['ГАЗ', 'ТОРМОЗ', 'РУЧНИК', 'БИП'];

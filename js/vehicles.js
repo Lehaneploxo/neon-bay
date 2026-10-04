@@ -1107,7 +1107,7 @@
           const on = c.sirenOn, ph = Math.sin(tt * 13) > 0, bar = c.model.bar;
           c.barR.visible = !on || ph; c.barB.visible = !on || !ph;
           c.barR.material.color.setHex(on ? bar[0] : 0x441018); c.barB.material.color.setHex(on ? bar[1] : 0x202436);
-          if (on && (c.pursuit || c.goto || c.coastGuard)) sirens.push([Math.hypot(c.x - player.x, c.z - player.z), c]);
+          if (on && (c.pursuit || c.goto || c.coastGuard || c === driving || c.remote)) sirens.push([Math.hypot(c.x - player.x, c.z - player.z), c]);
         }
         sirens.sort((a, b) => a[0] - b[0]);
         audio.sirens(sirens.slice(0, 2).filter(s => s[0] < 110).map(s => [s[1].x, 1.4, s[1].z]));

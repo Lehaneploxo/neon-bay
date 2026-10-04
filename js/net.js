@@ -228,7 +228,7 @@
           if (!r.car) { r.car = o.vehicles.remoteCar(s.car[0], s.car[1], s.car[2]); r.carKey = key; }
           if (r.car) {
             const c = r.car; c.x = s.car[3]; c.y = s.car[4]; c.z = s.car[5]; c.h = s.car[6]; c.rPitch = s.car[7]; c.rBank = s.car[8]; c.rSpeed = s.car[9];
-            if (c.police || c.ems) c.sirenOn = !!s.car[10];
+            if (c.barR) c.sirenOn = !!s.car[10];
           }
           m.root.visible = false; av.blob.visible = false;
           av.x = s.car[3]; av.y = s.car[4]; av.z = s.car[5];
