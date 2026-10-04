@@ -187,9 +187,11 @@
       if (rec) { if (!engOn) k = 0; rec.skid.g.gain.setTargetAtTime(Math.min(1, k) * .5, AC.currentTime, .06); rec.skid.src.playbackRate.setTargetAtTime(.9 + Math.min(1, k) * .25, AC.currentTime, .1); return; }
       if (skid) skid.sg.gain.setTargetAtTime(Math.min(1, k) * .22, AC.currentTime, .05);
     };
+    let lastHornAt = -99;
     A.horn = function (pos) {
       if (!ok()) return;
-      if (play('horn', { pos, vol: pos ? 1 : .55, vary: false, rate: curId && VOICE[curId] > 1.4 ? 1.25 : curId && VOICE[curId] < .75 ? .8 : 1 })) return;
+      if (pos) { const now = AC.currentTime; if (now - lastHornAt < 5) return; lastHornAt = now; }   // somebody else's horn: one at a time, now and then
+      if (play('horn', { pos, vol: pos ? .3 : .5, lp: pos ? 2200 : 0, vary: !!pos, rate: curId && VOICE[curId] > 1.4 ? 1.25 : curId && VOICE[curId] < .75 ? .8 : 1 })) return;
       const t = AC.currentTime, d = out(pos), f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800; f.connect(d);
       for (const hz of [392, 494]) { const o = AC.createOscillator(); o.type = 'square'; o.frequency.value = hz; const g = AC.createGain(); env(g, t, .01, pos ? .5 : .12, .45); o.connect(g); g.connect(f); o.start(t); o.stop(t + .5); }
     };
@@ -198,7 +200,7 @@
       if (!ok()) return;
       const k = Math.min(1, strength / 14);
       if (has('crash')) {
-        const vol = .35 + k * .65;
+        const vol = (.35 + k * .65) * (pos ? .55 : 1);   // others' crashes quieter than your own
         if (strength < 4) play(variant('bump', 3), { pos, vol: vol * .8 });
         else { play(variant('metal', 2), { pos, vol }); if (strength > 7) play('crash', { pos, vol, rate: .9 + Math.random() * .2 }); if (strength > 12) play('glass', { pos, vol: vol * .7, at: .03 }); }
         return;

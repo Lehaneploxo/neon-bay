@@ -165,7 +165,7 @@
       dent(car, px, pz, nx, nz, Math.min(.16, strength * .012));
       paint(car);
       if (car.driver === 'player') { audio.impact(strength); if (opts.onImpact) opts.onImpact(strength); }
-      else audio.impact(strength * .5, [car.x, .5, car.z]);
+      else if (strength > 4) audio.impact(strength * .5, [car.x, .5, car.z]);   // the traffic bumping into things: only real knocks are heard
     }
 
     /* ---------- boats: slide on the water, stay in the sea ---------- */
@@ -531,7 +531,7 @@
       ai.v += U.clamp(target - ai.v, -9 * dt, 3.2 * dt);
       if (ai.v < .3 && (hero || ai.shock > 0)) {
         ai.waitT += dt;
-        if (ai.waitT > 1.2 && (ai.honkT -= dt) <= 0) { audio.horn([car.x, 1, car.z]); ai.honkT = rand(2, 4); }
+        if (hero && ai.waitT > 4 && (ai.honkT -= dt) <= 0) { audio.horn([car.x, 1, car.z]); ai.honkT = rand(10, 18); }
       } else { ai.waitT = 0; ai.honkT = 0; }
       if (ai.v < .3 && !hero) { ai.stuckT = (ai.stuckT || 0) + dt; if (ai.stuckT > 6) { ai.stuckT = 0; ai.ignoreT = 2; } } else ai.stuckT = 0;
       // advance along the polyline
