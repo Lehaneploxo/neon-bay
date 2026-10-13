@@ -139,7 +139,7 @@
   let guards = null;
   const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'), records: () => progress.records, save: () => saveProgress(),
     power: () => 1 + ((progress.stats && progress.stats.str) || 0) / 100,   // trained strength: up to twice as hard
-    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) || aliens.busy,   // (an alien invasion: shooting back is no crime)
+    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) || aliens.busy || zombies.busy || war.busy,   // (an invasion, the apocalypse, the war: shooting is no crime)
     // other players (net.js): the hero's shots and punches can land on them
     remoteHit: (...a) => (net ? net.remoteHit(...a) : null), remoteNear: (...a) => (net ? net.remoteNear(...a) : null), hitRemote: (id, d, k) => { if (net) net.hitRemote(id, d, k); } });
 
@@ -222,7 +222,7 @@
   Object.assign(crowdOpts, {
     onKill: (p, src) => {
       combat.bloodPool(p.x, p.y, p.z); audio.scream([p.x, 1, p.z]);
-      if (src.byPlayer && !p.alien) {   // shooting an alien down is nobody's crime
+      if (src.byPlayer && !p.alien && !p.zombie && !p.trooper) {   // shooting down an alien, a zombie or a soldier of the war is nobody's crime
         police.reportCrime(p.cop ? 'copKill' : 'kill', p.x, p.z);
         if (!p.medic && (p.cop || Math.random() < .7)) combat.dropCash(p.x, p.z, p.cop ? 40 + (Math.random() * 40 | 0) : 5 + (Math.random() * 40 | 0));
         dropGun(p, 1);
@@ -238,7 +238,11 @@
     // the alien invasion (aliens.js): their ray guns, the cars they go for, whether the hero is fair game (not indoors)
     onAlienShoot: (p, t, kind) => aliens.shoot(p, t, kind),
     cars: () => vehicles.cars,
-    alienHero: () => !places.current,   // the war (war.js): rifles, and a stray round kills whoever is in the way
+    alienHero: () => !places.current,
+    // the zombie apocalypse (zombies.js): a bite, whether the hero can be bitten; the police shoot zombies and aliens
+    onZombieBite: (p, t) => zombies.bite(p, t),
+    zombieHero: () => !places.current,
+    monsters: () => zombies.busy || aliens.busy,   // the war (war.js): rifles, and a stray round kills whoever is in the way
     // bodyguards: their pistols hit hard and never hit the hero; their punches land with a thud
     onGuardShoot: (p, t) => combat.npcShoot(p, t, { dmg: 48, noPlayer: true }),
     onCopShootAt: (p, t) => combat.npcShoot(p, t, { dmg: 30 }),   // an officer returning a bodyguard's fire
@@ -262,8 +266,10 @@
   const war = NB.createWar(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
   // the alien invasion (stream mode: a giant gift brings flying saucers over the city for five minutes; aliens.js)
   const aliens = NB.createAliens(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
+  // the zombie apocalypse (stream mode: five minutes of the bitten turning into zombies round the hero; zombies.js)
+  const zombies = NB.createZombies(world, { scene, crowd, audio, player, flash: (t, s) => flashTip(t, s), heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
   // the owner's stream mode (👑 panel): gifts on the owner's TikTok LIVE start these events in his game only (stream.js)
-  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens }, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click() });
+  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies }, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click() });
   // draft: a button to try the meteor, only in a copy running on this computer (never on the site)
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
     const b = document.createElement('button'); b.textContent = '☄ МЕТЕОРИТ (тест, клавиша N)';
@@ -285,7 +291,7 @@
     b4.addEventListener('click', e => { e.stopPropagation(); aliens.start('Тестовый_зритель'); b4.blur(); });
     document.body.appendChild(b4);
     addEventListener('keydown', e => { if (e.code === 'KeyK' && !e.repeat && document.activeElement.tagName !== 'INPUT') aliens.start('Тестовый_зритель'); });
-    window.__draft = { rig, player, tsunami, meteor, war, aliens, stream, crowd, vehicles };   // for the automatic test of the draft
+    window.__draft = { rig, player, tsunami, meteor, war, aliens, zombies, stream, crowd, vehicles };   // for the automatic test of the draft
     addEventListener('keydown', e => { if (e.code === 'KeyB' && !e.repeat && document.activeElement.tagName !== 'INPUT') tsunami.launch('Тестовый_зритель'); });
   }
   const fire = NB.createFireService(world, { extraFires: () => meteor.fires, crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
@@ -1161,6 +1167,7 @@
       tsunami.update(dt, player);
       war.update(dt, player);
       aliens.update(dt, player);
+      zombies.update(dt, player);
       sea.update(dt);
       taxi.update(dt); pizza.update(dt);
       if (seatSpot && !player.seat) { seatSpot.taken = false; seatSpot = null; }   // got up: passers-by may sit there again

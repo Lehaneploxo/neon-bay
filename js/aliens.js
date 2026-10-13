@@ -250,6 +250,7 @@
         if (!I) return;
         I.t += dt;
         I.aliens = I.aliens.filter(p => o.crowd.people.includes(p));
+        if (!I.retreat) for (const p of I.aliens.slice()) if (!p.dead && !p.down && Math.hypot(p.x - player.x, p.z - player.z) > 120) o.crowd.despawnPerson(p);
         for (const S of I.saucers) saucerStep(S, dt, player);
         if (hum) { let nd = 1e9; for (const S of I.saucers) nd = Math.min(nd, Math.hypot(S.x - player.x, S.y - player.y, S.z - player.z)); hum.g.gain.value = .09 * Math.max(0, 1 - nd / 160); }
         if (!I.retreat) {

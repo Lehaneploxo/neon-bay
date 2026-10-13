@@ -926,6 +926,73 @@
       if (Math.hypot(gx, gz) < 3) { A.goalX = p.x + rand(-25, 25); A.goalZ = p.z + rand(-25, 25); }
       runTo(p, [A.goalX, A.goalZ], 2.2, dt); p.anim = 'walk'; p.running = false;
     }
+    /* ---------- the zombie apocalypse (zombies.js): the bitten turn, and go after the living ---------- */
+    function zombieStep(p, dt, player) {
+      const Z = p.zombie;
+      if (Z.rise > 0) { Z.rise -= dt; p.anim = Z.rise > .9 ? 'dead' : 'stumble'; p.speed = 0; return; }   // getting up after the bite
+      Z.scanT -= dt; Z.biteT -= dt;
+      if (Z.scanT <= 0) {
+        Z.scanT = .5 + Math.random() * .3;
+        let best = null, bd = 32;
+        for (const q of people) { if (q.zombie || q.dead || q.down || q.mirror || q.alien) continue; const d = Math.hypot(q.x - p.x, q.z - p.z) + (q === Z.target ? -4 : 0) + (q.fleeT > 0 ? 5 : 0); if (d < bd) { bd = d; best = q; } }   // easier prey first
+        const dh = Math.hypot(player.x - p.x, player.z - p.z);
+        Z.hero = !player.dead && !player.inCar && opts.zombieHero && opts.zombieHero() && (dh < 4 || (!best && dh < 28) || dh < bd * .4);   // people first: the hero when he's right there or nobody else is
+        Z.target = Z.hero ? null : best;
+      }
+      const t = Z.hero ? (player.dead || player.inCar ? null : player) : Z.target && !Z.target.dead && !Z.target.down && !Z.target.zombie && people.includes(Z.target) ? Z.target : null;
+      if (t) {
+        const dx = t.x - p.x, dz = t.z - p.z, d = Math.hypot(dx, dz) || .001;
+        if (d < 2.4 && !Z.hero && !(t.stumbleT > 0)) t.stumbleT = .9;   // grabbed: the victim staggers and can't get away
+        if (d > 1.05) { runTo(p, [t.x, t.z], Z.speed, dt); p.anim = 'aimwalk'; p.running = Z.speed > 3; }   // arms out in front
+        else { p.speed = 0; p.anim = 'punch'; p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10); if (Z.biteT <= 0) { Z.biteT = 1.1; call('onZombieBite', p, Z.hero ? 'hero' : t); } }
+        return;
+      }
+      // nobody about: shamble on
+      if (Math.hypot(Z.goalX - p.x, Z.goalZ - p.z) < 2.5) { Z.goalX = p.x + rand(-20, 20); Z.goalZ = p.z + rand(-20, 20); }
+      runTo(p, [Z.goalX, Z.goalZ], 1.1, dt); p.anim = 'aimwalk'; p.running = false;
+    }
+    // a police officer in the middle of a zombie apocalypse or an alien invasion: defends people, shoots the monsters
+    function copDefend(p, dt) {
+      p.monT = (p.monT || 0) - dt;
+      if (p.monT <= 0) {
+        p.monT = .5 + Math.random() * .3;
+        let best = null, bd = 34;
+        for (const q of people) { if (!(q.zombie || q.alien) || q.dead || q.down || (q.zombie && q.zombie.rise > 0) || (q.alien && q.alien.drop > 0)) continue; const d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = q; } }
+        p.monster = best;
+      }
+      const t = p.monster;
+      if (!t || t.dead || t.down || !people.includes(t)) { p.monster = null; return false; }
+      const dx = t.x - p.x, dz = t.z - p.z, d = Math.hypot(dx, dz) || .001;
+      detachSpot(p);
+      p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
+      p.losT -= dt;
+      if (p.losT <= 0) { p.losT = .3; const sy = p.y + 1.5, ty = t.y + 1.1, L3 = Math.hypot(dx, ty - sy, dz); p.los = col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - .5; }
+      if (d < 5) { stepMove(p, -dx / d, -dz / d, 2.4, dt); p.anim = 'aimwalk'; p.running = false; }   // backs off from a zombie at arm's length
+      else if (!p.los || d > 26) { runTo(p, [t.x, t.z], 4.2, dt); p.anim = p.los ? 'aimwalk' : 'walk'; }
+      else { p.speed = 0; p.running = false; p.anim = 'aim'; }
+      if (p.los && d < 30) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.45, .9); call('onCopShootAt', p, t); if (Math.random() < .05) bumpCallback(p, pick(t.zombie ? ['Стреляй в голову!', 'Назад, граждане!', 'Не подходи!'] : ['Огонь по пришельцам!', 'Держать позицию!', 'Граждане, в укрытие!'])); } }
+      return true;
+    }
+    const ZSKIN = ['#7fa070', '#8aa67a', '#71946a', '#93a884'];
+    function infect(p, rise) {
+      if (!people.includes(p) || p.zombie || p.mirror) return false;
+      detachSpot(p);
+      p.fare = null; p.home = null; p.patrol = null; p.unit = null; p.fleeT = 0; p.fightT = 0; p.cop = false; p.gang = null; p.bouncer = false; p.trooper = null;
+      // grey-green skin, the clothes dirtied, the face of the dead
+      const L = p.look, skin = L.col.head, zs = pick(ZSKIN), c = new THREE.Color(), dirt = new THREE.Color('#3a3226');
+      BASE.forEach((b, i) => {
+        const k = b[0], hex = L.col[k]; if (!hex) return;
+        if (hex === skin) L.col[k] = zs;
+        c.set(L.col[k]); if (hex !== skin) c.lerp(dirt, .35);
+        mesh.setColorAt(p.slot * PARTS + i, c);
+      });
+      mesh.instanceColor.needsUpdate = true;
+      const fi = NB.faces.ZOMBIE; faceTile.setXY(p.slot, fi % NB.faces.GRID, NB.faces.GRID - 1 - ((fi / NB.faces.GRID) | 0)); faceTile.needsUpdate = true;
+      p.dead = false; p.down = false; p.ems = null; p.hp = p.maxHp = 80; p.keep = true; p.fallT = 0; p.deadT = 0;
+      p.zombie = { rise: rise || 0, scanT: 0, biteT: .6, target: null, hero: false, goalX: p.x, goalZ: p.z, speed: rand(3.6, 4.6) };
+      if (p.bubble && p.bubble.owner === p) p.bubble.owner = null;
+      return true;
+    }
     function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : p.medic.anim || 'idle'); }
     // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
     // to the window, a guest to the sofa); a waitress or a bellboy keeps doing rounds
@@ -960,7 +1027,9 @@
       if (p.bodyguard) { guardStep(p, dt, player); return; }
       if (p.trooper) { trooperStep(p, dt, player); return; }
       if (p.alien) { alienStep(p, dt, player); return; }
+      if (p.zombie) { zombieStep(p, dt, player); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
+      if (p.cop && opts.monsters && opts.monsters() && copDefend(p, dt)) return;   // zombies or aliens about: the police deal with them first
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
       if (p.gang && gangHeat[p.gang] > 0 && !player.dead && !player.inCar && Math.hypot(player.x - p.x, player.z - p.z) < 60) { gangChase(p, dt, player); return; }
       if (p.gang && warT.t > 0 && warStep(p, dt)) return;
@@ -1463,6 +1532,13 @@
         p.alien = { drop: Math.max(0, fromY - p.y), ground: p.y, goalX: x, goalZ: z, scanT: .3, target: null, kind: null, range: rand(14, 24), leave: false };
         p.y += p.alien.drop;
         return p;
+      },
+      // the zombie apocalypse (zombies.js): turn someone (rise: seconds lying there first), or make a new one out of nowhere
+      infect(p, rise) { return infect(p, rise); },
+      spawnZombie(x, z) {
+        const p = spawn(makeLook(pick(['tourist_m', 'business_m', 'worker', 'beach_m', 'tourist_f', 'business_f'])), x, z, 'war');
+        if (!p) return null;
+        infect(p, 0); return p;
       },
       warReset() { warHostile.A = warHostile.B = false; },
       removeGuard(p) { if (people.includes(p)) despawn(p); },

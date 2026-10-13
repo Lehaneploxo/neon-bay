@@ -163,6 +163,17 @@
         W.troops = W.troops.filter(p => o.crowd.people.includes(p));
         for (const T of W.tanks) if (!T.c.wreck && o.vehicles.cars.includes(T.c)) tankStep(T, dt);
         W.tanks = W.tanks.filter(T => o.vehicles.cars.includes(T.c));
+        // the hero far away from the fighting (woke up in the hospital, drove off): the war comes to him
+        if (!W.retreat && Math.hypot(player.x - W.cx, player.z - W.cz) > 110 && !o.indoors()) {
+          for (const p of W.troops) if (!p.dead && !p.down) o.crowd.despawnPerson(p); else p.keep = false;
+          for (const T of W.tanks) o.vehicles.remove(T.c);
+          W.troops = []; W.tanks = [];
+          const v = o.view(), px = -v[1], pz = v[0], cx = player.x + v[0] * 12, cz = player.z + v[1] * 12;
+          W.cx = cx; W.cz = cz; W.tankT = 6;
+          W.bases = { A: [cx + px * BASE_D, cz + pz * BASE_D], B: [cx - px * BASE_D, cz - pz * BASE_D] };
+          W.fronts = { A: [cx + px * 22, cz + pz * 22], B: [cx - px * 22, cz - pz * 22] };
+          for (let k = 0; k < 6; k++) { addTrooper('A'); addTrooper('B'); }
+        }
         if (!W.retreat) {
           const left = Math.max(0, W.dur - W.t), m = Math.floor(left / 60), s = Math.floor(left % 60);
           hud.style.display = 'block'; hud.textContent = '⚔ ВОЙНА · ' + m + ':' + String(s).padStart(2, '0');

@@ -26,7 +26,8 @@
     for (const hair of ['none', 'none', 'stubble', 'mustache', 'stubble']) plan.push({ g: 'm', hair, tone: 'dark', shades: true });
     for (const hair of ['mustache', 'beard', 'none', 'stubble']) plan.push({ g: 'm', old: true, hair, tone: 'grey' });
     for (let k = 0; k < 4; k++) plan.push({ g: 'f', old: true });
-    while (plan.length < GRID * GRID - 1) plan.push({ g: 'm', hair: 'none' });
+    while (plan.length < GRID * GRID - 2) plan.push({ g: 'm', hair: 'none' });
+    plan.push({ g: 'zombie' });   // the tile before last: a zombie's face (zombies.js), never picked for a person
     plan.push({ g: 'alien' });   // the last tile: a grey alien's face (aliens.js), never picked for a person
 
     const TONE = { dark: '#1e140e', brown: '#4a2e1a', light: '#a8743c', grey: '#b8b8b8' };
@@ -37,6 +38,15 @@
       g.clearRect(0, 0, T * GRID, T * GRID);
       plan.forEach((f, i) => {
         const ox = (i % GRID) * T, oy = ((i / GRID) | 0) * T, px = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(ox + x, oy + y, w, h); };
+        if (f.g === 'zombie') {   // sunken dark sockets with dull white eyes, a gaping mouth, blood down the chin
+          for (const sd of [-1, 1]) {
+            const ex = 32 + sd * 12;
+            px(ex - 7, 24, 14, 11, 'rgba(40,20,30,.75)');
+            px(ex - 5, 27, 10, 6, '#e8e6d0'); px(ex - 1 + sd, 29, 2, 2, '#8a1010');
+          }
+          px(24, 43, 16, 9, '#2a0808'); px(25, 43, 14, 2, '#d8d0b0'); px(27, 50, 2, 6, '#9a1010'); px(35, 51, 2, 8, '#9a1010');
+          tiles.push(f); return;
+        }
         if (f.g === 'alien') {   // two huge slanted black eyes with a shine, two dots of a nose, a thin slit of a mouth
           for (const sd of [-1, 1]) {
             g.save(); g.translate(ox + 32 + sd * 12, oy + 30); g.rotate(sd * .5);
@@ -146,6 +156,7 @@
     },
     // the texture coordinates of a tile: [u0, v0, u1, v1]
     get ALIEN() { return NB.faces.atlas.tiles.length - 1; },
+    get ZOMBIE() { return NB.faces.atlas.tiles.length - 2; },
     uv(i) { const c = i % GRID, r = (i / GRID) | 0; return [c / GRID, 1 - (r + 1) / GRID, (c + 1) / GRID, 1 - r / GRID]; }
   };
 })(window.NB);
