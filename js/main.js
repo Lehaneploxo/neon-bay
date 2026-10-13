@@ -1039,7 +1039,11 @@
     const hpw = Math.round(player.hp) + '%'; if ($('hpFill').style.width !== hpw) $('hpFill').style.width = hpw;
     $('hp').classList.toggle('low', player.hp <= 30);
     $('armor').hidden = progress.armor <= 0;
-    const aCap = progress.armor > 100 ? MEGA_VEST : 100, aw = Math.max(progress.armor > 0 ? 1 : 0, Math.round(progress.armor / aCap * 100)) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
+    // the bar is measured against the vest you wear: an ordinary one (100), the golden one from Tropic (500), the million-point one from the hideaway
+    const arm = progress.armor, aCap = arm > 500 ? MEGA_VEST : arm > 100 ? 500 : 100, aPct = arm / aCap * 100;
+    const aw = Math.max(arm > 0 ? 1 : 0, Math.round(aPct)) + '%'; if ($('armorFill').style.width !== aw) $('armorFill').style.width = aw;
+    const aShown = Math.floor(aPct * 10) / 10, armTxt = (arm > 100 ? Math.round(arm).toLocaleString('ru-RU') + ' · ' : '') + (aShown >= 100 ? '100' : aShown.toLocaleString('ru-RU')) + '%';
+    if ($('armorTxt').textContent !== armTxt) $('armorTxt').textContent = armTxt;
     $('armor').classList.toggle('mega', progress.armor > 100);
     const wi = weather.info, wt = wi.icon + ' ' + wi.name; if ($('weather').textContent !== wt) $('weather').textContent = wt;
     const mt = progress.money.toLocaleString('ru-RU'); if ($('moneyNum').textContent !== mt) $('moneyNum').textContent = mt;

@@ -20,7 +20,7 @@
 // comes back to the foreground, ask the site which build is current (version.txt, never cached) and, if it's
 // newer than this page, reload into it by an address the old copy can't answer for.
 (function () {
-  var BUILD = '20261005b';
+  var BUILD = '20261013a';
   function check() {
     if (!window.fetch) return;
     fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (v) {
@@ -87,6 +87,9 @@ body.touch #weather{right:calc(130px + var(--safe-r));top:calc(66px + var(--safe
 #armor .bar{flex:1;height:6px;border-radius:3px;background:rgba(21,15,38,.7);box-shadow:0 0 0 1px var(--line);overflow:hidden;}
 #armorFill{height:100%;width:0;background:linear-gradient(90deg,#4f8cff,#9fd0ff);transition:width .2s;}
 #armor.mega #armorFill{background:linear-gradient(90deg,#c9a227,#ffe98a);box-shadow:0 0 8px #ffd84f;}
+#armor .bar{min-width:55%;}
+#armorTxt{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;color:#9fd0ff;text-shadow:0 1px 2px rgba(0,0,0,.7);white-space:nowrap;}
+#armor.mega #armorTxt{color:#ffe98a;}
 #weapon{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6);}
 #wAmmo{font-size:17px;font-variant-numeric:tabular-nums;color:var(--cyan);}
 #money{position:relative;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--cash);text-shadow:0 0 8px rgba(107,255,138,.55),0 1px 2px rgba(0,0,0,.7);letter-spacing:.01em;}
@@ -343,7 +346,7 @@ body.touch .fsOnly{display:inline-block;}
   <div id="status">
     <div id="stars" class="none"><i>★</i><i>★</i><i>★</i><i>★</i><i>★</i></div>
     <div id="hp"><span class="heart">♥</span><div class="bar"><div id="hpFill"></div></div></div>
-    <div id="armor" hidden><span class="shield">◆</span><div class="bar"><div id="armorFill"></div></div></div>
+    <div id="armor" hidden><span class="shield">◆</span><div class="bar"><div id="armorFill"></div></div><span id="armorTxt"></span></div>
     <div id="weapon"><span id="wName">Кулаки</span><b id="wAmmo"></b></div>
     <div id="money">$<span id="moneyNum">0</span><div id="moneyPop"></div></div>
   </div>
@@ -609,50 +612,50 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261005b"></script>
-<script src="js/online.js?v=20261005b"></script>
-<script src="js/net.js?v=20261005b"></script>
-<script src="js/sync.js?v=20261005b"></script>
-<script src="js/wallet.js?v=20261005b"></script>
-<script src="js/club.js?v=20261005b"></script>
-<script src="js/places.js?v=20261005b"></script>
-<script src="js/spray.js?v=20261005b"></script>
-<script src="js/street.js?v=20261005b"></script>
-<script src="js/northside.js?v=20261005b"></script>
-<script src="js/bayview.js?v=20261005b"></script>
-<script src="js/tropic.js?v=20261005b"></script>
-<script src="js/hideaway.js?v=20261005b"></script>
-<script src="js/military.js?v=20261005b"></script>
-<script src="js/island.js?v=20261005b"></script>
-<script src="js/brand.js?v=20261005b"></script>
-<script src="js/world.js?v=20261005b"></script>
-<script src="js/faces.js?v=20261005b"></script>
-<script src="js/player.js?v=20261005b"></script>
-<script src="js/wardrobe.js?v=20261005b"></script>
-<script src="js/npc.js?v=20261005b"></script>
-<script src="js/animals.js?v=20261005b"></script>
-<script src="js/wildlife.js?v=20261005b"></script>
-<script src="js/cars.js?v=20261005b"></script>
-<script src="js/vehicles.js?v=20261005b"></script>
-<script src="js/audio.js?v=20261005b"></script>
-<script src="js/radio.js?v=20261005b"></script>
-<script src="js/guards.js?v=20261005b"></script>
-<script src="js/combat.js?v=20261005b"></script>
-<script src="js/police.js?v=20261005b"></script>
-<script src="js/weather.js?v=20261005b"></script>
-<script src="js/sealife.js?v=20261005b"></script>
-<script src="js/plane.js?v=20261005b"></script>
-<script src="js/fire.js?v=20261005b"></script>
-<script src="js/ems.js?v=20261005b"></script>
-<script src="js/daynight.js?v=20261005b"></script>
-<script src="js/taxi.js?v=20261005b"></script>
-<script src="js/pizza.js?v=20261005b"></script>
-<script src="js/shop.js?v=20261005b"></script>
-<script src="js/entrances.js?v=20261005b"></script>
-<script src="js/shops.js?v=20261005b"></script>
-<script src="js/jobs.js?v=20261005b"></script>
-<script src="js/business.js?v=20261005b"></script>
-<script src="js/autos.js?v=20261005b"></script>
-<script src="js/ui.js?v=20261005b"></script>
-<script src="js/input.js?v=20261005b"></script>
-<script src="js/main.js?v=20261005b"></script>
+<script src="js/engine.js?v=20261013a"></script>
+<script src="js/online.js?v=20261013a"></script>
+<script src="js/net.js?v=20261013a"></script>
+<script src="js/sync.js?v=20261013a"></script>
+<script src="js/wallet.js?v=20261013a"></script>
+<script src="js/club.js?v=20261013a"></script>
+<script src="js/places.js?v=20261013a"></script>
+<script src="js/spray.js?v=20261013a"></script>
+<script src="js/street.js?v=20261013a"></script>
+<script src="js/northside.js?v=20261013a"></script>
+<script src="js/bayview.js?v=20261013a"></script>
+<script src="js/tropic.js?v=20261013a"></script>
+<script src="js/hideaway.js?v=20261013a"></script>
+<script src="js/military.js?v=20261013a"></script>
+<script src="js/island.js?v=20261013a"></script>
+<script src="js/brand.js?v=20261013a"></script>
+<script src="js/world.js?v=20261013a"></script>
+<script src="js/faces.js?v=20261013a"></script>
+<script src="js/player.js?v=20261013a"></script>
+<script src="js/wardrobe.js?v=20261013a"></script>
+<script src="js/npc.js?v=20261013a"></script>
+<script src="js/animals.js?v=20261013a"></script>
+<script src="js/wildlife.js?v=20261013a"></script>
+<script src="js/cars.js?v=20261013a"></script>
+<script src="js/vehicles.js?v=20261013a"></script>
+<script src="js/audio.js?v=20261013a"></script>
+<script src="js/radio.js?v=20261013a"></script>
+<script src="js/guards.js?v=20261013a"></script>
+<script src="js/combat.js?v=20261013a"></script>
+<script src="js/police.js?v=20261013a"></script>
+<script src="js/weather.js?v=20261013a"></script>
+<script src="js/sealife.js?v=20261013a"></script>
+<script src="js/plane.js?v=20261013a"></script>
+<script src="js/fire.js?v=20261013a"></script>
+<script src="js/ems.js?v=20261013a"></script>
+<script src="js/daynight.js?v=20261013a"></script>
+<script src="js/taxi.js?v=20261013a"></script>
+<script src="js/pizza.js?v=20261013a"></script>
+<script src="js/shop.js?v=20261013a"></script>
+<script src="js/entrances.js?v=20261013a"></script>
+<script src="js/shops.js?v=20261013a"></script>
+<script src="js/jobs.js?v=20261013a"></script>
+<script src="js/business.js?v=20261013a"></script>
+<script src="js/autos.js?v=20261013a"></script>
+<script src="js/ui.js?v=20261013a"></script>
+<script src="js/input.js?v=20261013a"></script>
+<script src="js/main.js?v=20261013a"></script>
