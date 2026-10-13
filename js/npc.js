@@ -223,6 +223,15 @@
         show('tie'); set('tie', '#e8c547');   // gold chain
         L.speed = 1.3; break;
       }
+      case 'alien': { // a grey-green alien (aliens.js): bare skin, big bald head, thin limbs, a glowing ray gun
+        L.hs = rand(.86, .94); L.ws = rand(.78, .86);
+        const sk = pick(['#b6f0a4', '#a8e8b4', '#c4f5b0', '#9fe6a0']);
+        set('neck head handL handR nose thumbL thumbR torso uaL uaR ua2L ua2R faL faR pelvis thighL thighR shinL shinR shoeL shoeR shoulders', sk);
+        L.hide.add('earL'); L.hide.add('earR');
+        show('tie'); set('tie', '#c8d4dc');   // a silver strap across the chest
+        show('bag'); set('bag', '#3dff9a'); L.gun = true;
+        L.speed = rand(1.4, 1.6); break;
+      }
       default: { // elderly
         const s = pick(['#d9c7a6', '#a9c4d8', '#e6b8c2', '#c8d9b0', '#f3efe6']); set('torso', s); sleeves(chance(.5) ? 'long' : 'short', s);
         legs('pants', pick(['#c9b89a', '#8a8f98', '#e8e2d4'])); set('shoeL shoeR', '#5a4030');
@@ -232,7 +241,7 @@
     // the hairstyle: chosen by who they are; under a hat only what shows below the brim
     const hat = !L.hide.has('crown');
     let style;
-    if (type === 'bouncer') style = 'bald';
+    if (type === 'bouncer' || type === 'alien') style = 'bald';
     else if (type === 'bodyguard') style = pick(['bald', 'buzz', 'buzz', 'short']);
     else if (type === 'prisoner') style = pick(['bald', 'buzz', 'buzz', 'short', 'afro']);
     else if (type === 'soldier') style = 'buzz';
@@ -257,6 +266,7 @@
     // a painted face to go with who they are (faces.js); sunglasses come with the face
     L.face = NB.faces.pick({ female, old: type === 'elderly', hairHex: hair, shades: !L.hide.has('shades'), type });
     L.hide.add('shades');
+    if (type === 'alien') L.face = NB.faces.ALIEN;
     // per-part centre and size, with the body variations baked in
     L.cs = new Float32Array(PARTS * 6);
     BASE.forEach((b, i) => {
@@ -279,6 +289,14 @@
       }
       if (type === 'gang_red' || type === 'gang_green') { if (k === 'crown') { cy = .35; sy = .07; } if (k === 'bag') { cy = -.33; cz = .1; sx = .05; sy = .11; sz = .2; } }   // a bandana, a pistol in hand
       if (type === 'soldier') { if (k === 'crown') { cy = .37; sx = .27; sy = .13; sz = .28; } if (k === 'brim') { cy = .31; cz = .02; sx = .29; sy = .03; sz = .3; } if (k === 'bag') { cy = -.25; cz = .22; sx = .06; sy = .1; sz = .62; } }   // helmet, rifle
+      if (type === 'alien') {   // the big head, thin arms and legs, the ray gun in hand
+        if (k === 'head') { cy = .23; sx = .27; sy = .31; sz = .23; }
+        if (k === 'neck') { sx = .07; sz = .07; }
+        if (/^(uaL|uaR|ua2L|ua2R|faL|faR)$/.test(k)) { sx *= .7; sz *= .7; }
+        if (/^(thighL|thighR|shinL|shinR)$/.test(k)) { sx *= .75; sz *= .75; }
+        if (k === 'tie') { cy = .3; cz = .118 * L.ws; sx = .05; sy = .5; sz = .012; }
+        if (k === 'bag') { cy = -.33; cz = .12; sx = .06; sy = .1; sz = .24; }
+      }
       if (type === 'bodyguard' && k === 'bag') { cy = -.33; cz = .1; sx = .05; sy = .11; sz = .2; }   // the pistol
       if (type === 'cop') { // peaked cap, badge, pistol in hand
         if (k === 'brim') { cy = .345; cz = .1; sx = .25; sy = .03; sz = .16; }
@@ -314,6 +332,7 @@
     if (t === 'bouncer') return 260;
     if (t === 'bodyguard') return 320;
     if (t === 'soldier') return 150;
+    if (t === 'alien') return 120;
     if (t === 'cop' || t === 'security') return 100;
     if (t === 'gang_red' || t === 'gang_green') return 130;
     if (t === 'elderly') return look.female ? 50 : 55;
@@ -832,6 +851,81 @@
         p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
       } else { p.speed = 0; p.running = false; p.anim = 'guard'; p.heading += U.angDiff(p.heading, player.heading) * Math.min(1, dt * 4); }
     }
+    /* ---------- the war (war.js): two armies fight through the streets ---------- */
+    const warHostile = { A: false, B: false };   // a side the hero has shot at fires back at him
+    function trooperStep(p, dt, player) {
+      const T = p.trooper;
+      // falling back: run home and vanish out of sight (war.js takes them off)
+      if (T.retreat) { runTo(p, [T.homeX, T.homeZ], 5.2, dt); p.anim = 'walk'; return; }
+      T.scanT -= dt;
+      if (T.scanT <= 0) {
+        T.scanT = .35 + Math.random() * .15;
+        let best = null, bd = 55;
+        for (const q of people) {
+          if (!q.trooper || q.trooper.side === T.side || q.dead || q.down) continue;
+          const d = Math.hypot(q.x - p.x, q.z - p.z) + (q === T.target ? -8 : 0);
+          if (d < bd) { bd = d; best = q; }
+        }
+        const dh = Math.hypot(player.x - p.x, player.z - p.z);
+        T.target = best; T.hero = !best && warHostile[T.side] && !player.dead && dh < 45;
+        if (T.hero && best == null) T.target = null;
+      }
+      const tgt = T.target && !T.target.dead && !T.target.down && people.includes(T.target) ? T.target : null;
+      if (tgt || T.hero) {
+        const tx = tgt ? tgt.x : player.x, tz = tgt ? tgt.z : player.z, ty = tgt ? tgt.y + 1.2 : player.y + 1.2;
+        const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz) || .001;
+        p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 9);
+        p.losT -= dt;
+        if (p.losT <= 0) { p.losT = .25; const sy = p.y + 1.5, L3 = Math.hypot(dx, ty - sy, dz); p.los = d < 55 && col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - .5; }
+        // in sight and in range: stand and fire; otherwise close in (and back off from point blank)
+        if (!p.los || d > T.range) { runTo(p, [tx, tz], 4.6, dt); p.anim = p.los ? 'aimwalk' : 'walk'; }
+        else if (d < 7) { stepMove(p, -dx / d, -dz / d, 1.8, dt); p.anim = 'aimwalk'; p.running = false; }
+        else { p.speed = 0; p.running = false; p.anim = 'aim'; }
+        if (p.los) p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 12);
+        if (p.los && d < 48) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.35, .9); if (tgt) call('onTrooperShoot', p, tgt); else call('onGangShoot', p); if (Math.random() < .04) bumpCallback(p, pick(T.side === 'A' ? ['Вперёд!', 'Огонь!', 'Прикрой!', 'Держать позицию!'] : ['В атаку!', 'Огонь по ним!', 'Не отступать!', 'Перезаряжаю!'])); } }
+        return;
+      }
+      // nobody in sight: push on towards the enemy's side
+      const gx = T.goalX - p.x, gz = T.goalZ - p.z, gd = Math.hypot(gx, gz);
+      if (gd < 3) { p.speed = 0; p.anim = 'aim'; return; }
+      runTo(p, [T.goalX, T.goalZ], 3.4, dt); p.anim = 'aimwalk';
+    }
+    /* ---------- the alien invasion (aliens.js): beamed down from the saucers, they shoot everyone and everything ---------- */
+    function alienStep(p, dt, player) {
+      const A = p.alien;
+      // coming down the beam from the saucer
+      if (A.drop > 0) { A.drop = Math.max(0, A.drop - dt * 9); p.y = A.ground + A.drop; p.anim = 'stumble'; p.speed = 0; p.heading += dt * 3; return; }
+      if (A.leave) { p.speed = 0; p.anim = 'idle'; return; }   // waiting to be beamed back up
+      A.scanT -= dt;
+      if (A.scanT <= 0) {
+        A.scanT = .4 + Math.random() * .2;
+        // whoever or whatever is nearest: a person, a car, or the hero
+        let best = null, bd = 42, kind = null;
+        for (const q of people) { if (q.alien || q.dead || q.down || q.mirror) continue; const d = Math.hypot(q.x - p.x, q.z - p.z) + (q === A.target ? -6 : 0); if (d < bd) { bd = d; best = q; kind = 'person'; } }
+        for (const c of opts.cars()) { if (c.wreck || c.model.heli && c.y > 3 || c.model.boat) continue; const d = Math.hypot(c.x - p.x, c.z - p.z) + 4 + (c === A.target ? -6 : 0); if (d < bd) { bd = d; best = c; kind = 'car'; } }
+        // the hero: only when nothing else is about, or he walks right up to one (no more than four at a time go for him)
+        const dh = Math.hypot(player.x - p.x, player.z - p.z), onHero = people.filter(q => q.alien && q !== p && q.alien.kind === 'hero').length;
+        if (!player.dead && opts.alienHero && opts.alienHero() && onHero < 4 && (dh < 9 || (!best && dh < 28))) { best = null; kind = 'hero'; }
+        A.target = best; A.kind = kind;
+      }
+      const t = A.kind === 'hero' ? null : A.target;
+      const ok = A.kind === 'hero' ? !player.dead : t && (A.kind === 'car' ? !t.wreck && opts.cars().includes(t) : !t.dead && !t.down && people.includes(t));
+      if (ok) {
+        const tx = t ? t.x : player.x, tz = t ? t.z : player.z, ty = t ? (A.kind === 'car' ? t.y + 1 : t.y + 1.1) : player.y + 1.1;
+        const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz) || .001;
+        p.losT -= dt;
+        if (p.losT <= 0) { p.losT = .25; const sy = p.y + 1.3, L3 = Math.hypot(dx, ty - sy, dz); p.los = d < 40 && col.raycast(p.x, sy, p.z, dx / L3, (ty - sy) / L3, dz / L3, L3) >= L3 - (A.kind === 'car' ? 2.5 : .5); }
+        if (!p.los || d > A.range) { runTo(p, [tx, tz], 4.2, dt); p.anim = p.los ? 'aimwalk' : 'walk'; }
+        else { p.speed = 0; p.running = false; p.anim = 'aim'; }
+        if (p.los) p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 12);
+        if (p.los && d < 36) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.6, 1.3); call('onAlienShoot', p, A.kind === 'hero' ? 'hero' : t, A.kind); } }
+        return;
+      }
+      // nothing about: wander towards where the saucer put it down
+      const gx = A.goalX - p.x, gz = A.goalZ - p.z;
+      if (Math.hypot(gx, gz) < 3) { A.goalX = p.x + rand(-25, 25); A.goalZ = p.z + rand(-25, 25); }
+      runTo(p, [A.goalX, A.goalZ], 2.2, dt); p.anim = 'walk'; p.running = false;
+    }
     function medicStep(p, dt) { goalStep(p, p.medic, dt, p.medic.kneel ? 'cpr' : p.medic.anim || 'idle'); }
     // staff and regulars go back to their place once the trouble is over (a bouncer to the door, a teller
     // to the window, a guest to the sofa); a waitress or a bellboy keeps doing rounds
@@ -864,6 +958,8 @@
       }
       if (p.stumbleT > 0) { p.stumbleT -= dt; p.anim = 'stumble'; p.speed = U.damp(p.speed, 0, 8, dt); return; }
       if (p.bodyguard) { guardStep(p, dt, player); return; }
+      if (p.trooper) { trooperStep(p, dt, player); return; }
+      if (p.alien) { alienStep(p, dt, player); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
       if (p.gang && gangHeat[p.gang] > 0 && !player.dead && !player.inCar && Math.hypot(player.x - p.x, player.z - p.z) < 60) { gangChase(p, dt, player); return; }
@@ -1242,6 +1338,7 @@
         }
         if (src && src.byPlayer && (p.bouncer || nearClub(p.x, p.z))) alertBouncers();
         if (src && src.byPlayer && p.gang) provoke(p.gang, p.x, p.z);
+        if (src && src.byPlayer && p.trooper) warHostile[p.trooper.side] = true;
         // fists and the bat knock people out (the ambulance or a few minutes brings them round); guns and cars kill
         if (p.hp <= 0 && src && src.kind === 'melee' && !p.medic) {
           p.hp = 0; p.down = true; p.anim = 'dead'; p.fallT = 0; p.deadT = 0; p.dodge = null; p.fightT = 0; p.fleeT = 0; p.running = false; p.brawl = false;
@@ -1343,6 +1440,31 @@
         p.bodyguard = { idx: idx || 0, of: of || 1, scanT: 0, target: null, armed: false };
         return p;
       },
+      // a soldier of one of the two armies (war.js); side 'A' wears green, side 'B' desert sand
+      spawnTrooper(x, z, side, goalX, goalZ, homeX, homeZ) {
+        const look = makeLook('soldier');
+        if (side === 'B') {
+          const cam = pick(['#b59a68', '#a88e5c', '#c2a875']), pants = pick(['#9c8558', '#8f7a4f']);
+          for (const k of ['torso', 'uaL', 'uaR', 'ua2L', 'ua2R', 'faL', 'faR']) look.col[k] = cam;
+          for (const k of ['pelvis', 'thighL', 'thighR', 'shinL', 'shinR']) look.col[k] = pants;
+          look.col.crown = look.col.brim = '#7a2a22';
+        } else look.col.crown = look.col.brim = '#2f4a26';
+        const p = spawn(look, x, z, 'war');
+        if (!p) return null;
+        p.keep = true; p.gang = null; p.heading = Math.atan2(goalX - x, goalZ - z); p.anim = 'walk';
+        p.trooper = { side, goalX, goalZ, homeX, homeZ, scanT: Math.random() * .3, target: null, hero: false, retreat: false, range: rand(18, 30) };
+        return p;
+      },
+      // an alien put down by a saucer's beam (aliens.js): it comes down from a height and goes for whatever is near
+      spawnAlien(x, z, fromY) {
+        const p = spawn(makeLook('alien'), x, z, 'war');
+        if (!p) return null;
+        p.keep = true; p.gang = null; p.anim = 'stumble';
+        p.alien = { drop: Math.max(0, fromY - p.y), ground: p.y, goalX: x, goalZ: z, scanT: .3, target: null, kind: null, range: rand(14, 24), leave: false };
+        p.y += p.alien.drop;
+        return p;
+      },
+      warReset() { warHostile.A = warHostile.B = false; },
       removeGuard(p) { if (people.includes(p)) despawn(p); },
       releaseGuard(p) { if (people.includes(p)) { p.bodyguard = null; p.keep = false; } },
       provoke(gang, x, z) { provoke(gang, x, z); },

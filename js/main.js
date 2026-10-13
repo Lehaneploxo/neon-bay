@@ -139,7 +139,7 @@
   let guards = null;
   const combat = NB.createCombat(scene, world, { crowd, vehicles, player, audio, police, flash: (t, s) => flashTip(t, s), onPlayerHit: d => heroDamage(d), onCash: n => addMoney(n, 'Подобрано'), records: () => progress.records, save: () => saveProgress(),
     power: () => 1 + ((progress.stats && progress.stats.str) || 0) / 100,   // trained strength: up to twice as hard
-    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()),
+    targets: () => places.current && places.current.targets, quiet: () => !!(places.current && places.current.quiet && places.current.quiet()) || aliens.busy,   // (an alien invasion: shooting back is no crime)
     // other players (net.js): the hero's shots and punches can land on them
     remoteHit: (...a) => (net ? net.remoteHit(...a) : null), remoteNear: (...a) => (net ? net.remoteNear(...a) : null), hitRemote: (id, d, k) => { if (net) net.hitRemote(id, d, k); } });
 
@@ -222,7 +222,7 @@
   Object.assign(crowdOpts, {
     onKill: (p, src) => {
       combat.bloodPool(p.x, p.y, p.z); audio.scream([p.x, 1, p.z]);
-      if (src.byPlayer) {
+      if (src.byPlayer && !p.alien) {   // shooting an alien down is nobody's crime
         police.reportCrime(p.cop ? 'copKill' : 'kill', p.x, p.z);
         if (!p.medic && (p.cop || Math.random() < .7)) combat.dropCash(p.x, p.z, p.cop ? 40 + (Math.random() * 40 | 0) : 5 + (Math.random() * 40 | 0));
         dropGun(p, 1);
@@ -234,6 +234,11 @@
     onCopShoot: p => combat.copShoot(p, police.wanted),
     onGangShoot: p => combat.copShoot(p, p.gang === 'army' ? 4 : 2),   // soldiers shoot straighter than gangsters
     onGangShootAt: (p, t) => combat.npcShoot(p, t),
+    onTrooperShoot: (p, t) => combat.npcShoot(p, t, { dmg: 40 }),
+    // the alien invasion (aliens.js): their ray guns, the cars they go for, whether the hero is fair game (not indoors)
+    onAlienShoot: (p, t, kind) => aliens.shoot(p, t, kind),
+    cars: () => vehicles.cars,
+    alienHero: () => !places.current,   // the war (war.js): rifles, and a stray round kills whoever is in the way
     // bodyguards: their pistols hit hard and never hit the hero; their punches land with a thud
     onGuardShoot: (p, t) => combat.npcShoot(p, t, { dmg: 48, noPlayer: true }),
     onCopShootAt: (p, t) => combat.npcShoot(p, t, { dmg: 30 }),   // an officer returning a bodyguard's fire
@@ -249,7 +254,41 @@
     onBoat: () => !!(vehicles.driving && vehicles.driving.model.boat), onWater: () => !!(player.swim || (vehicles.driving && vehicles.driving.model.boat)),
     target: () => ({ x: player.x, z: player.z, vx: player.vx, vz: player.vz }) });
   let jobs = null, net = null, business = null, autos = null, sync = null, ledger = null;   // ledger: the money on the server (wallet.js)   // police / ambulance / fire shifts for the player (jobs.js), made once the city is ready
-  const fire = NB.createFireService(world, { crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
+  // the meteor (stream mode: a big gift drops one near the hero; meteor.js)
+  const meteor = NB.createMeteor(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
+  // the tsunami (stream mode: a giant gift sends a wave in from the sea across the whole city; tsunami.js)
+  const tsunami = NB.createTsunami(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current });
+  // the war (stream mode: a giant gift starts a five-minute battle round the hero; war.js)
+  const war = NB.createWar(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
+  // the alien invasion (stream mode: a giant gift brings flying saucers over the city for five minutes; aliens.js)
+  const aliens = NB.createAliens(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
+  // the owner's stream mode (👑 panel): gifts on the owner's TikTok LIVE start these events in his game only (stream.js)
+  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens }, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click() });
+  // draft: a button to try the meteor, only in a copy running on this computer (never on the site)
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    const b = document.createElement('button'); b.textContent = '☄ МЕТЕОРИТ (тест, клавиша N)';
+    b.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:50;padding:10px 18px;font:800 15px Rubik,sans-serif;color:#fff;background:linear-gradient(90deg,#c1121f,#ff7a2a);border:0;border-radius:12px;box-shadow:0 4px 18px rgba(255,90,30,.5);cursor:pointer';
+    b.addEventListener('click', e => { e.stopPropagation(); meteor.drop('Тестовый_зритель'); b.blur(); });
+    document.body.appendChild(b);
+    addEventListener('keydown', e => { if (e.code === 'KeyN' && !e.repeat && document.activeElement.tagName !== 'INPUT') meteor.drop('Тестовый_зритель'); });
+    const b2 = document.createElement('button'); b2.textContent = '🌊 ЦУНАМИ (тест, клавиша B)';
+    b2.style.cssText = 'position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:50;padding:10px 18px;font:800 15px Rubik,sans-serif;color:#fff;background:linear-gradient(90deg,#0b5c8a,#2ec4d6);border:0;border-radius:12px;box-shadow:0 4px 18px rgba(40,180,220,.5);cursor:pointer';
+    b2.addEventListener('click', e => { e.stopPropagation(); tsunami.launch('Тестовый_зритель'); b2.blur(); });
+    document.body.appendChild(b2);
+    const b3 = document.createElement('button'); b3.textContent = '⚔ ВОЙНА (тест, клавиша J)';
+    b3.style.cssText = 'position:fixed;top:112px;left:50%;transform:translateX(-50%);z-index:50;padding:10px 18px;font:800 15px Rubik,sans-serif;color:#fff;background:linear-gradient(90deg,#3a4a1e,#8a9a3a);border:0;border-radius:12px;box-shadow:0 4px 18px rgba(120,140,40,.5);cursor:pointer';
+    b3.addEventListener('click', e => { e.stopPropagation(); war.start('Тестовый_зритель'); b3.blur(); });
+    document.body.appendChild(b3);
+    addEventListener('keydown', e => { if (e.code === 'KeyJ' && !e.repeat && document.activeElement.tagName !== 'INPUT') war.start('Тестовый_зритель'); });
+    const b4 = document.createElement('button'); b4.textContent = '🛸 ПРИШЕЛЬЦЫ (тест, клавиша K)';
+    b4.style.cssText = 'position:fixed;top:162px;left:50%;transform:translateX(-50%);z-index:50;padding:10px 18px;font:800 15px Rubik,sans-serif;color:#fff;background:linear-gradient(90deg,#0a5a3a,#3dff9a);border:0;border-radius:12px;box-shadow:0 4px 18px rgba(60,255,150,.5);cursor:pointer';
+    b4.addEventListener('click', e => { e.stopPropagation(); aliens.start('Тестовый_зритель'); b4.blur(); });
+    document.body.appendChild(b4);
+    addEventListener('keydown', e => { if (e.code === 'KeyK' && !e.repeat && document.activeElement.tagName !== 'INPUT') aliens.start('Тестовый_зритель'); });
+    window.__draft = { rig, player, tsunami, meteor, war, aliens, stream, crowd, vehicles };   // for the automatic test of the draft
+    addEventListener('keydown', e => { if (e.code === 'KeyB' && !e.repeat && document.activeElement.tagName !== 'INPUT') tsunami.launch('Тестовый_зритель'); });
+  }
+  const fire = NB.createFireService(world, { extraFires: () => meteor.fires, crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });
   const ems = NB.createEMS(world, {
     hold: p => !!jobs && jobs.holdEMS(p),
     crowd, vehicles, say: (p, t) => say(p, t),
@@ -1118,6 +1157,10 @@
       police.update(dt, player, rig.yaw);
       if (!sync || sync.runsCity) ems.update(dt, player, rig.yaw, lowCrowd() ? 1 : 2);
       if (!sync || sync.runsCity) fire.update(dt, player);
+      meteor.update(dt, player);
+      tsunami.update(dt, player);
+      war.update(dt, player);
+      aliens.update(dt, player);
       sea.update(dt);
       taxi.update(dt); pizza.update(dt);
       if (seatSpot && !player.seat) { seatSpot.taken = false; seatSpot = null; }   // got up: passers-by may sit there again

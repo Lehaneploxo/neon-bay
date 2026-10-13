@@ -65,7 +65,7 @@
       d.from = [sx, sy, sz]; d.to = [f.x + (Math.random() - .5) * 1.5, f.y + .9 + Math.random() * .5, f.z + (Math.random() - .5) * 1.5]; d.t = 0; d.visible = true;
     }
     const alive = p => p && o.crowd.people.includes(p) && !p.dead && !p.down;
-    const burning = c => o.vehicles.cars.includes(c) && (c.burnT > 0 || c.wreckFireT > 0);
+    const burning = c => c.extra ? c.t > 0 : o.vehicles.cars.includes(c) && (c.burnT > 0 || c.wreckFireT > 0);   // (extra: a burning building, meteor.js)
     function release(u) { for (const m of u.crew) if (alive(m)) o.crowd.releaseMedic(m); u.crew = []; }
     function goHome(u) {
       if (u.fire && u.fire.fireUnit === u) u.fire.fireUnit = null;
@@ -89,7 +89,7 @@
           scanT = 1;
           if (units.length < 2) {
             let best = null, bd = 150;
-            for (const c of o.vehicles.fires()) { if (c.fireUnit || c === o.vehicles.driving || (o.hold && o.hold(c))) continue; const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = c; } }
+            for (const c of o.vehicles.fires().concat(o.extraFires ? o.extraFires().filter(burning) : [])) { if (c.fireUnit || c === o.vehicles.driving || (o.hold && !c.extra && o.hold(c))) continue; const d = Math.hypot(c.x - player.x, c.z - player.z); if (d < bd) { bd = d; best = c; } }
             if (best) {
               const car = o.vehicles.spawnDepot('firetruck', st.exit.x, st.exit.z, best.x, best.z);
               if (car) {
@@ -138,8 +138,8 @@
               break;
             case 'spray':
               for (const m of u.crew) if (alive(m)) { if (Math.random() < .7) spray(m, f); }
-              if (u.t > 4.5 || !burning(f)) {
-                if (burning(f)) o.vehicles.extinguish(f);
+              if (u.t > (f.sprayTime || 4.5) || !burning(f)) {
+                if (burning(f)) { if (f.extra) f.t = 0; else o.vehicles.extinguish(f); }
                 for (const m of u.crew) if (alive(m)) { m.medic.anim = null; const rx = -Math.cos(car.h), rz = Math.sin(car.h); m.medic.goal = [car.x + rx * 1.6, car.z + rz * 1.6]; m.medic.face = null; }
                 u.state = 'return'; u.t = 0;
                 if (o.say && alive(u.crew[0])) o.say(u.crew[0], 'Потушили!');

@@ -207,7 +207,7 @@
       const r = trace(ox, oy, oz, dx, dy, dz, 50, p, !(o2 && o2.noPlayer));
       if (r.kind === 'person') { crowd.damage(r.hit, o2 && o2.dmg || 34, { byPlayer: false, kind: 'gun', x: p.x, z: p.z }); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
       else if (r.kind === 'player') { o.onPlayerHit(rand(5, 9), p.x, p.z); burst(r.x, r.y, r.z, 5, BLOOD, 1.6); }
-      else if (r.kind === 'car') { vehicles.bulletHit(r.hit, 12, r.x, r.z, -dx, -dz); burst(r.x, r.y, r.z, 4, SPARK, 3); }
+      else if (r.kind === 'car') { const was = r.hit.blame; vehicles.bulletHit(r.hit, 12, r.x, r.z, -dx, -dz); r.hit.blame = was; burst(r.x, r.y, r.z, 4, SPARK, 3); }   // not the hero's doing if it blows up
       else if (r.kind === 'world') burst(r.x, r.y, r.z, 3, DUST, 2);
       tracer(ox, oy, oz, r.x, r.y, r.z); muzzleFlash(ox, oy, oz, .4); audio.shot('cop', [ox, oy, oz]); crowd.panic(p.x, p.z, 25);
     }

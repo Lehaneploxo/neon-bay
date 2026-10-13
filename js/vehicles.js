@@ -1177,6 +1177,15 @@
         for (let k = 0; k < 6; k++) puff(c.x + (Math.random() - .5) * 2, c.y + 1 + Math.random(), c.z + (Math.random() - .5) * 2, true);
         return true;
       },
+      // a fresh coat of paint from outside (war.js: the desert army's tanks)
+      recolor(c, color, accent) { c.color = color; c.accent = accent || color; paint(c); },
+      // swept away by the tsunami (tsunami.js): no longer on its route, the engine drowned (not the hero's own car)
+      wash(c, drown) {
+        if (c.ai) { releaseLock(c); c.ai = null; }
+        c.vx = c.vz = 0; c.awake = true; c.parked = false; c.goto = null; c.pursuit = null; c.damage = Math.max(c.damage, 100);
+        if (drown) { c.flooded = true; c.damage = Math.max(c.damage, 120); if (c !== driving) { c.driver = null; c.driverMesh.visible = false; } }
+        paint(c);
+      },
       extinguish(c) { if (c.burnT > 0) { c.burnT = 0; c.damage = BURN_AT - 40; paint(c); } c.wreckFireT = 0; },
       driveTo(car, x, z, speed) { car.goto = { x, z, speed, arrived: false }; car.parked = false; car.awake = true; },
       remove(car) { if (cars.includes(car)) removeCar(car); },
