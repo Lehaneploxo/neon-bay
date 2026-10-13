@@ -1,12 +1,12 @@
-// The meteor: a big gift on the owner's stream (1000 coins and up) drops one on the city near the hero.
+// The meteor: a big gift on the owner's stream (500 coins and up) drops one on the city near the hero.
 // A red circle marks where it will land, a fireball with a smoke trail comes down out of the sky, and the
 // impact throws people and cars about, sets cars on fire and leaves a smoking crater. If it lands on a building
-// the building burns until the fire brigade comes and puts it out. People in the blast are knocked out, not
-// killed (the ambulance brings them round), so the stream stays on the right side of TikTok's rules.
+// the building burns until the fire brigade comes and puts it out. People under it are killed, those further
+// out knocked down; cars inside the circle burn and blow up.
 (function (NB) {
   'use strict';
   const { U } = NB;
-  const WARN = 3, FLIGHT = 3.2, RADIUS = 11;   // seconds of warning, seconds in the air, metres of the blast
+  const WARN = 3, FLIGHT = 3.2, FLIGHT0 = FLIGHT, RADIUS = 11;   // seconds of warning, seconds in the air, metres of the blast
 
   NB.createMeteor = function (world, o) {
     // o: scene, vehicles, crowd, audio, player, flash(text, sec), shake(v), heroDamage(v), indoors(), view() -> [x, z] where the camera looks
@@ -98,15 +98,15 @@
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.06, t + .05); g.gain.setValueAtTime(.06, t + 2.9); g.gain.linearRampToValueAtTime(0, t + 3);
       osc.start(t); osc.stop(t + 3.05);
     }
-    function roar() {
-      const AC = o.audio.ctx && o.audio.ctx(), buf = o.audio.noiseBuf && o.audio.noiseBuf(); if (!AC || !buf) return;
+    function roar(vol = 1, FLIGHT = FLIGHT0) {
+      const AC = o.audio.ctx && o.audio.ctx(), buf = o.audio.noiseBuf && o.audio.noiseBuf(); if (!AC || !buf || vol < .02) return;
       const t = AC.currentTime, s = AC.createBufferSource(), lp = AC.createBiquadFilter(), g = AC.createGain();
       s.buffer = buf; s.loop = true; lp.type = 'lowpass'; lp.frequency.setValueAtTime(200, t); lp.frequency.exponentialRampToValueAtTime(1600, t + FLIGHT);
-      g.gain.setValueAtTime(.001, t); g.gain.exponentialRampToValueAtTime(.5, t + FLIGHT); g.gain.linearRampToValueAtTime(0, t + FLIGHT + .15);
+      g.gain.setValueAtTime(.001, t); g.gain.exponentialRampToValueAtTime(.5 * vol, t + FLIGHT); g.gain.linearRampToValueAtTime(0, t + FLIGHT + .15);
       s.connect(lp); lp.connect(g); g.connect(o.audio.bus()); s.start(t); s.stop(t + FLIGHT + .2);
       const w = AC.createOscillator(), wg = AC.createGain();   // the whistle, falling in pitch
       w.type = 'sine'; w.frequency.setValueAtTime(1500, t); w.frequency.exponentialRampToValueAtTime(260, t + FLIGHT);
-      wg.gain.setValueAtTime(0, t); wg.gain.linearRampToValueAtTime(.05, t + 1); wg.gain.linearRampToValueAtTime(0, t + FLIGHT);
+      wg.gain.setValueAtTime(0, t); wg.gain.linearRampToValueAtTime(.05 * vol, t + Math.min(1, FLIGHT * .4)); wg.gain.linearRampToValueAtTime(0, t + FLIGHT);
       w.connect(wg); wg.connect(o.audio.bus()); w.start(t); w.stop(t + FLIGHT + .05);
     }
 
@@ -134,14 +134,14 @@
         const dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz); if (d > RADIUS * 1.7 || d < .01) continue;
         const k = 1 - d / (RADIUS * 1.7);
         if (c.ai) c.ai.shock = 3; else { c.vx += dx / d * 14 * k; c.vz += dz / d * 14 * k; c.awake = true; }
-        c.hop = Math.max(c.hop || 0, k); c.damage += 260 * k;
+        c.hop = Math.max(c.hop || 0, k); c.damage += d < RADIUS ? 400 : 260 * k;   // inside the circle: it burns and blows up
       }
       for (const p of o.crowd.people.slice()) {
         if (p.dead || p.down || p.mirror || Math.abs(p.y - y) > 4) continue;
         const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz); if (d > RADIUS * 1.5) continue;
         const k = 1 - d / (RADIUS * 1.5), dir = d > .01 ? [dx / d, dz / d] : [1, 0];
         p.meteorFly = { vx: dir[0] * (6 + 12 * k), vz: dir[1] * (6 + 12 * k), t: .45 };
-        o.crowd.damage(p, d < RADIUS ? 999 : 30 * k, { byPlayer: false, kind: 'melee', x, z });   // knocked out, not killed
+        o.crowd.damage(p, d < RADIUS ? 999 : 60 * k, { byPlayer: false, kind: d < RADIUS ? 'explosion' : 'melee', x, z });   // killed under it, knocked down further out
       }
       o.crowd.panic(x, z, 70, false);
       const pd = Math.hypot(o.player.x - x, o.player.z - z);
@@ -163,7 +163,115 @@
       }
     }
 
-    return {
+    /* ---------- the meteor shower: five minutes of smaller rocks coming down all round the hero ---------- */
+    const SR = 5.5, S_WARN = 1.6, S_FLIGHT = 1.8;   // metres of a small rock's blast, seconds of warning, seconds in the air
+    const smallRing = [], smallRocks = [];
+    for (let i = 0; i < 8; i++) {
+      const rg = new THREE.Mesh(new THREE.RingGeometry(SR - .4, SR, 40).rotateX(-Math.PI / 2), ringMat), fl = new THREE.Mesh(new THREE.CircleGeometry(SR - .4, 40).rotateX(-Math.PI / 2), fillMat);
+      rg.visible = fl.visible = false; rg.renderOrder = fl.renderOrder = 2; scene.add(rg, fl); smallRing.push([rg, fl]);
+      const r = new THREE.Mesh(rock.geometry, rock.material), gl = new THREE.Sprite(glow.material);
+      r.scale.setScalar(.6); gl.scale.set(8, 8, 1); r.visible = gl.visible = false; scene.add(r, gl); smallRocks.push([r, gl]);
+    }
+    const sCraters = [];
+    const hud = document.createElement('div');
+    hud.style.cssText = 'position:fixed;top:164px;left:50%;transform:translateX(-50%);z-index:45;padding:8px 16px;border-radius:12px;font:800 16px Rubik,sans-serif;color:#fff;background:rgba(50,18,6,.8);box-shadow:0 0 0 2px rgba(255,120,40,.6),0 4px 18px rgba(0,0,0,.45);pointer-events:none;display:none;white-space:nowrap';
+    document.body.appendChild(hud);
+    let R = null;   // the shower going on: { t, dur, nick, nextT, bigT, rocks: [{ slot, phase, t, x, y, z, from }] }
+    function showerSpot(p) {
+      // mostly round the hero 12–55 m out, now and then close (8–14 m) so he has to run; never straight on him
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2, d = Math.random() < .25 ? 8 + Math.random() * 6 : 12 + Math.random() * 43;
+        const x = p.x + Math.sin(a) * d, z = p.z + Math.cos(a) * d, gy = groundAt(x, z);
+        if (NB.water.at(x, z) || R.rocks.some(r => Math.hypot(r.x - x, r.z - z) < SR * 2)) continue;
+        return { x, z, y: solidAt(x, z, gy) ? 90 - col.raycast(x, 90, z, 0, -1, 0, 90) : gy };   // a roof takes it if there is one
+      }
+      return null;
+    }
+    function smallImpact(r) {
+      const { x, y, z } = r;
+      o.vehicles.blast(x, y, z, false);
+      for (let k = 0; k < 14; k++) { const a = Math.random() * Math.PI * 2, rr = Math.random() * 3; emit(true, x + Math.sin(a) * rr, y + 1 + Math.random() * 2.5, z + Math.cos(a) * rr, 3 + Math.random() * 4, .6 + Math.random() * .4, Math.sin(a) * 3, 2 + Math.random() * 4, Math.cos(a) * 3, 2); }
+      for (let k = 0; k < 10; k++) { const a = Math.random() * Math.PI * 2, rr = Math.random() * 4; emit(false, x + Math.sin(a) * rr, y + 1.5 + Math.random() * 3, z + Math.cos(a) * rr, 4 + Math.random() * 3, 2.5 + Math.random() * 1.5, Math.sin(a), 1.5 + Math.random() * 2, Math.cos(a), 3); }
+      for (let k = 0; k < 8; k++) {
+        const c = new THREE.Mesh(debrisGeo, chunkMat), a = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 9;
+        c.position.set(x, y + 1, z); c.scale.setScalar(.3 + Math.random() * .5); scene.add(c);
+        debris.push({ c, vx: Math.sin(a) * sp, vz: Math.cos(a) * sp, vy: 6 + Math.random() * 8, t: 0, ry: Math.random() * 6 });
+      }
+      for (const c of o.vehicles.cars) {
+        if (c === o.vehicles.driving || (c.model.heli && c.y > y + 6)) continue;
+        const dx = c.x - x, dz = c.z - z, d = Math.hypot(dx, dz); if (d > SR * 1.8 || d < .01) continue;
+        const k = 1 - d / (SR * 1.8);
+        if (c.ai) c.ai.shock = 2.5; else { c.vx += dx / d * 10 * k; c.vz += dz / d * 10 * k; c.awake = true; }
+        c.hop = Math.max(c.hop || 0, k * .7); c.damage += d < SR ? 400 : 220 * k;   // inside the circle: it burns and blows up
+      }
+      for (const p of o.crowd.people.slice()) {
+        if (p.dead || p.down || p.mirror || Math.abs(p.y - y) > 4) continue;
+        const dx = p.x - x, dz = p.z - z, d = Math.hypot(dx, dz); if (d > SR * 1.5) continue;
+        const k = 1 - d / (SR * 1.5), dir = d > .01 ? [dx / d, dz / d] : [1, 0];
+        p.meteorFly = { vx: dir[0] * (5 + 9 * k), vz: dir[1] * (5 + 9 * k), t: .4 };
+        o.crowd.damage(p, d < SR ? 999 : 50 * k, { byPlayer: false, kind: d < SR ? 'explosion' : 'melee', x, z });   // killed under it, knocked down further out
+      }
+      o.crowd.panic(x, z, 50, false);
+      const pd = Math.hypot(o.player.x - x, o.player.z - z);
+      o.shake(Math.max(0, .7 * (1 - pd / 50)));
+      if (pd < SR && Math.abs(o.player.y - y) < 4) o.heroDamage(70 * (1 - pd / SR) + 20);
+      if (pd < 14) { flashEl.style.transition = 'none'; flashEl.style.opacity = '.35'; requestAnimationFrame(() => { flashEl.style.transition = 'opacity .8s ease-out'; flashEl.style.opacity = '0'; }); }
+      // a small crater, smoking for a while (the oldest go when there are too many)
+      const cr = new THREE.Group();
+      cr.add(new THREE.Mesh(new THREE.RingGeometry(2.4, 3.6, 20).rotateX(-Math.PI / 2), rimMat));
+      cr.add(new THREE.Mesh(new THREE.CircleGeometry(2.5, 20).rotateX(-Math.PI / 2), craterMat));
+      for (let k = 0; k < 3; k++) { const st = new THREE.Mesh(debrisGeo, chunkMat), a = Math.random() * Math.PI * 2, rr = Math.random() * 1.4; st.position.set(Math.sin(a) * rr, .12, Math.cos(a) * rr); st.scale.setScalar(.8 + Math.random()); cr.add(st); }
+      cr.position.set(x, y + .04, z); scene.add(cr);
+      sCraters.push({ g: cr, t: 0, x, y, z });
+      if (sCraters.length > 14) { const old = sCraters.shift(); scene.remove(old.g); }
+    }
+    function showerStep(dt, player) {
+      R.t += dt;
+      const left = Math.max(0, R.dur - R.t), mm = Math.floor(left / 60), ss = Math.floor(left % 60);
+      hud.style.display = 'block'; hud.textContent = '☄ МЕТЕОРИТНЫЙ ДОЖДЬ · ' + mm + ':' + String(ss).padStart(2, '0');
+      // a new rock every second or so (more often as it goes on), and a big one now and then
+      if (R.t < R.dur && (R.nextT -= dt) <= 0) {
+        R.nextT = Math.max(.6, 1.8 - R.t / 300) * (.6 + Math.random() * .8);
+        const free = smallRing.findIndex((_, i) => !R.rocks.some(r => r.slot === i));
+        const sp = free >= 0 && !o.indoors() && showerSpot(player);
+        if (sp) {
+          const a = Math.random() * Math.PI * 2;
+          R.rocks.push({ slot: free, phase: 'warn', t: 0, x: sp.x, y: sp.y, z: sp.z, from: [sp.x + Math.sin(a) * 120, sp.y + 160, sp.z + Math.cos(a) * 120] });
+          const [rg, fl] = smallRing[free]; rg.position.set(sp.x, sp.y + .06, sp.z); fl.position.copy(rg.position); rg.visible = fl.visible = true;
+        }
+      }
+      if (R.t < R.dur - 10 && (R.bigT -= dt) <= 0) { R.bigT = 45 + Math.random() * 30; if (!o.indoors()) api.drop(''); }
+      for (let i = R.rocks.length - 1; i >= 0; i--) {
+        const r = R.rocks[i], [rg, fl] = smallRing[r.slot], [rk, gl] = smallRocks[r.slot];
+        r.t += dt;
+        if (r.phase === 'warn') {
+          if (r.t >= S_WARN) { r.phase = 'fall'; r.t = 0; rk.visible = gl.visible = true; roar(Math.max(0, .5 * (1 - Math.hypot(r.x - player.x, r.z - player.z) / 70)), S_FLIGHT); }
+          continue;
+        }
+        const k = Math.min(1, r.t / S_FLIGHT), e = k * k * (1.6 - .6 * k);
+        const fx = r.from[0] + (r.x - r.from[0]) * e, fy = r.from[1] + (r.y - r.from[1]) * e, fz = r.from[2] + (r.z - r.from[2]) * e;
+        rk.position.set(fx, fy, fz); rk.rotation.x += dt * 4; gl.position.set(fx, fy, fz);
+        if (Math.random() < .7) emit(true, fx, fy, fz, 2.5 + Math.random() * 2, .3 + Math.random() * .2, 0, 0, 0, -2);
+        if (Math.random() < .4) emit(false, fx, fy, fz, 2 + Math.random() * 1.5, 1.6 + Math.random(), 0, .4, 0, 2.5);
+        if (k >= 1) { rk.visible = gl.visible = rg.visible = fl.visible = false; smallImpact(r); R.rocks.splice(i, 1); }
+      }
+      const blink = .55 + .4 * Math.abs(Math.sin(R.t * 8));
+      ringMat.opacity = blink; fillMat.opacity = .1 + .1 * blink;
+      for (const c of sCraters) { c.t += dt; if (c.t < 30 && Math.random() < dt * 2 && Math.hypot(c.x - player.x, c.z - player.z) < 100) emit(false, c.x + (Math.random() - .5) * 2, c.y + .8, c.z + (Math.random() - .5) * 2, 2 + Math.random() * 1.5, 3 + Math.random() * 2, 0, 1.4, 0, 2); }
+      if (R.t >= R.dur && !R.rocks.length) { hud.style.display = 'none'; o.flash('☄ Метеоритный дождь закончился', 3); R = null; }
+    }
+
+    const api = {
+      get showerBusy() { return !!R; },
+      shower(nick, dur) {
+        if (R) return false;
+        if (o.indoors()) { o.flash('Метеоритный дождь идёт на улице — выйдите из помещения', 2.5); return false; }
+        R = { t: 0, dur: dur || 300, nick: nick || '', nextT: 1, bigT: 25 + Math.random() * 15, rocks: [] };
+        chunkMat.emissiveIntensity = .35;
+        o.flash('☄ ' + (nick ? '@' + nick + ' вызвал ' : '') + 'МЕТЕОРИТНЫЙ ДОЖДЬ на 5 минут! Беги из красных кругов!', 5);
+        alarm();
+        return true;
+      },
       // burning buildings, for the fire brigade (fire.js): { x, y, z, t > 0 while burning, fireUnit }
       fires,
       get busy() { return !!m; },
@@ -180,13 +288,14 @@
         return true;
       },
       update(dt, player) {
+        if (R) showerStep(dt, player);
         if (m) {
           m.t += dt;
           if (m.phase === 'warn') {
-            ringMat.opacity = .55 + .4 * Math.abs(Math.sin(m.t * 6)); fillMat.opacity = .12 + .1 * Math.abs(Math.sin(m.t * 6));
+            if (!R) { ringMat.opacity = .55 + .4 * Math.abs(Math.sin(m.t * 6)); fillMat.opacity = .12 + .1 * Math.abs(Math.sin(m.t * 6)); }
             if (m.t >= WARN) { m.phase = 'fall'; m.t = 0; rock.visible = glow.visible = true; roar(); }
           } else if (m.phase === 'fall') {
-            ringMat.opacity = .55 + .4 * Math.abs(Math.sin(m.t * 12)); fillMat.opacity = .14 + .14 * Math.abs(Math.sin(m.t * 12));
+            if (!R) { ringMat.opacity = .55 + .4 * Math.abs(Math.sin(m.t * 12)); fillMat.opacity = .14 + .14 * Math.abs(Math.sin(m.t * 12)); }
             const k = Math.min(1, m.t / FLIGHT), e = k * k * (1.6 - .6 * k);   // speeding up as it comes down
             const fx = m.from[0] + (m.x - m.from[0]) * e, fy = m.from[1] + (m.y - m.from[1]) * e, fz = m.from[2] + (m.z - m.from[2]) * e;
             rock.position.set(fx, fy, fz); rock.rotation.x += dt * 3; rock.rotation.y += dt * 2;
@@ -245,5 +354,6 @@
         }
       }
     };
+    return api;
   };
 })(window.NB);
