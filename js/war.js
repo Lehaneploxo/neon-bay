@@ -176,7 +176,7 @@
         }
         if (!W.retreat) {
           const left = Math.max(0, W.dur - W.t), m = Math.floor(left / 60), s = Math.floor(left % 60);
-          hud.style.display = 'block'; hud.textContent = '⚔ ВОЙНА · ' + m + ':' + String(s).padStart(2, '0');
+          hud.textContent = '⚔ ВОЙНА · ' + m + ':' + String(s).padStart(2, '0');
           // reinforcements: the soldiers keep coming, the tanks too (a few per side)
           if ((W.spawnT -= dt) <= 0) {
             W.spawnT = .7;
@@ -199,7 +199,7 @@
           if (W.t >= W.dur) end();
         } else {
           W.retreatT += dt;
-          hud.style.display = 'block'; hud.textContent = '🏳 Войска отступают';
+          hud.textContent = '🏳 Войска отступают';
           for (const p of W.troops.slice()) if (!p.dead && !p.down && Math.hypot(p.x - player.x, p.z - player.z) > 70) o.crowd.despawnPerson(p);
           for (const T of W.tanks.slice()) if (Math.hypot(T.c.x - player.x, T.c.z - player.z) > 110) o.vehicles.remove(T.c);
           if (W.retreatT > 40 || (!W.troops.some(p => !p.dead && !p.down) && !W.tanks.some(T => !T.c.wreck))) { cleanup(); return; }

@@ -14,14 +14,13 @@
 //   100 — 4 (roadblocks), 200 — 5 (the helicopter).
 //   Doughnut — a bodyguard with the viewer's nick (guards.js gift) who stays until he's shot dead.
 //   TikTok — one passer-by with the viewer's nick runs up to fight the hero (a combo of n — n of them).
-//   any other gift for now by its coins: 500+ coins — the meteor, 1000+ — the tsunami, 1500+ — the war, 2000+ — the alien invasion.
+//   Any gift not listed here does nothing.
 // Only real gifts count (the server's demo bots are ignored). The tsunami, the war and the invasion take turns:
 // one that comes while another is on waits in the queue; a meteor can fall at any time.
 // While the stream is switched on, the police give stars only for robberies (police.js calm).
 (function (NB) {
   'use strict';
   const FEED = 'wss://gameleha.xyz/';
-  const TIERS = [[2000, 'aliens', '🛸 пришельцев'], [1500, 'war', '⚔ войну'], [1000, 'tsunami', '🌊 цунами'], [500, 'meteor', '☄ метеорит']];
   const ROSE_CHASE = [[200, 5], [100, 4], [50, 3], [20, 2]];   // roses in one combo → stars
   // the bar on the screen while the stream is on: the gift's own picture (img/gifts), what it does, its price
   const BAR = [['rose', 'Коп', 1], ['tiktok', 'Драчун', 1], ['heart', 'Метеорит', 5], ['donut', 'Охранник', 30], ['crown', 'Торнадо', 100],
@@ -98,8 +97,7 @@
       if (/^money ?gun$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 500)); i++) event('war', '⚔ войну', nick); return; }
       if (/^galaxy$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 1000)); i++) event('aliens', '🛸 пришельцев', nick); return; }
       if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
-      const t = TIERS.find(t => coins >= t[0]); if (!t) return;
-      event(t[1], t[2], nick);
+      // any other gift does nothing
     }
     // a big event now, or in the queue when another one is on
     function event(kind, label, nick) {

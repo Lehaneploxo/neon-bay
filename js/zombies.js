@@ -103,7 +103,7 @@
         Z.list = Z.list.filter(p => o.crowd.people.includes(p));
         const alive = Z.list.filter(p => !p.dead && !p.down);
         const left = Math.max(0, Z.dur - Z.t), mm = Math.floor(left / 60), ss = Math.floor(left % 60);
-        hud.style.display = 'block'; hud.textContent = '🧟 ЗОМБИ · ' + alive.length + ' · ' + mm + ':' + String(ss).padStart(2, '0');
+        hud.textContent = '🧟 ЗОМБИ · ' + alive.length + ' · ' + mm + ':' + String(ss).padStart(2, '0');
         // the living run from them
         if ((Z.panicT -= dt) <= 0) { Z.panicT = 1; for (const p of alive) if (Math.hypot(p.x - player.x, p.z - player.z) < 120) o.crowd.panic(p.x, p.z, 9, false); }
         if ((Z.groanT -= dt) <= 0) { Z.groanT = .6 + Math.random() * 1.2; const near = alive.filter(p => Math.hypot(p.x - player.x, p.z - player.z) < 40); if (near.length) { const p = near[(Math.random() * near.length) | 0]; groan(p.x, p.z); } }

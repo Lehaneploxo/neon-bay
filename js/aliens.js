@@ -255,12 +255,12 @@
         if (hum) { let nd = 1e9; for (const S of I.saucers) nd = Math.min(nd, Math.hypot(S.x - player.x, S.y - player.y, S.z - player.z)); hum.g.gain.value = .09 * Math.max(0, 1 - nd / 160); }
         if (!I.retreat) {
           const left = Math.max(0, I.dur - I.t), m = Math.floor(left / 60), s = Math.floor(left % 60);
-          hud.style.display = 'block'; hud.textContent = '🛸 НАШЕСТВИЕ · ' + m + ':' + String(s).padStart(2, '0');
+          hud.textContent = '🛸 НАШЕСТВИЕ · ' + m + ':' + String(s).padStart(2, '0');
           if ((I.panicT -= dt) <= 0) { I.panicT = 2.5; o.crowd.panic(player.x, player.z, 90, false); }
           if (I.t >= I.dur) end();
         } else {
           I.retreatT += dt;
-          hud.style.display = 'block'; hud.textContent = '🛸 Пришельцы улетают';
+          hud.textContent = '🛸 Пришельцы улетают';
           // each alien left standing goes back up in a beam, a few at a time
           if (I.retreatT < 6) for (const p of I.aliens.slice()) {
             if (p.dead || p.down || Math.random() > dt * 1.2) continue;
