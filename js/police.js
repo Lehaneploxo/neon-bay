@@ -12,7 +12,7 @@
   
   NB.createPolice = function (world, o) {
     const col = world.col;
-    const S = { wanted: 0, searchT: 0, seen: false, seenT: 0, bustT: 0, bustTick: false, kills: 0, calm: false };
+    const S = { wanted: 0, searchT: 0, seen: false, seenT: 0, bustT: 0, bustTick: false, kills: 0, calm: false, holdT: 0 };
     function los(ax, ay, az, bx, by, bz) {
       const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz);
       return L < .5 || col.raycast(ax, ay, az, dx / L, dy / L, dz / L, L) >= L - .5;
@@ -42,7 +42,8 @@
       set calm(v) { S.calm = !!v; },
       get calm() { return S.calm; },
       // a big combo of roses on the stream sends the real police after the hero (even in the stream mode)
-      giftChase(n) { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, n)); },
+      // (for the first 45 s the police know where the hero is, so the cars from the station have time to get there)
+      giftChase(n) { S.searchT = 0; S.seen = true; S.holdT = 45; raise(Math.max(S.wanted, n)); },
       // knocked out another player: one star more
       star() { if (S.calm) return; S.searchT = 0; S.seen = true; raise(S.wanted + 1); },
       reportCrime(kind, x, z) {
@@ -66,7 +67,7 @@
       },
       clear() {
         const prev = S.wanted;
-        S.wanted = 0; S.searchT = 0; S.kills = 0; S.bustT = 0; S.seen = false;
+        S.wanted = 0; S.searchT = 0; S.holdT = 0; S.kills = 0; S.bustT = 0; S.seen = false;
         o.crowd.clearChase();
         if (prev) o.onWanted(0, prev);
       },
@@ -81,6 +82,7 @@
             o.vehicles.cars.some(c => c.pursuit && c.pursuit.los && Math.hypot(c.x - player.x, c.z - player.z) < 75) ||
             o.vehicles.cars.some(c => (c.copHeli && !c.copHeli.leaving && Math.hypot(c.x - player.x, c.z - player.z) < 70) || (c.coastGuard && Math.hypot(c.x - player.x, c.z - player.z) < 60));   // the helicopter sees everything
         }
+        if (S.holdT > 0) { S.holdT -= dt; S.seen = true; }
         if (S.seen) S.searchT = 0;
         else if ((S.searchT += dt) > LOSE[S.wanted]) { api.clear(); o.flash('Вы оторвались от полиции', 2.5); return; }
       }

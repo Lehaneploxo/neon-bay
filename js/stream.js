@@ -2,7 +2,10 @@
 // big events by hand (to try them out) and switches the stream on: the game then listens to the owner's TikTok LIVE
 // through the TikTok games' server (gameleha.xyz, the same feed as the other stream games) and a gift starts an
 // event in this game only — nobody else in the city sees it.
-//   (the meteor shower, the zombie apocalypse and the tornado: only by hand for now, no gift chosen yet)
+//   (the meteor shower and the zombie apocalypse: only by hand for now, no gift chosen yet)
+//   Finger Heart — one meteor (a combo of n — n meteors, one after another).
+//   Coral — the tsunami (a combo of n — n waves, one after another).
+//   Crown — a tornado, three crowns — three of them, each for its own five minutes, alongside anything else.
 //   Roses, by how many come in one combo: 1–19 — that many police officers on foot run up to fight the hero with
 //   their fists (brawlers.js); 20+ — the real police chase with patrol cars and gunfire: 20 — 2 stars, 50 — 3,
 //   100 — 4 (roadblocks), 200 — 5 (the helicopter).
@@ -17,7 +20,7 @@
   const FEED = 'wss://gameleha.xyz/';
   const TIERS = [[2000, 'aliens', '🛸 пришельцев'], [1500, 'war', '⚔ войну'], [1000, 'tsunami', '🌊 цунами'], [500, 'meteor', '☄ метеорит']];
   const ROSE_CHASE = [[200, 5], [100, 4], [50, 3], [20, 2]];   // roses in one combo → stars
-  const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies', 'tornado'];
+  const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies'];
 
   NB.createStream = function (o) {
     // o: events { meteor, tsunami, war, aliens }, brawlers, police, guards, flash(text, sec), closeAdmin(), onMode(on)
@@ -26,7 +29,7 @@
     const run = {
       meteor: n => E.meteor.drop(n), shower: n => E.meteor.shower(n), tsunami: n => E.tsunami.launch(n), war: n => E.war.start(n), aliens: n => E.aliens.start(n), zombies: n => E.zombies.start(n), tornado: n => E.tornado.start(n)
     };
-    const busy = k => k === 'meteor' ? E.meteor.busy : E.meteor.showerBusy || ['tsunami', 'war', 'aliens', 'zombies', 'tornado'].some(b => E[b].busy);
+    const busy = k => k === 'meteor' ? E.meteor.busy : E.meteor.showerBusy || ['tsunami', 'war', 'aliens', 'zombies'].some(b => E[b].busy);
     const queue = [];   // [kind, nick]
 
     // the buttons to try an event by hand
@@ -34,6 +37,7 @@
       o.closeAdmin();
       const k = b.dataset.ev;
       if (k === 'cop') { roses('Тестовый_зритель', 1); return; }
+      if (k === 'tornado') { E.tornado.start(''); return; }
       if (k === 'guard') { o.guards.gift('Тестовый_зритель'); return; }
       if (k === 'civ') { o.brawlers.add('civ', 'Тестовый_зритель', 1); return; }
       if (k === 'cop20') { setTimeout(() => roses('Тестовый_зритель', 20), 150); return; }
@@ -72,11 +76,18 @@
     function gift(nick, coins, name) {
       // gifts with their own event (the server sends a whole combo at once: coins = price × count)
       if (/^rose$/i.test(String(name || '').trim())) { roses(nick, Math.max(1, coins)); return; }
+      if (/^crown$/i.test(String(name || '').trim())) { E.tornado.start(nick, Math.max(1, Math.round(coins / 100))); return; }
       if (/^(doughnut|donut)$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 30)); i++) o.guards.gift(nick); return; }
       if (/^tiktok$/i.test(String(name || '').trim())) { o.brawlers.add('civ', nick, Math.max(1, coins)); return; }
+      if (/^finger ?heart$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 5)); i++) event('meteor', '☄ метеорит', nick); return; }
+      if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
       const t = TIERS.find(t => coins >= t[0]); if (!t) return;
-      if (busy(t[1]) || queue.some(q => (q[0] === 'meteor') === (t[1] === 'meteor'))) { queue.push([t[1], nick]); o.flash('🎁 @' + nick + ' вызвал ' + t[2] + ' — в очереди (' + queue.length + ')', 3); }
-      else if (!run[t[1]](nick)) queue.push([t[1], nick]);   // indoors: it waits until the hero is out on the street
+      event(t[1], t[2], nick);
+    }
+    // a big event now, or in the queue when another one is on
+    function event(kind, label, nick) {
+      if (busy(kind) || queue.some(q => (q[0] === 'meteor') === (kind === 'meteor'))) { queue.push([kind, nick]); o.flash('🎁 @' + nick + ' вызвал ' + label + ' — в очереди (' + queue.length + ')', 3); }
+      else if (!run[kind](nick)) queue.push([kind, nick]);   // indoors: it waits until the hero is out on the street
     }
     function roses(nick, n) {
       const t = ROSE_CHASE.find(t => n >= t[0]);

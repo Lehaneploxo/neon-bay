@@ -273,7 +273,7 @@
   // gift fighters (stream mode: a Rose sends a police officer with the viewer's nick to fight the hero; brawlers.js)
   const brawlers = NB.createBrawlers(world, { crowd, player, camera, flash: (t, s) => flashTip(t, s), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
   // the owner's stream mode (👑 panel): gifts on the owner's TikTok LIVE start these events in his game only (stream.js)
-  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies, tornado }, brawlers, police, guards, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click(), onMode: on => { police.calm = on; } });
+  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies, tornado }, brawlers, police, get guards() { return guards; }, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click(), onMode: on => { police.calm = on; } });
   // draft: a button to try the meteor, only in a copy running on this computer (never on the site)
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
     const b = document.createElement('button'); b.textContent = '☄ МЕТЕОРИТ (тест, клавиша N)';
