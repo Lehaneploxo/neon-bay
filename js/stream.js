@@ -22,7 +22,7 @@
   'use strict';
   const FEED = 'wss://gameleha.xyz/';
   const ROSE_CHASE = [[200, 5], [100, 4], [50, 3], [20, 2]];   // roses in one combo → stars
-  // the bar on the screen while the stream is on: the gift's own picture (img/gifts), what it does, its price
+  // the bar on the screen while the stream is on: the gift's own picture (img/gifts) and what it does
   const BAR = [['rose', 'Коп', 1], ['tiktok', 'Драчун', 1], ['heart', 'Метеорит', 5], ['donut', 'Охранник', 30], ['crown', 'Торнадо', 100],
     ['coral', 'Цунами', 499], ['moneygun', 'Война', 500], ['galaxy', 'Пришельцы', 1000], ['fireworks', 'Зомби', 1088], ['shower', 'Метеор. дождь', 3000]];
   const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies'];
@@ -54,13 +54,13 @@
     const nickBox = $('streamNick'), btn = $('streamBtn'), st = $('streamState');
     nickBox.value = localStorage.getItem('nb_stream_user') || 'lehaneploxo';
     const bar = $('giftBar');
-    for (const [img, what, coins] of BAR) {
+    for (const [img, what] of BAR) {
       const d = document.createElement('div');
-      d.innerHTML = '<img alt="" src="img/gifts/' + img + '.webp"><b></b><i></i>';
-      d.children[1].textContent = what; d.children[2].textContent = coins;
+      d.innerHTML = '<img alt="" src="img/gifts/' + img + '.webp"><b></b>';
+      d.children[1].textContent = what;
       bar.appendChild(d);
     }
-    function show(text) { bar.hidden = !on; st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
+    function show(text) { bar.hidden = !on; document.body.classList.toggle('streaming', on); st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
     function connect() {
       const nick = nickBox.value.replace(/^@/, '').trim();
       if (!nick) { show('Впишите ник TikTok'); on = false; return; }
