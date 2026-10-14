@@ -3,7 +3,10 @@
 // through the TikTok games' server (gameleha.xyz, the same feed as the other stream games) and a gift starts an
 // event in this game only — nobody else in the city sees it.
 //   (the meteor shower, the zombie apocalypse and the tornado: only by hand for now, no gift chosen yet)
-//   500+ coins — the meteor, 1000+ — the tsunami, 1500+ — the war, 2000+ — the alien invasion.
+//   Roses, by how many come in one combo: 1–19 — that many police officers on foot run up to fight the hero with
+//   their fists (brawlers.js); 20+ — the real police chase with patrol cars and gunfire: 20 — 2 stars, 50 — 3,
+//   100 — 4 (roadblocks), 200 — 5 (the helicopter).
+//   any other gift for now by its coins: 500+ coins — the meteor, 1000+ — the tsunami, 1500+ — the war, 2000+ — the alien invasion.
 // Only real gifts count (the server's demo bots are ignored). The tsunami, the war and the invasion take turns:
 // one that comes while another is on waits in the queue; a meteor can fall at any time.
 // While the stream is switched on, the police give stars only for robberies (police.js calm).
@@ -11,10 +14,11 @@
   'use strict';
   const FEED = 'wss://gameleha.xyz/';
   const TIERS = [[2000, 'aliens', '🛸 пришельцев'], [1500, 'war', '⚔ войну'], [1000, 'tsunami', '🌊 цунами'], [500, 'meteor', '☄ метеорит']];
+  const ROSE_CHASE = [[200, 5], [100, 4], [50, 3], [20, 2]];   // roses in one combo → stars
   const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies', 'tornado'];
 
   NB.createStream = function (o) {
-    // o: events { meteor, tsunami, war, aliens }, flash(text, sec), closeAdmin(), onMode(on)
+    // o: events { meteor, tsunami, war, aliens }, brawlers, police, flash(text, sec), closeAdmin(), onMode(on)
     const E = o.events;
     const $ = id => document.getElementById(id);
     const run = {
@@ -27,6 +31,8 @@
     for (const b of document.querySelectorAll('#streamBar [data-ev]')) b.addEventListener('click', () => {
       o.closeAdmin();
       const k = b.dataset.ev;
+      if (k === 'cop') { roses('Тестовый_зритель', 1); return; }
+      if (k === 'cop20') { setTimeout(() => roses('Тестовый_зритель', 20), 150); return; }
       setTimeout(() => { if (busy(k)) o.flash('Сначала дождитесь конца текущего события', 2.5); else run[k](''); }, 150);
     });
 
@@ -51,7 +57,7 @@
           if (live && !was) o.flash('🔴 Стрим подключён — подарки вызывают события', 4);
           return;
         }
-        if (d.type === 'arena_gift' && live) gift(d.username || 'зритель', Number(d.coins) || 0);
+        if (d.type === 'arena_gift' && live) gift(d.username || 'зритель', Number(d.coins) || 0, d.giftName);
       };
       ws.onclose = () => { ws = null; live = false; if (on) { show('Связь потеряна, переподключение…'); retryT = setTimeout(connect, 4000); } };
     }
@@ -59,10 +65,18 @@
     btn.addEventListener('click', () => { if (on) stop(); else { on = true; connect(); } });
     show('Стрим выключен');
 
-    function gift(nick, coins) {
+    function gift(nick, coins, name) {
+      // gifts with their own event (the server sends a whole combo at once: coins = price × count)
+      if (/^rose$/i.test(String(name || '').trim())) { roses(nick, Math.max(1, coins)); return; }
       const t = TIERS.find(t => coins >= t[0]); if (!t) return;
       if (busy(t[1]) || queue.some(q => (q[0] === 'meteor') === (t[1] === 'meteor'))) { queue.push([t[1], nick]); o.flash('🎁 @' + nick + ' вызвал ' + t[2] + ' — в очереди (' + queue.length + ')', 3); }
       else if (!run[t[1]](nick)) queue.push([t[1], nick]);   // indoors: it waits until the hero is out on the street
+    }
+    function roses(nick, n) {
+      const t = ROSE_CHASE.find(t => n >= t[0]);
+      if (!t) { o.brawlers.add('cop', nick, n); return; }
+      o.police.giftChase(t[1]);
+      o.flash('🚨 @' + nick + ' прислал ' + n + ' роз — за тобой выехал наряд! ' + '★'.repeat(t[1]), 4);
     }
     // the queue: the next event as soon as the last one is over
     setInterval(() => {

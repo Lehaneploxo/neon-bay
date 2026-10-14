@@ -270,8 +270,10 @@
   const zombies = NB.createZombies(world, { scene, crowd, audio, player, flash: (t, s) => flashTip(t, s), heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
   // the tornado (stream mode: five minutes of a twister round the hero, sucking up cars and people; tornado.js)
   const tornado = NB.createTornado(world, { scene, vehicles, crowd, audio, player, flash: (t, s) => flashTip(t, s), shake: v => { shake = Math.min(1.2, shake + v); }, heroDamage: v => heroDamage(v), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
+  // gift fighters (stream mode: a Rose sends a police officer with the viewer's nick to fight the hero; brawlers.js)
+  const brawlers = NB.createBrawlers(world, { crowd, player, camera, flash: (t, s) => flashTip(t, s), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
   // the owner's stream mode (👑 panel): gifts on the owner's TikTok LIVE start these events in his game only (stream.js)
-  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies, tornado }, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click(), onMode: on => { police.calm = on; } });
+  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies, tornado }, brawlers, police, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click(), onMode: on => { police.calm = on; } });
   // draft: a button to try the meteor, only in a copy running on this computer (never on the site)
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
     const b = document.createElement('button'); b.textContent = '☄ МЕТЕОРИТ (тест, клавиша N)';
@@ -1171,6 +1173,7 @@
       aliens.update(dt, player);
       zombies.update(dt, player);
       tornado.update(dt, player);
+      brawlers.update(dt, player);
       sea.update(dt);
       taxi.update(dt); pizza.update(dt);
       if (seatSpot && !player.seat) { seatSpot.taken = false; seatSpot = null; }   // got up: passers-by may sit there again

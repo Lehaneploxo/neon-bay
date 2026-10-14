@@ -50,7 +50,7 @@
         if (cars.length >= 100) break;
       }
       for (const p of C.people) {
-        if (!ownPerson(p) || !near(p.x, p.z, pts) || p.zombie || p.alien || p.trooper) continue;   // the owner's stream events stay in his game
+        if (!ownPerson(p) || !near(p.x, p.z, pts) || p.zombie || p.alien || p.trooper || p.brawler) continue;   // the owner's stream events stay in his game
         if (!p.nid) p.nid = ++nid;
         const f = (p.dead ? 1 : 0) | (p.down ? 2 : 0) | (p.suspect ? 4 : 0) | (p.running ? 8 : 0);
         ppl.push([p.nid, p.look.type, p.look.seed, r2(p.x), r2(p.y), r2(p.z), r2(p.heading), p.anim, f]);

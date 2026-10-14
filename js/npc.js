@@ -973,6 +973,21 @@
       if (p.los && d < 30) { p.shootT -= dt; if (p.shootT <= 0) { p.shootT = rand(.45, .9); call('onCopShootAt', p, t); if (Math.random() < .05) bumpCallback(p, pick(t.zombie ? ['Стреляй в голову!', 'Назад, граждане!', 'Не подходи!'] : ['Огонь по пришельцам!', 'Держать позицию!', 'Граждане, в укрытие!'])); } }
       return true;
     }
+    // a gift fighter on the owner's stream (brawlers.js): runs at the hero and punches him, nothing else
+    function brawlerStep(p, dt, player) {
+      const B = p.brawler;
+      B.punchCD -= dt; p.punchT -= dt;
+      if (player.dead || (opts.zombieHero && !opts.zombieHero())) { p.speed = 0; p.running = false; p.anim = 'idle'; return; }   // the hero is indoors or dead: wait
+      const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz) || .001;
+      if (d > 1.05) {
+        if (d > 1.8 || !player.inCar) { runTo(p, [player.x, player.z], B.speed, dt); p.anim = 'walk'; }
+        else { p.speed = 0; p.running = false; p.anim = 'idle'; }
+        return;
+      }
+      p.speed = 0; p.running = false; p.anim = 'punch';
+      p.heading += U.angDiff(p.heading, Math.atan2(dx, dz)) * Math.min(1, dt * 10);
+      if (B.punchCD <= 0 && !player.inCar) { B.punchCD = rand(.8, 1.3); p.punchT = .35; call('onHitPlayer', rand(5, 9), p); }
+    }
     const ZSKIN = ['#7fa070', '#8aa67a', '#71946a', '#93a884'];
     function infect(p, rise) {
       if (!people.includes(p) || p.zombie || p.mirror) return false;
@@ -1028,6 +1043,7 @@
       if (p.trooper) { trooperStep(p, dt, player); return; }
       if (p.alien) { alienStep(p, dt, player); return; }
       if (p.zombie) { zombieStep(p, dt, player); return; }
+      if (p.brawler) { brawlerStep(p, dt, player); return; }
       if (p.fare && p.fleeT <= 0 && p.fightT <= 0) { goalStep(p, p.fare, dt, p.fare.hail ? 'hail' : 'idle'); return; }
       if (p.cop && opts.monsters && opts.monsters() && copDefend(p, dt)) return;   // zombies or aliens about: the police deal with them first
       if (p.cop && pol.wanted > 0 && !player.dead && Math.hypot(player.x - p.x, player.z - p.z) < 90) { copChase(p, dt, player); return; }
@@ -1535,6 +1551,15 @@
       },
       // the zombie apocalypse (zombies.js): turn someone (rise: seconds lying there first), or make a new one out of nowhere
       infect(p, rise) { return infect(p, rise); },
+      // a gift fighter (brawlers.js): looks like kind ('cop'), but isn't the police: he only fights the hero
+      spawnBrawler(kind, x, z) {
+        const p = spawn(makeLook(kind || 'cop'), x, z, 'graph');
+        if (!p) return null;
+        resumeRoute(p);
+        p.cop = false; p.gang = null; p.keep = true;
+        p.brawler = { kind, punchCD: rand(.3, .8), speed: rand(4.2, 4.8) };
+        return p;
+      },
       spawnZombie(x, z) {
         const p = spawn(makeLook(pick(['tourist_m', 'business_m', 'worker', 'beach_m', 'tourist_f', 'business_f'])), x, z, 'war');
         if (!p) return null;

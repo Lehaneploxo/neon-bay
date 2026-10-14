@@ -41,6 +41,8 @@
       // the stream mode: no stars but for robberies
       set calm(v) { S.calm = !!v; },
       get calm() { return S.calm; },
+      // a big combo of roses on the stream sends the real police after the hero (even in the stream mode)
+      giftChase(n) { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, n)); },
       // knocked out another player: one star more
       star() { if (S.calm) return; S.searchT = 0; S.seen = true; raise(S.wanted + 1); },
       reportCrime(kind, x, z) {

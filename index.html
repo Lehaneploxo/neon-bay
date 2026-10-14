@@ -266,6 +266,7 @@ body.touch .forDesk{display:none;}
 #names{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
 .ntag{position:absolute;left:0;top:0;display:flex;flex-direction:column-reverse;align-items:center;gap:3px;will-change:transform;}
 .ntag b{font:700 13px/1.2 Rubik,sans-serif;color:#fff;text-shadow:0 0 3px #000,0 1px 2px #000;white-space:nowrap;}
+.ntag.gift b{color:#ffd84f;font-size:14px;}
 .ntag.guest b{color:#d8d0e8;font-weight:500;}
 .ntag i{font-style:normal;max-width:220px;padding:5px 10px;background:#fff6fb;color:#2a0c1c;border-radius:10px;font:600 13px/1.3 Rubik,sans-serif;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.3);}
 #btnChat{display:flex;top:calc(62px + var(--safe-t));right:calc(74px + var(--safe-r));width:46px;height:46px;border-radius:12px;padding:0;font-size:20px;}
@@ -390,7 +391,7 @@ body.touch .fsOnly{display:inline-block;}
   </button>
 </div>
 
-<div id="adminBox" hidden><div class="abar"><b>👑 Админка</b><button id="adminClose" type="button">Закрыть ✕</button></div><div id="streamBar"><b style="color:#ffd84f">Стрим-события:</b><button type="button" data-ev="meteor">☄ Метеорит</button><button type="button" data-ev="shower">☄☄ Метеоритный дождь</button><button type="button" data-ev="tsunami">🌊 Цунами</button><button type="button" data-ev="war">⚔ Война</button><button type="button" data-ev="aliens">🛸 Пришельцы</button><button type="button" data-ev="zombies">🧟 Зомби</button><button type="button" data-ev="tornado">🌪 Торнадо</button><span class="sep"></span>TikTok @<input id="streamNick" type="text" autocomplete="off" spellcheck="false"><button id="streamBtn" type="button">🔴 Включить стрим</button><span id="streamState"></span><span class="sep"></span><span style="opacity:.7">Подарки: 500+ монет — метеорит, 1000+ — цунами, 1500+ — война, 2000+ — пришельцы. Видите только вы.</span></div><iframe id="adminFrame" title="Админка"></iframe></div>
+<div id="adminBox" hidden><div class="abar"><b>👑 Админка</b><button id="adminClose" type="button">Закрыть ✕</button></div><div id="streamBar"><b style="color:#ffd84f">Стрим-события:</b><button type="button" data-ev="meteor">☄ Метеорит</button><button type="button" data-ev="shower">☄☄ Метеоритный дождь</button><button type="button" data-ev="tsunami">🌊 Цунами</button><button type="button" data-ev="war">⚔ Война</button><button type="button" data-ev="aliens">🛸 Пришельцы</button><button type="button" data-ev="zombies">🧟 Зомби</button><button type="button" data-ev="tornado">🌪 Торнадо</button><button type="button" data-ev="cop">👮 Коп (роза)</button><button type="button" data-ev="cop20">🚓 20 роз</button><span class="sep"></span>TikTok @<input id="streamNick" type="text" autocomplete="off" spellcheck="false"><button id="streamBtn" type="button">🔴 Включить стрим</button><span id="streamState"></span><span class="sep"></span><span style="opacity:.7">Розы: 1–19 — столько копов бегут драться, 20+ — погоня на машинах (20 — 2★, 50 — 3★, 100 — 4★, 200 — 5★). Остальные подарки: 500+ монет — метеорит, 1000+ — цунами, 1500+ — война, 2000+ — пришельцы. Видите только вы.</span></div><iframe id="adminFrame" title="Админка"></iframe></div>
 <div id="chat" class="screen" hidden>
   <div class="card">
     <div class="eyebrow">Неплохо Сити · <span id="chatOnline">онлайн</span></div>
@@ -618,57 +619,58 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261014e"></script>
-<script src="js/online.js?v=20261014e"></script>
-<script src="js/net.js?v=20261014e"></script>
-<script src="js/sync.js?v=20261014e"></script>
-<script src="js/wallet.js?v=20261014e"></script>
-<script src="js/club.js?v=20261014e"></script>
-<script src="js/places.js?v=20261014e"></script>
-<script src="js/spray.js?v=20261014e"></script>
-<script src="js/street.js?v=20261014e"></script>
-<script src="js/northside.js?v=20261014e"></script>
-<script src="js/bayview.js?v=20261014e"></script>
-<script src="js/tropic.js?v=20261014e"></script>
-<script src="js/hideaway.js?v=20261014e"></script>
-<script src="js/military.js?v=20261014e"></script>
-<script src="js/island.js?v=20261014e"></script>
-<script src="js/brand.js?v=20261014e"></script>
-<script src="js/world.js?v=20261014e"></script>
-<script src="js/faces.js?v=20261014e"></script>
-<script src="js/player.js?v=20261014e"></script>
-<script src="js/wardrobe.js?v=20261014e"></script>
-<script src="js/npc.js?v=20261014e"></script>
-<script src="js/animals.js?v=20261014e"></script>
-<script src="js/wildlife.js?v=20261014e"></script>
-<script src="js/cars.js?v=20261014e"></script>
-<script src="js/vehicles.js?v=20261014e"></script>
-<script src="js/audio.js?v=20261014e"></script>
-<script src="js/radio.js?v=20261014e"></script>
-<script src="js/guards.js?v=20261014e"></script>
-<script src="js/combat.js?v=20261014e"></script>
-<script src="js/police.js?v=20261014e"></script>
-<script src="js/weather.js?v=20261014e"></script>
-<script src="js/sealife.js?v=20261014e"></script>
-<script src="js/plane.js?v=20261014e"></script>
-<script src="js/meteor.js?v=20261014e"></script>
-<script src="js/tsunami.js?v=20261014e"></script>
-<script src="js/war.js?v=20261014e"></script>
-<script src="js/aliens.js?v=20261014e"></script>
-<script src="js/zombies.js?v=20261014e"></script>
-<script src="js/tornado.js?v=20261014e"></script>
-<script src="js/stream.js?v=20261014e"></script>
-<script src="js/fire.js?v=20261014e"></script>
-<script src="js/ems.js?v=20261014e"></script>
-<script src="js/daynight.js?v=20261014e"></script>
-<script src="js/taxi.js?v=20261014e"></script>
-<script src="js/pizza.js?v=20261014e"></script>
-<script src="js/shop.js?v=20261014e"></script>
-<script src="js/entrances.js?v=20261014e"></script>
-<script src="js/shops.js?v=20261014e"></script>
-<script src="js/jobs.js?v=20261014e"></script>
-<script src="js/business.js?v=20261014e"></script>
-<script src="js/autos.js?v=20261014e"></script>
-<script src="js/ui.js?v=20261014e"></script>
-<script src="js/input.js?v=20261014e"></script>
-<script src="js/main.js?v=20261014e"></script>
+<script src="js/engine.js?v=20261014f"></script>
+<script src="js/online.js?v=20261014f"></script>
+<script src="js/net.js?v=20261014f"></script>
+<script src="js/sync.js?v=20261014f"></script>
+<script src="js/wallet.js?v=20261014f"></script>
+<script src="js/club.js?v=20261014f"></script>
+<script src="js/places.js?v=20261014f"></script>
+<script src="js/spray.js?v=20261014f"></script>
+<script src="js/street.js?v=20261014f"></script>
+<script src="js/northside.js?v=20261014f"></script>
+<script src="js/bayview.js?v=20261014f"></script>
+<script src="js/tropic.js?v=20261014f"></script>
+<script src="js/hideaway.js?v=20261014f"></script>
+<script src="js/military.js?v=20261014f"></script>
+<script src="js/island.js?v=20261014f"></script>
+<script src="js/brand.js?v=20261014f"></script>
+<script src="js/world.js?v=20261014f"></script>
+<script src="js/faces.js?v=20261014f"></script>
+<script src="js/player.js?v=20261014f"></script>
+<script src="js/wardrobe.js?v=20261014f"></script>
+<script src="js/npc.js?v=20261014f"></script>
+<script src="js/animals.js?v=20261014f"></script>
+<script src="js/wildlife.js?v=20261014f"></script>
+<script src="js/cars.js?v=20261014f"></script>
+<script src="js/vehicles.js?v=20261014f"></script>
+<script src="js/audio.js?v=20261014f"></script>
+<script src="js/radio.js?v=20261014f"></script>
+<script src="js/guards.js?v=20261014f"></script>
+<script src="js/combat.js?v=20261014f"></script>
+<script src="js/police.js?v=20261014f"></script>
+<script src="js/weather.js?v=20261014f"></script>
+<script src="js/sealife.js?v=20261014f"></script>
+<script src="js/plane.js?v=20261014f"></script>
+<script src="js/meteor.js?v=20261014f"></script>
+<script src="js/tsunami.js?v=20261014f"></script>
+<script src="js/war.js?v=20261014f"></script>
+<script src="js/aliens.js?v=20261014f"></script>
+<script src="js/zombies.js?v=20261014f"></script>
+<script src="js/tornado.js?v=20261014f"></script>
+<script src="js/brawlers.js?v=20261014f"></script>
+<script src="js/stream.js?v=20261014f"></script>
+<script src="js/fire.js?v=20261014f"></script>
+<script src="js/ems.js?v=20261014f"></script>
+<script src="js/daynight.js?v=20261014f"></script>
+<script src="js/taxi.js?v=20261014f"></script>
+<script src="js/pizza.js?v=20261014f"></script>
+<script src="js/shop.js?v=20261014f"></script>
+<script src="js/entrances.js?v=20261014f"></script>
+<script src="js/shops.js?v=20261014f"></script>
+<script src="js/jobs.js?v=20261014f"></script>
+<script src="js/business.js?v=20261014f"></script>
+<script src="js/autos.js?v=20261014f"></script>
+<script src="js/ui.js?v=20261014f"></script>
+<script src="js/input.js?v=20261014f"></script>
+<script src="js/main.js?v=20261014f"></script>
