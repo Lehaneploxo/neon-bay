@@ -3,6 +3,7 @@
 // through the TikTok games' server (gameleha.xyz, the same feed as the other stream games) and a gift starts an
 // event in this game only — nobody else in the city sees it.
 //   (the zombie apocalypse: only by hand for now, no gift chosen yet)
+//   Galaxy — the alien invasion (waits its turn like the other big events).
 //   Meteor Shower — five minutes of meteors round the hero (waits its turn like the other big events).
 //   Finger Heart — one meteor (a combo of n — n meteors, one after another).
 //   Coral — the tsunami (a combo of n — n waves, one after another).
@@ -82,6 +83,7 @@
       if (/^tiktok$/i.test(String(name || '').trim())) { o.brawlers.add('civ', nick, Math.max(1, coins)); return; }
       if (/^finger ?heart$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 5)); i++) event('meteor', '☄ метеорит', nick); return; }
       if (/^meteor ?shower$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 3000)); i++) event('shower', '☄☄ метеоритный дождь', nick); return; }
+      if (/^galaxy$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 1000)); i++) event('aliens', '🛸 пришельцев', nick); return; }
       if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
       const t = TIERS.find(t => coins >= t[0]); if (!t) return;
       event(t[1], t[2], nick);
