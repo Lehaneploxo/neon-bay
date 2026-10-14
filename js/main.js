@@ -295,7 +295,7 @@
     b4.addEventListener('click', e => { e.stopPropagation(); aliens.start('Тестовый_зритель'); b4.blur(); });
     document.body.appendChild(b4);
     addEventListener('keydown', e => { if (e.code === 'KeyK' && !e.repeat && document.activeElement.tagName !== 'INPUT') aliens.start('Тестовый_зритель'); });
-    window.__draft = { rig, player, tsunami, meteor, war, aliens, zombies, tornado, stream, crowd, vehicles };   // for the automatic test of the draft
+    window.__draft = { rig, player, tsunami, meteor, war, aliens, zombies, tornado, stream, crowd, vehicles, step: dt => stepPlaying(dt, dt) };   // step: a whole game frame by hand (a hidden tab draws none)   // for the automatic test of the draft
     addEventListener('keydown', e => { if (e.code === 'KeyB' && !e.repeat && document.activeElement.tagName !== 'INPUT') tsunami.launch('Тестовый_зритель'); });
   }
   const fire = NB.createFireService(world, { extraFires: () => meteor.fires, crowd, vehicles, scene, say: (p, t) => say(p, t), flash: (t, s) => flashTip(t, s), hold: c => !!jobs && jobs.holdFire(c) });

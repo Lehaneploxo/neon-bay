@@ -15,8 +15,8 @@
 //   Doughnut — a bodyguard with the viewer's nick (guards.js gift) who stays until he's shot dead.
 //   TikTok — one passer-by with the viewer's nick runs up to fight the hero (a combo of n — n of them).
 //   Any gift not listed here does nothing.
-// Only real gifts count (the server's demo bots are ignored). The tsunami, the war and the invasion take turns:
-// one that comes while another is on waits in the queue; a meteor can fall at any time.
+// Only real gifts count (the server's demo bots are ignored). Different events all run at the same time (a war,
+// aliens and zombies together); only a second one of the same kind waits in the queue until the first is over.
 // While the stream is switched on, the police give stars only for robberies (police.js calm).
 (function (NB) {
   'use strict';
@@ -34,7 +34,7 @@
     const run = {
       meteor: n => E.meteor.drop(n), shower: n => E.meteor.shower(n), tsunami: n => E.tsunami.launch(n), war: n => E.war.start(n), aliens: n => E.aliens.start(n), zombies: n => E.zombies.start(n), tornado: n => E.tornado.start(n)
     };
-    const busy = k => k === 'meteor' ? E.meteor.busy : E.meteor.showerBusy || ['tsunami', 'war', 'aliens', 'zombies'].some(b => E[b].busy);
+    const busy = k => k === 'meteor' ? E.meteor.busy : k === 'shower' ? E.meteor.showerBusy : k === 'tornado' ? false : E[k].busy;
     const queue = [];   // [kind, nick]
 
     // the buttons to try an event by hand
@@ -46,7 +46,7 @@
       if (k === 'guard') { o.guards.gift('Тестовый_зритель'); return; }
       if (k === 'civ') { o.brawlers.add('civ', 'Тестовый_зритель', 1); return; }
       if (k === 'cop20') { setTimeout(() => roses('Тестовый_зритель', 20), 150); return; }
-      setTimeout(() => { if (busy(k)) o.flash('Сначала дождитесь конца текущего события', 2.5); else run[k](''); }, 150);
+      setTimeout(() => { if (busy(k)) o.flash('Это событие уже идёт', 2.5); else run[k](''); }, 150);
     });
 
     /* ---------- the stream ---------- */
@@ -99,9 +99,9 @@
       if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
       // any other gift does nothing
     }
-    // a big event now, or in the queue when another one is on
+    // an event now, or in the queue when one of the same kind is on
     function event(kind, label, nick) {
-      if (busy(kind) || queue.some(q => (q[0] === 'meteor') === (kind === 'meteor'))) { queue.push([kind, nick]); o.flash('🎁 @' + nick + ' вызвал ' + label + ' — в очереди (' + queue.length + ')', 3); }
+      if (busy(kind) || queue.some(q => q[0] === kind)) { queue.push([kind, nick]); o.flash('🎁 @' + nick + ' вызвал ' + label + ' — в очереди (' + queue.filter(q => q[0] === kind).length + ')', 3); }
       else if (!run[kind](nick)) queue.push([kind, nick]);   // indoors: it waits until the hero is out on the street
     }
     function roses(nick, n) {
@@ -110,13 +110,13 @@
       o.police.giftChase(t[1]);
       o.flash('🚨 @' + nick + ' прислал ' + n + ' роз — за тобой выехал наряд! ' + '★'.repeat(t[1]), 4);
     }
-    // the queue: the next event as soon as the last one is over
+    // the queue: the first waiting one of each kind goes as soon as the one before it is over
     setInterval(() => {
-      // the first of the big ones and the first meteor each go as soon as they can (a meteor doesn't wait for a wave)
-      for (const m of [false, true]) {
-        const i = queue.findIndex(q => (q[0] === 'meteor') === m); if (i < 0) continue;
+      const seen = new Set();
+      for (let i = 0; i < queue.length; i++) {
         const [k, nick] = queue[i];
-        if (!busy(k) && run[k](nick)) queue.splice(i, 1);
+        if (seen.has(k)) continue; seen.add(k);
+        if (!busy(k) && run[k](nick)) { queue.splice(i, 1); i--; }
       }
     }, 3000);
 
