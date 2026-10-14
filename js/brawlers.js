@@ -1,5 +1,5 @@
 // Gift fighters on the owner's stream: a small gift sends a person with the viewer's nick over his head who runs
-// up to the hero and fights him with his fists. One Rose = one police officer on foot. At most MAX of them are
+// up to the hero and fights him with his fists. One Rose = one police officer on foot, one TikTok = one passer-by. At most MAX of them are
 // on the street at once; the rest wait in a queue and come in as the ones before are knocked out. When the hero
 // knocks one out the screen says so. Only the owner's game has them (sync.js leaves them out).
 (function (NB) {
@@ -57,7 +57,8 @@
       add(kind, nick, n) {
         n = Math.max(1, Math.min(500, n | 0)); nick = nick || 'зритель';
         for (let i = 0; i < n; i++) queue.push([kind, nick]);
-        o.flash('🌹 @' + nick + ' прислал ' + (n > 1 ? n + ' копов' : 'копа') + ' — бегут драться!', 2.5);
+        const cop = kind === 'cop';
+        o.flash((cop ? '🌹 @' : '🎵 @') + nick + ' прислал ' + (n > 1 ? n + (cop ? ' копов' : ' драчунов') : cop ? 'копа' : 'драчуна') + ' — ' + (n > 1 ? 'бегут' : 'бежит') + ' драться!', 2.5);
       },
       clear() { queue.length = 0; for (const b of list.splice(0)) letGo(b); },
       update(dt, player) {
@@ -85,7 +86,10 @@
           b.tag.hidden = false;
           b.tag.style.transform = 'translate(' + ((proj.x + 1) / 2 * innerWidth).toFixed(0) + 'px,' + ((1 - proj.y) / 2 * innerHeight).toFixed(0) + 'px) translate(-50%,-100%)';
         }
-        if (list.length || queue.length) { hud.style.display = 'block'; hud.textContent = '👮 Копы: ' + list.length + (queue.length ? ' · в очереди ' + queue.length : ''); }
+        if (list.length || queue.length) {
+          const cops = list.filter(b => b.kind === 'cop').length, civ = list.length - cops;
+          hud.style.display = 'block'; hud.textContent = [cops ? '👮 Копы: ' + cops : '', civ ? '👊 Драчуны: ' + civ : '', queue.length ? 'в очереди ' + queue.length : ''].filter(Boolean).join(' · ');
+        }
         else hud.style.display = 'none';
       }
     };

@@ -1551,9 +1551,9 @@
       },
       // the zombie apocalypse (zombies.js): turn someone (rise: seconds lying there first), or make a new one out of nowhere
       infect(p, rise) { return infect(p, rise); },
-      // a gift fighter (brawlers.js): looks like kind ('cop'), but isn't the police: he only fights the hero
+      // a gift fighter (brawlers.js): 'cop' looks like the police but isn't, 'civ' is an ordinary man; he only fights the hero
       spawnBrawler(kind, x, z) {
-        const p = spawn(makeLook(kind || 'cop'), x, z, 'graph');
+        const p = spawn(makeLook(kind === 'civ' ? pick(['tourist_m', 'business_m', 'worker', 'beach_m', 'jogger']) : kind || 'cop'), x, z, 'graph');
         if (!p) return null;
         resumeRoute(p);
         p.cop = false; p.gang = null; p.keep = true;
