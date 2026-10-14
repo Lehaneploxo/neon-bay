@@ -1,8 +1,9 @@
-// The meteor: a big gift on the owner's stream (500 coins and up) drops one on the city near the hero.
-// A red circle marks where it will land, a fireball with a smoke trail comes down out of the sky, and the
+// The meteor: a gift on the owner's stream (a Finger Heart) drops one on the city near the hero.
+// Nothing marks where it will land (the owner asked: running from a marked spot is no fun), a fireball with a smoke trail comes down out of the sky, and the
 // impact throws people and cars about, sets cars on fire and leaves a smoking crater. If it lands on a building
 // the building burns until the fire brigade comes and puts it out. People under it are killed, those further
-// out knocked down; cars inside the circle burn and blow up.
+// out knocked down; cars inside the blast circle burn and blow up. The Meteor Shower gift: five minutes of them,
+// with no timer on the screen.
 (function (NB) {
   'use strict';
   const { U } = NB;
@@ -43,6 +44,7 @@
     const fillMat = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: .18, depthWrite: false, side: THREE.DoubleSide });
     const ring = new THREE.Mesh(new THREE.RingGeometry(RADIUS - .6, RADIUS, 64).rotateX(-Math.PI / 2), ringMat);
     const fill = new THREE.Mesh(new THREE.CircleGeometry(RADIUS - .6, 64).rotateX(-Math.PI / 2), fillMat);
+    ringMat.visible = fillMat.visible = false;   // the warning circles are never drawn: nobody knows where it falls
     ring.visible = fill.visible = false; ring.renderOrder = fill.renderOrder = 2; scene.add(ring, fill);
 
     // the white flash over the whole screen at the moment of impact
@@ -227,8 +229,6 @@
     }
     function showerStep(dt, player) {
       R.t += dt;
-      const left = Math.max(0, R.dur - R.t), mm = Math.floor(left / 60), ss = Math.floor(left % 60);
-      hud.style.display = 'block'; hud.textContent = '☄ МЕТЕОРИТНЫЙ ДОЖДЬ · ' + mm + ':' + String(ss).padStart(2, '0');
       // a new rock every second or so (more often as it goes on), and a big one now and then
       if (R.t < R.dur && (R.nextT -= dt) <= 0) {
         R.nextT = Math.max(.6, 1.8 - R.t / 300) * (.6 + Math.random() * .8);

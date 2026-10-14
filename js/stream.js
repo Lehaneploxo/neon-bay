@@ -2,7 +2,8 @@
 // big events by hand (to try them out) and switches the stream on: the game then listens to the owner's TikTok LIVE
 // through the TikTok games' server (gameleha.xyz, the same feed as the other stream games) and a gift starts an
 // event in this game only — nobody else in the city sees it.
-//   (the meteor shower and the zombie apocalypse: only by hand for now, no gift chosen yet)
+//   (the zombie apocalypse: only by hand for now, no gift chosen yet)
+//   Meteor Shower — five minutes of meteors round the hero (waits its turn like the other big events).
 //   Finger Heart — one meteor (a combo of n — n meteors, one after another).
 //   Coral — the tsunami (a combo of n — n waves, one after another).
 //   Crown — a tornado, three crowns — three of them, each for its own five minutes, alongside anything else.
@@ -80,6 +81,7 @@
       if (/^(doughnut|donut)$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 30)); i++) o.guards.gift(nick); return; }
       if (/^tiktok$/i.test(String(name || '').trim())) { o.brawlers.add('civ', nick, Math.max(1, coins)); return; }
       if (/^finger ?heart$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 5)); i++) event('meteor', '☄ метеорит', nick); return; }
+      if (/^meteor ?shower$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 3000)); i++) event('shower', '☄☄ метеоритный дождь', nick); return; }
       if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
       const t = TIERS.find(t => coins >= t[0]); if (!t) return;
       event(t[1], t[2], nick);
