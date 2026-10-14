@@ -23,6 +23,9 @@
   const FEED = 'wss://gameleha.xyz/';
   const TIERS = [[2000, 'aliens', '🛸 пришельцев'], [1500, 'war', '⚔ войну'], [1000, 'tsunami', '🌊 цунами'], [500, 'meteor', '☄ метеорит']];
   const ROSE_CHASE = [[200, 5], [100, 4], [50, 3], [20, 2]];   // roses in one combo → stars
+  // the bar on the screen while the stream is on: the gift's own picture (img/gifts), what it does, its price
+  const BAR = [['rose', 'Коп', 1], ['tiktok', 'Драчун', 1], ['heart', 'Метеорит', 5], ['donut', 'Охранник', 30], ['crown', 'Торнадо', 100],
+    ['coral', 'Цунами', 499], ['moneygun', 'Война', 500], ['galaxy', 'Пришельцы', 1000], ['fireworks', 'Зомби', 1088], ['shower', 'Метеор. дождь', 3000]];
   const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies'];
 
   NB.createStream = function (o) {
@@ -51,7 +54,14 @@
     let ws = null, on = false, live = false, retryT = null;
     const nickBox = $('streamNick'), btn = $('streamBtn'), st = $('streamState');
     nickBox.value = localStorage.getItem('nb_stream_user') || 'lehaneploxo';
-    function show(text) { st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
+    const bar = $('giftBar');
+    for (const [img, what, coins] of BAR) {
+      const d = document.createElement('div');
+      d.innerHTML = '<img alt="" src="img/gifts/' + img + '.webp"><b></b><i></i>';
+      d.children[1].textContent = what; d.children[2].textContent = coins;
+      bar.appendChild(d);
+    }
+    function show(text) { bar.hidden = !on; st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
     function connect() {
       const nick = nickBox.value.replace(/^@/, '').trim();
       if (!nick) { show('Впишите ник TikTok'); on = false; return; }
