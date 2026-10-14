@@ -70,13 +70,14 @@ body.touch #weather{right:calc(130px + var(--safe-r));top:calc(66px + var(--safe
 #district.on{opacity:1;transform:none;}
 #tip{position:absolute;left:50%;bottom:calc(22px + var(--safe-b));transform:translateX(-50%);max-width:calc(100% - 32px);padding:9px 16px;background:var(--panel);box-shadow:0 0 0 1px var(--line);border-radius:999px;font-size:14px;font-weight:500;text-align:center;opacity:0;transition:opacity .6s;}
 #tip.on{opacity:1;}
-/* the owner's stream: which TikTok gift does what (stream.js), two rows on the left, right under the money (stream.js moves it into #status) */
-#giftBar{position:relative;width:max-content;margin:4px 0 0 -8px;display:grid;grid-template-columns:repeat(5,56px);gap:3px 4px;padding:5px 6px;background:rgba(14,10,22,.62);border-radius:12px;box-shadow:0 0 0 1px rgba(255,255,255,.12);pointer-events:none;z-index:6;}
+/* the owner's stream: which TikTok gift does what (stream.js), two columns of five on the left: right under the money
+   on a computer (stream.js moves it into #status), on a phone (too low for that) beside it, halfway down the screen */
+#giftBar{position:relative;width:max-content;margin:4px 0 0 -8px;display:grid;grid-template-columns:repeat(2,58px);gap:4px 3px;padding:6px 5px;background:rgba(14,10,22,.62);border-radius:12px;box-shadow:0 0 0 1px rgba(255,255,255,.12);pointer-events:none;z-index:6;}
 #giftBar[hidden]{display:none;}
 #giftBar div{display:flex;flex-direction:column;align-items:center;}
 #giftBar img{width:34px;height:34px;border-radius:8px;display:block;}
 #giftBar b{font:700 9.5px/1.15 Rubik,sans-serif;color:#fff;text-align:center;text-shadow:0 1px 2px #000;margin-top:2px;}
-@media (max-width:640px),(max-height:480px){#giftBar{grid-template-columns:repeat(5,48px);gap:2px 3px;padding:4px 5px;}#giftBar img{width:28px;height:28px;}#giftBar b{font-size:8.5px;}}
+@media (max-width:640px),(max-height:480px){#giftBar{position:fixed;left:calc(138px + var(--safe-l));top:50%;transform:translateY(-50%);margin:0;grid-template-columns:repeat(2,50px);gap:2px 2px;padding:4px;}#giftBar img{width:26px;height:26px;}#giftBar b{font-size:8.5px;margin-top:1px;}}
 #status{position:absolute;top:calc(174px + var(--safe-t));left:calc(14px + var(--safe-l));display:flex;flex-direction:column;gap:6px;width:150px;}
 #stars{display:flex;gap:2px;font-size:22px;line-height:1;}
 #stars i{font-style:normal;color:rgba(255,241,228,.22);text-shadow:0 1px 2px rgba(0,0,0,.5);}
@@ -627,58 +628,58 @@ body.touch .fsOnly{display:inline-block;}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <!-- ?v=… makes phones load fresh scripts after an update: change it on every release -->
-<script src="js/engine.js?v=20261014s"></script>
-<script src="js/online.js?v=20261014s"></script>
-<script src="js/net.js?v=20261014s"></script>
-<script src="js/sync.js?v=20261014s"></script>
-<script src="js/wallet.js?v=20261014s"></script>
-<script src="js/club.js?v=20261014s"></script>
-<script src="js/places.js?v=20261014s"></script>
-<script src="js/spray.js?v=20261014s"></script>
-<script src="js/street.js?v=20261014s"></script>
-<script src="js/northside.js?v=20261014s"></script>
-<script src="js/bayview.js?v=20261014s"></script>
-<script src="js/tropic.js?v=20261014s"></script>
-<script src="js/hideaway.js?v=20261014s"></script>
-<script src="js/military.js?v=20261014s"></script>
-<script src="js/island.js?v=20261014s"></script>
-<script src="js/brand.js?v=20261014s"></script>
-<script src="js/world.js?v=20261014s"></script>
-<script src="js/faces.js?v=20261014s"></script>
-<script src="js/player.js?v=20261014s"></script>
-<script src="js/wardrobe.js?v=20261014s"></script>
-<script src="js/npc.js?v=20261014s"></script>
-<script src="js/animals.js?v=20261014s"></script>
-<script src="js/wildlife.js?v=20261014s"></script>
-<script src="js/cars.js?v=20261014s"></script>
-<script src="js/vehicles.js?v=20261014s"></script>
-<script src="js/audio.js?v=20261014s"></script>
-<script src="js/radio.js?v=20261014s"></script>
-<script src="js/guards.js?v=20261014s"></script>
-<script src="js/combat.js?v=20261014s"></script>
-<script src="js/police.js?v=20261014s"></script>
-<script src="js/weather.js?v=20261014s"></script>
-<script src="js/sealife.js?v=20261014s"></script>
-<script src="js/plane.js?v=20261014s"></script>
-<script src="js/meteor.js?v=20261014s"></script>
-<script src="js/tsunami.js?v=20261014s"></script>
-<script src="js/war.js?v=20261014s"></script>
-<script src="js/aliens.js?v=20261014s"></script>
-<script src="js/zombies.js?v=20261014s"></script>
-<script src="js/tornado.js?v=20261014s"></script>
-<script src="js/brawlers.js?v=20261014s"></script>
-<script src="js/stream.js?v=20261014s"></script>
-<script src="js/fire.js?v=20261014s"></script>
-<script src="js/ems.js?v=20261014s"></script>
-<script src="js/daynight.js?v=20261014s"></script>
-<script src="js/taxi.js?v=20261014s"></script>
-<script src="js/pizza.js?v=20261014s"></script>
-<script src="js/shop.js?v=20261014s"></script>
-<script src="js/entrances.js?v=20261014s"></script>
-<script src="js/shops.js?v=20261014s"></script>
-<script src="js/jobs.js?v=20261014s"></script>
-<script src="js/business.js?v=20261014s"></script>
-<script src="js/autos.js?v=20261014s"></script>
-<script src="js/ui.js?v=20261014s"></script>
-<script src="js/input.js?v=20261014s"></script>
-<script src="js/main.js?v=20261014s"></script>
+<script src="js/engine.js?v=20261014t"></script>
+<script src="js/online.js?v=20261014t"></script>
+<script src="js/net.js?v=20261014t"></script>
+<script src="js/sync.js?v=20261014t"></script>
+<script src="js/wallet.js?v=20261014t"></script>
+<script src="js/club.js?v=20261014t"></script>
+<script src="js/places.js?v=20261014t"></script>
+<script src="js/spray.js?v=20261014t"></script>
+<script src="js/street.js?v=20261014t"></script>
+<script src="js/northside.js?v=20261014t"></script>
+<script src="js/bayview.js?v=20261014t"></script>
+<script src="js/tropic.js?v=20261014t"></script>
+<script src="js/hideaway.js?v=20261014t"></script>
+<script src="js/military.js?v=20261014t"></script>
+<script src="js/island.js?v=20261014t"></script>
+<script src="js/brand.js?v=20261014t"></script>
+<script src="js/world.js?v=20261014t"></script>
+<script src="js/faces.js?v=20261014t"></script>
+<script src="js/player.js?v=20261014t"></script>
+<script src="js/wardrobe.js?v=20261014t"></script>
+<script src="js/npc.js?v=20261014t"></script>
+<script src="js/animals.js?v=20261014t"></script>
+<script src="js/wildlife.js?v=20261014t"></script>
+<script src="js/cars.js?v=20261014t"></script>
+<script src="js/vehicles.js?v=20261014t"></script>
+<script src="js/audio.js?v=20261014t"></script>
+<script src="js/radio.js?v=20261014t"></script>
+<script src="js/guards.js?v=20261014t"></script>
+<script src="js/combat.js?v=20261014t"></script>
+<script src="js/police.js?v=20261014t"></script>
+<script src="js/weather.js?v=20261014t"></script>
+<script src="js/sealife.js?v=20261014t"></script>
+<script src="js/plane.js?v=20261014t"></script>
+<script src="js/meteor.js?v=20261014t"></script>
+<script src="js/tsunami.js?v=20261014t"></script>
+<script src="js/war.js?v=20261014t"></script>
+<script src="js/aliens.js?v=20261014t"></script>
+<script src="js/zombies.js?v=20261014t"></script>
+<script src="js/tornado.js?v=20261014t"></script>
+<script src="js/brawlers.js?v=20261014t"></script>
+<script src="js/stream.js?v=20261014t"></script>
+<script src="js/fire.js?v=20261014t"></script>
+<script src="js/ems.js?v=20261014t"></script>
+<script src="js/daynight.js?v=20261014t"></script>
+<script src="js/taxi.js?v=20261014t"></script>
+<script src="js/pizza.js?v=20261014t"></script>
+<script src="js/shop.js?v=20261014t"></script>
+<script src="js/entrances.js?v=20261014t"></script>
+<script src="js/shops.js?v=20261014t"></script>
+<script src="js/jobs.js?v=20261014t"></script>
+<script src="js/business.js?v=20261014t"></script>
+<script src="js/autos.js?v=20261014t"></script>
+<script src="js/ui.js?v=20261014t"></script>
+<script src="js/input.js?v=20261014t"></script>
+<script src="js/main.js?v=20261014t"></script>
