@@ -2,7 +2,7 @@
 // big events by hand (to try them out) and switches the stream on: the game then listens to the owner's TikTok LIVE
 // through the TikTok games' server (gameleha.xyz, the same feed as the other stream games) and a gift starts an
 // event in this game only — nobody else in the city sees it.
-//   (the meteor shower and the zombie apocalypse: only by hand for now, no gift chosen yet)
+//   (the meteor shower, the zombie apocalypse and the tornado: only by hand for now, no gift chosen yet)
 //   500+ coins — the meteor, 1000+ — the tsunami, 1500+ — the war, 2000+ — the alien invasion.
 // Only real gifts count (the server's demo bots are ignored). The tsunami, the war and the invasion take turns:
 // one that comes while another is on waits in the queue; a meteor can fall at any time.
@@ -10,16 +10,16 @@
   'use strict';
   const FEED = 'wss://gameleha.xyz/';
   const TIERS = [[2000, 'aliens', '🛸 пришельцев'], [1500, 'war', '⚔ войну'], [1000, 'tsunami', '🌊 цунами'], [500, 'meteor', '☄ метеорит']];
-  const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies'];
+  const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies', 'tornado'];
 
   NB.createStream = function (o) {
     // o: events { meteor, tsunami, war, aliens }, flash(text, sec), closeAdmin()
     const E = o.events;
     const $ = id => document.getElementById(id);
     const run = {
-      meteor: n => E.meteor.drop(n), shower: n => E.meteor.shower(n), tsunami: n => E.tsunami.launch(n), war: n => E.war.start(n), aliens: n => E.aliens.start(n), zombies: n => E.zombies.start(n)
+      meteor: n => E.meteor.drop(n), shower: n => E.meteor.shower(n), tsunami: n => E.tsunami.launch(n), war: n => E.war.start(n), aliens: n => E.aliens.start(n), zombies: n => E.zombies.start(n), tornado: n => E.tornado.start(n)
     };
-    const busy = k => k === 'meteor' ? E.meteor.busy : E.meteor.showerBusy || ['tsunami', 'war', 'aliens', 'zombies'].some(b => E[b].busy);
+    const busy = k => k === 'meteor' ? E.meteor.busy : E.meteor.showerBusy || ['tsunami', 'war', 'aliens', 'zombies', 'tornado'].some(b => E[b].busy);
     const queue = [];   // [kind, nick]
 
     // the buttons to try an event by hand
