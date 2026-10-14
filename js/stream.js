@@ -8,7 +8,7 @@
 //   Meteor Shower — five minutes of meteors round the hero (waits its turn like the other big events).
 //   Finger Heart — one meteor (a combo of n — n meteors, one after another).
 //   Coral — the tsunami (a combo of n — n waves, one after another).
-//   Crown — a tornado, three crowns — three of them, each for its own five minutes, alongside anything else.
+//   Tsar (the crown, «Корона» in the app) — a tornado, three crowns — three of them, each for its own five minutes, alongside anything else.
 //   Roses, by how many come in one combo: 1–19 — that many police officers on foot run up to fight the hero with
 //   their fists (brawlers.js); 20+ — the real police chase with patrol cars and gunfire: 20 — 2 stars, 50 — 3,
 //   100 — 4 (roadblocks), 200 — 5 (the helicopter).
@@ -25,6 +25,20 @@
   // the strip along the bottom while the stream is on: the gift's own picture (img/gifts) and what it does
   const BAR = [['rose', 'Коп', 1], ['tiktok', 'Драчун', 1], ['heart', 'Метеорит', 5], ['donut', 'Охранник', 30], ['crown', 'Торнадо', 100],
     ['coral', 'Цунами', 499], ['moneygun', 'Война', 500], ['galaxy', 'Пришельцы', 1000], ['fireworks', 'Зомби', 1088], ['shower', 'Метеоры', 3000]];
+  // the gifts, by their exact names in TikTok's own gift catalogue (webcast gift/list, checked 2026-10-14; the gift's
+  // id there in the comment): [price in coins, what it starts, how it's called on screen]
+  const GIFTS = {
+    'Rose': [1, 'roses'],                                        // 5655
+    'TikTok': [1, 'tiktok'],                                     // 5269
+    'Finger Heart': [5, 'meteor', '☄ метеорит'],                 // 5487
+    'Doughnut': [30, 'guard'],                                   // 5879
+    'Tsar': [100, 'tornado'],                                    // 5524 — the crown («Корона» in the Russian app)
+    'Coral': [499, 'tsunami', '🌊 цунами'],                       // 5731
+    'Money Gun': [500, 'war', '⚔ войну'],                        // 7168
+    'Galaxy': [1000, 'aliens', '🛸 пришельцев'],                  // 11046
+    'Fireworks': [1088, 'zombies', '🧟 зомби-апокалипсис'],       // 6090
+    'Meteor Shower': [3000, 'shower', '☄☄ метеоритный дождь']    // 6563
+  };
   const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies'];
 
   NB.createStream = function (o) {
@@ -86,18 +100,14 @@
     show('Стрим выключен');
 
     function gift(nick, coins, name) {
-      // gifts with their own event (the server sends a whole combo at once: coins = price × count)
-      if (/^rose$/i.test(String(name || '').trim())) { roses(nick, Math.max(1, coins)); return; }
-      if (/^crown$/i.test(String(name || '').trim())) { E.tornado.start(nick, Math.max(1, Math.round(coins / 100))); return; }
-      if (/^(doughnut|donut)$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 30)); i++) o.guards.gift(nick); return; }
-      if (/^tiktok$/i.test(String(name || '').trim())) { o.brawlers.add('civ', nick, Math.max(1, coins)); return; }
-      if (/^finger ?heart$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 5)); i++) event('meteor', '☄ метеорит', nick); return; }
-      if (/^meteor ?shower$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 3000)); i++) event('shower', '☄☄ метеоритный дождь', nick); return; }
-      if (/^fireworks?$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 1088)); i++) event('zombies', '🧟 зомби-апокалипсис', nick); return; }
-      if (/^money ?gun$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 500)); i++) event('war', '⚔ войну', nick); return; }
-      if (/^galaxy$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 1000)); i++) event('aliens', '🛸 пришельцев', nick); return; }
-      if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
-      // any other gift does nothing
+      // the server sends a whole combo at once: coins = price × count
+      const G = GIFTS[String(name || '').trim()]; if (!G) return;   // any other gift does nothing
+      const n = Math.max(1, Math.round(coins / G[0]));
+      if (G[1] === 'roses') roses(nick, n);
+      else if (G[1] === 'tiktok') o.brawlers.add('civ', nick, n);
+      else if (G[1] === 'guard') for (let i = 0; i < n; i++) o.guards.gift(nick);
+      else if (G[1] === 'tornado') E.tornado.start(nick, n);
+      else for (let i = 0; i < n; i++) event(G[1], G[2], nick);
     }
     // an event now, or in the queue when one of the same kind is on
     function event(kind, label, nick) {
