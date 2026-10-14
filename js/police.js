@@ -3,6 +3,8 @@
 // done while the police are already watching you. Out of their sight long enough, the stars go away.
 // Nobody appears out of thin air: officers on the beat and patrol cars nearby join in, and the rest come
 // by car from the police station, one car of two officers per star (vehicles.js).
+// While the owner's stream is on (stream.js) only a robbery brings the police: fights, shooting, stolen cars and
+// knocked-out players give no stars, so the viewers' gift events can go on without a chase every minute.
 (function (NB) {
   'use strict';
   const RANGE = { punch: 22, carjack: 18, copcar: 25, shoot: 48, kill: 30 };
@@ -10,7 +12,7 @@
   
   NB.createPolice = function (world, o) {
     const col = world.col;
-    const S = { wanted: 0, searchT: 0, seen: false, seenT: 0, bustT: 0, bustTick: false, kills: 0 };
+    const S = { wanted: 0, searchT: 0, seen: false, seenT: 0, bustT: 0, bustTick: false, kills: 0, calm: false };
     function los(ax, ay, az, bx, by, bz) {
       const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz);
       return L < .5 || col.raycast(ax, ay, az, dx / L, dy / L, dz / L, L) >= L - .5;
@@ -36,9 +38,13 @@
       get searching() { return S.wanted > 0 && !S.seen; },
       // a robbery: the alarm goes straight to the station (a bank: 3 stars, a 24/7 store: 2)
       robbery(n) { S.searchT = 0; S.seen = true; raise(Math.max(S.wanted, n || 3)); },
+      // the stream mode: no stars but for robberies
+      set calm(v) { S.calm = !!v; },
+      get calm() { return S.calm; },
       // knocked out another player: one star more
-      star() { S.searchT = 0; S.seen = true; raise(S.wanted + 1); },
+      star() { if (S.calm) return; S.searchT = 0; S.seen = true; raise(S.wanted + 1); },
       reportCrime(kind, x, z) {
+        if (S.calm) return;
         // in a police uniform the officers take you for one of their own and let small things slide
         if (o.disguised && o.disguised() && (kind === 'punch' || kind === 'carjack' || kind === 'copcar')) return;
         const direct = kind === 'copAttack' || kind === 'copKill';

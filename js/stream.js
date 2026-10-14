@@ -6,6 +6,7 @@
 //   500+ coins — the meteor, 1000+ — the tsunami, 1500+ — the war, 2000+ — the alien invasion.
 // Only real gifts count (the server's demo bots are ignored). The tsunami, the war and the invasion take turns:
 // one that comes while another is on waits in the queue; a meteor can fall at any time.
+// While the stream is switched on, the police give stars only for robberies (police.js calm).
 (function (NB) {
   'use strict';
   const FEED = 'wss://gameleha.xyz/';
@@ -13,7 +14,7 @@
   const BIG = ['tsunami', 'war', 'aliens', 'shower', 'zombies', 'tornado'];
 
   NB.createStream = function (o) {
-    // o: events { meteor, tsunami, war, aliens }, flash(text, sec), closeAdmin()
+    // o: events { meteor, tsunami, war, aliens }, flash(text, sec), closeAdmin(), onMode(on)
     const E = o.events;
     const $ = id => document.getElementById(id);
     const run = {
@@ -33,7 +34,7 @@
     let ws = null, on = false, live = false, retryT = null;
     const nickBox = $('streamNick'), btn = $('streamBtn'), st = $('streamState');
     nickBox.value = localStorage.getItem('nb_stream_user') || 'lehaneploxo';
-    function show(text) { st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); }
+    function show(text) { st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
     function connect() {
       const nick = nickBox.value.replace(/^@/, '').trim();
       if (!nick) { show('Впишите ник TikTok'); on = false; return; }
