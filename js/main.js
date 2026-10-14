@@ -179,7 +179,7 @@
     progress.garage = garageCars();
     if (autos) autos.snapshot();
     const { money, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, storeT } = progress, guardsN = guards ? guards.list : progress.guards;
-    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, storeT, guards: guardsN, _t: online ? online.now() : Date.now() };
+    const data = { money, armor: Math.round(progress.armor), inv: combat.inv, villa, outfit, prevOutfit, records, bankT, garage, look, wear, stats, homes, homeSpawn, job, biz, cars, garages, storeT, guards: guardsN, giftGuards: progress.giftGuards || [], _t: online ? online.now() : Date.now() };
     try { localStorage.setItem('nb_save', JSON.stringify(data)); } catch (e) {}
     if (online) online.push(data, urgent === true);
     saveT = 0;
@@ -273,7 +273,7 @@
   // gift fighters (stream mode: a Rose sends a police officer with the viewer's nick to fight the hero; brawlers.js)
   const brawlers = NB.createBrawlers(world, { crowd, player, camera, flash: (t, s) => flashTip(t, s), indoors: () => !!places.current, view: () => [-Math.sin(rig.yaw), -Math.cos(rig.yaw)] });
   // the owner's stream mode (👑 panel): gifts on the owner's TikTok LIVE start these events in his game only (stream.js)
-  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies, tornado }, brawlers, police, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click(), onMode: on => { police.calm = on; } });
+  const stream = NB.createStream({ events: { meteor, tsunami, war, aliens, zombies, tornado }, brawlers, police, guards, flash: (t, s) => flashTip(t, s), closeAdmin: () => document.getElementById('adminClose').click(), onMode: on => { police.calm = on; } });
   // draft: a button to try the meteor, only in a copy running on this computer (never on the site)
   if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
     const b = document.createElement('button'); b.textContent = '☄ МЕТЕОРИТ (тест, клавиша N)';
@@ -399,7 +399,7 @@
   places.attach(placeCtx);
   // Neon Fashion, the clothes shop
   // Shield Security: bodyguards for hire, $1000 a head, up to five
-  guards = NB.createGuards({ crowd, vehicles, player, progress, flash: (t, sec) => flashTip(t, sec), say: (p, t) => say(p, t) });
+  guards = NB.createGuards({ crowd, vehicles, player, camera, progress, flash: (t, sec) => flashTip(t, sec), say: (p, t) => say(p, t) });
   const securityDoor = world.security ? [{ x: world.security.x, z: world.security.z, r: 2, short: 'ОХРАНА', label: () => 'Охранное агентство Shield Security', use: () => ui.security(guards) }] : [];
   const fashionDoor = [];   // Neon Fashion is a boutique you walk into (places.js)
   // every way in gets a storefront you can't miss: neon frame, lit door, signs, an arrow and a name tag
@@ -747,7 +747,7 @@
     if (input.touch) { if (!document.fullscreenElement) fullscreen(); } else lock();
     if (firstPlay) {
       firstPlay = false;
-      if (progress.guards && (progress.guards.length || progress.guards > 0)) guards.restore(progress.guards);   // the bodyguards hired last time are still with you
+      if ((progress.guards && (progress.guards.length || progress.guards > 0)) || (progress.giftGuards && progress.giftGuards.length)) guards.restore(progress.guards, progress.giftGuards);   // the bodyguards hired last time are still with you
       flashTip(input.touch ? 'Левый палец — ходьба · правый — камера · у машины появится кнопка «СЕСТЬ»'
         : 'WASD — идти · ЛКМ — удар/огонь · ПКМ — прицел · Q — оружие · F — машина · Esc — пауза', 10);
       showDistrict(world.districtAt(player.x, player.z));

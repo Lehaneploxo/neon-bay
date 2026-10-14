@@ -3,13 +3,19 @@
 // fighting itself is in npc.js). They get into the car with him (the ones who fit are seen in the seats) and
 // out again when he stops. Knocked down, a guard gets up again after a few seconds; shot dead, he's gone.
 // Wounds never heal: not in the car, not after a knockout, not after a reload (each one's health is saved).
+// A Donut on the owner's stream sends one more for free, with the viewer's nick over his head (up to GIFT_MAX of
+// them besides the hired five; more wait in a queue and come when one falls). He stays until he's shot dead,
+// the agency can't dismiss him, and other players don't see him (sync.js).
 (function (NB) {
   'use strict';
-  const MAX = 5, HP = 320, PRICE = 1000;
+  const MAX = 5, HP = 320, PRICE = 1000, GIFT_MAX = 10;
 
   NB.createGuards = function (o) {
-    // o: crowd, vehicles, player, flash(text, sec), say(person, text), progress
-    const hired = [];               // { p: the person on foot (null while riding), hp, downT }
+    // o: crowd, vehicles, player, camera, flash(text, sec), say(person, text), progress
+    const hired = [];               // { p: the person on foot (null while riding), hp, downT, nick (a gift from a viewer), tag }
+    const giftQueue = [];           // viewers' nicks waiting for a free place
+    const paid = () => hired.filter(h => !h.nick), gifts = () => hired.filter(h => h.nick);
+    const names = document.getElementById('names'), proj = new THREE.Vector3();
     let riding = null, seats = [];
     // the seated passenger: a black suit, a white shirt, a shaved head and dark glasses
     const M4 = (x, y, z) => new THREE.Matrix4().makeTranslation(x, y, z);
@@ -23,7 +29,7 @@
 
     function place(h, x, z, k, n) {
       const p = o.crowd.spawnGuard(x, z, o.player.heading, h.hp, k, n);
-      if (p) { h.p = p; h.downT = 0; }
+      if (p) { h.p = p; h.downT = 0; if (h.nick) p.giftGuard = true; }
       return p;
     }
     // spots round the hero (or round a car) to put guards down at
@@ -31,24 +37,38 @@
       const a = heading + Math.PI + (k - (n - 1) / 2) * .7;
       return [x + Math.sin(a) * r, z + Math.cos(a) * r];
     }
-    function hire() {
-      if (hired.length >= MAX) return false;
-      const h = { p: null, hp: HP, downT: 0 };
+    function hire(nick, hp) {
+      if (!nick && paid().length >= MAX) return false;
+      const h = { p: null, hp: hp || HP, downT: 0 };
+      if (nick) {
+        h.nick = nick;
+        h.tag = document.createElement('div'); h.tag.className = 'ntag gift'; h.tag.innerHTML = '<b></b>'; h.tag.firstChild.textContent = '🛡 @' + nick; h.tag.hidden = true;
+        names.appendChild(h.tag);
+      }
       hired.push(h);
       if (!riding) {
         const [x, z] = around(o.player.x, o.player.z, o.player.heading, hired.length - 1, hired.length, 2.2);
         const p = place(h, x, z, hired.length - 1, hired.length);
-        if (p) o.say(p, LINES.hire[(Math.random() * LINES.hire.length) | 0]);
+        if (p) { p.hp = h.hp; o.say(p, LINES.hire[(Math.random() * LINES.hire.length) | 0]); }
       }
       save();
       return true;
     }
-    function dismiss() {
-      for (const h of hired) if (h.p) o.crowd.removeGuard(h.p);
-      hired.length = 0; clearSeats(); save();
+    // a viewer's gift: one more guard, or a place in the queue
+    function gift(nick) {
+      nick = nick || 'зритель';
+      if (gifts().length >= GIFT_MAX) { giftQueue.push(nick); o.flash('🍩 @' + nick + ' прислал телохранителя — в очереди (' + giftQueue.length + ')', 2.5); save(); return; }
+      hire(nick);
+      o.flash('🍩 @' + nick + ' прислал тебе телохранителя!', 2.5);
     }
-    const hpList = () => hired.map(h => Math.max(1, Math.round(h.p && !h.p.dead ? (h.p.down ? h.hp : h.p.hp) : h.hp)));
-    const save = () => { o.progress.guards = hpList(); };
+    // the agency lets its own men go; the viewers' guards stay
+    function dismiss() {
+      for (const h of paid()) { if (h.p) o.crowd.removeGuard(h.p); hired.splice(hired.indexOf(h), 1); }
+      clearSeats(); if (riding) board(riding); save();
+    }
+    const hpOf = h => Math.max(1, Math.round(h.p && !h.p.dead ? (h.p.down ? h.hp : h.p.hp) : h.hp));
+    const hpList = () => paid().map(hpOf);
+    const save = () => { o.progress.guards = hpList(); o.progress.giftGuards = gifts().map(h => [h.nick, hpOf(h)]).concat(giftQueue.map(n => [n, HP])); };
     function clearSeats() { for (const m of seats) if (m.parent) m.parent.remove(m); seats = []; }
     // into the car: everyone gets in (the first ones are seen in the passenger seats)
     function board(car) {
@@ -76,7 +96,7 @@
       const car = o.vehicles.driving;
       if (car && riding !== car) { if (riding) clearSeats(); riding = car; board(car); return; }
       if (!car && riding) { const c = riding; riding = null; alight(c); return; }
-      if (riding) return;
+      if (riding) { for (const h of hired) if (h.tag) h.tag.hidden = true; return; }
       let changed = false;
       for (let k = hired.length - 1; k >= 0; k--) {
         const h = hired[k], p = h.p;
@@ -85,21 +105,43 @@
           const [x, z] = around(o.player.x, o.player.z, o.player.heading, k, hired.length, 2.5);
           place(h, x, z, k, hired.length); continue;
         }
-        if (p.dead) { hired.splice(k, 1); o.crowd.releaseGuard(p); o.flash(LINES.die + (hired.length ? ' · осталось ' + hired.length : ''), 2.4); changed = true; continue; }
+        if (p.dead) {
+          hired.splice(k, 1); o.crowd.releaseGuard(p); p.giftGuard = false; changed = true;
+          if (h.tag) h.tag.remove();
+          o.flash((h.nick ? 'Телохранитель @' + h.nick + ' погиб' : LINES.die) + (hired.length ? ' · осталось ' + hired.length : ''), 2.4);
+          continue;
+        }
         // knocked out: back on his feet with the little he had left, no more
         if (p.down) { h.downT += dt; if (h.downT > 7) { o.crowd.revive(p, Math.max(1, h.hp)); h.downT = 0; o.say(p, 'Я ещё держусь, босс.'); } }
         else if (p.hp !== h.hp) { h.hp = p.hp; changed = true; }
       }
+      // a place came free: the next viewer's guard from the queue
+      if (giftQueue.length && gifts().length < GIFT_MAX) { hire(giftQueue.shift()); changed = true; }
       if (changed) save();
       hired.forEach((h, k) => { if (h.p && h.p.bodyguard) { h.p.bodyguard.idx = k; h.p.bodyguard.of = hired.length; } });
+      // the viewer's nick over his guard's head
+      for (const h of hired) {
+        if (!h.tag) continue;
+        const p = h.p;
+        if (!p || Math.hypot(p.x - o.player.x, p.z - o.player.z) > 60) { h.tag.hidden = true; continue; }
+        proj.set(p.x, p.y + 2.25, p.z).project(o.camera);
+        if (proj.z > 1) { h.tag.hidden = true; continue; }
+        h.tag.hidden = false;
+        h.tag.style.transform = 'translate(' + ((proj.x + 1) / 2 * innerWidth).toFixed(0) + 'px,' + ((1 - proj.y) / 2 * innerHeight).toFixed(0) + 'px) translate(-50%,-100%)';
+      }
     }
     // after a load: the guards come back with the hero, each as wounded as he was (an old save kept only a count)
-    function restore(saved) {
+    function restore(saved, giftSaved) {
       const list = Array.isArray(saved) ? saved : Array.from({ length: saved | 0 }, () => HP);
-      for (const hp of list.slice(0, MAX)) { hire(); const h = hired[hired.length - 1]; h.hp = Math.max(1, Math.min(HP, hp | 0)); if (h.p) h.p.hp = h.hp; }
+      for (const hp of list.slice(0, MAX)) hire(null, Math.max(1, Math.min(HP, hp | 0)));
+      for (const g of Array.isArray(giftSaved) ? giftSaved : []) {
+        if (!Array.isArray(g) || !g[0]) continue;
+        if (gifts().length < GIFT_MAX) hire(String(g[0]).slice(0, 40), Math.max(1, Math.min(HP, g[1] | 0)));
+        else giftQueue.push(String(g[0]).slice(0, 40));
+      }
       save();
     }
 
-    return { hire, dismiss, update, restore, MAX, PRICE, get list() { return hpList(); }, get count() { return hired.length; }, get riding() { return !!riding; } };
+    return { hire: () => hire(), gift, dismiss, update, restore, MAX, PRICE, get list() { return hpList(); }, get count() { return paid().length; }, get riding() { return !!riding; } };
   };
 })(window.NB);
