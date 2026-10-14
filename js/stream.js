@@ -2,7 +2,7 @@
 // big events by hand (to try them out) and switches the stream on: the game then listens to the owner's TikTok LIVE
 // through the TikTok games' server (gameleha.xyz, the same feed as the other stream games) and a gift starts an
 // event in this game only — nobody else in the city sees it.
-//   (the zombie apocalypse: only by hand for now, no gift chosen yet)
+//   Fireworks — the zombie apocalypse (waits its turn like the other big events).
 //   Money Gun — the war (waits its turn like the other big events).
 //   Galaxy — the alien invasion (waits its turn like the other big events).
 //   Meteor Shower — five minutes of meteors round the hero (waits its turn like the other big events).
@@ -84,6 +84,7 @@
       if (/^tiktok$/i.test(String(name || '').trim())) { o.brawlers.add('civ', nick, Math.max(1, coins)); return; }
       if (/^finger ?heart$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 5)); i++) event('meteor', '☄ метеорит', nick); return; }
       if (/^meteor ?shower$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 3000)); i++) event('shower', '☄☄ метеоритный дождь', nick); return; }
+      if (/^fireworks?$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 1088)); i++) event('zombies', '🧟 зомби-апокалипсис', nick); return; }
       if (/^money ?gun$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 500)); i++) event('war', '⚔ войну', nick); return; }
       if (/^galaxy$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 1000)); i++) event('aliens', '🛸 пришельцев', nick); return; }
       if (/^coral$/i.test(String(name || '').trim())) { for (let i = 0; i < Math.max(1, Math.round(coins / 499)); i++) event('tsunami', '🌊 цунами', nick); return; }
