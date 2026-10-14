@@ -54,13 +54,14 @@
     const nickBox = $('streamNick'), btn = $('streamBtn'), st = $('streamState');
     nickBox.value = localStorage.getItem('nb_stream_user') || 'lehaneploxo';
     const bar = $('giftBar');
+    $('status').appendChild(bar);   // in the left column, under the money
     for (const [img, what] of BAR) {
       const d = document.createElement('div');
       d.innerHTML = '<img alt="" src="img/gifts/' + img + '.webp"><b></b>';
       d.children[1].textContent = what;
       bar.appendChild(d);
     }
-    function show(text) { bar.hidden = !on; document.body.classList.toggle('streaming', on); st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
+    function show(text) { bar.hidden = !on; st.textContent = text; btn.textContent = on ? '⏹ Выключить стрим' : '🔴 Включить стрим'; btn.classList.toggle('on', on); o.onMode(on); }
     function connect() {
       const nick = nickBox.value.replace(/^@/, '').trim();
       if (!nick) { show('Впишите ник TikTok'); on = false; return; }
