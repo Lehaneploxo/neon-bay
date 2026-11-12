@@ -327,11 +327,16 @@
     $('btnChat').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); openChat(); });
     // the owner's admin page, inside the game (only an admin's game shows the 👑 button; the server checks every action anyway)
     let adminOpen = false;
+    // single-player: the owner's stream mode (👑) opens on this device after visiting the game once with ?stream in the address
+    if (NB.OFFLINE && /[?&#]stream(?![a-z])/.test(location.href)) put('nb_streamer', '1');
+    const streamer = NB.OFFLINE && get('nb_streamer') === '1';
+    if (streamer) $('btnAdmin').hidden = false;
     function openAdmin() {
-      if (adminOpen || !me || !me.admin) return;
+      if (adminOpen || !(streamer || (me && me.admin))) return;
       adminOpen = true; o.input.reset(); if (document.pointerLockElement) document.exitPointerLock();
       const f = $('adminFrame');
-      if (!f.src) f.src = WS_URL.replace(/^ws/, 'http').replace(/\/ws$/, '/admin') + '#t=' + encodeURIComponent(get('nb_token') || '');
+      if (NB.OFFLINE) f.hidden = true;   // the server's admin page is gone with the server; the stream row stays
+      else if (!f.src) f.src = WS_URL.replace(/^ws/, 'http').replace(/\/ws$/, '/admin') + '#t=' + encodeURIComponent(get('nb_token') || '');
       $('adminBox').hidden = false;
     }
     function closeAdmin() { if (!adminOpen) return; adminOpen = false; $('adminBox').hidden = true; o.input.reset(); if (o.playing() && !o.input.touch) o.lock(); }
@@ -381,16 +386,17 @@
       on(type, f) { (listeners[type] || (listeners[type] = [])).push(f); },
       get guest() { return !me || !!me.guest; },
       // homes and businesses: whose is it (a nick), is it mine, can I buy it right now (a reason if not)
-      owner: (kind, id) => owners[kind][id] || null,
+      owner: (kind, id) => (NB.OFFLINE ? null : owners[kind][id] || null),
       isMine: (kind, id) => !!me && !me.guest && owners[kind][id] === me.nick,
       cantBuy(kind, id) {
+        if (NB.OFFLINE) return '';   // single-player: every home is free for everybody
         if (!me) return 'Нет связи с сервером';
         if (me.guest) return 'Нужен аккаунт: войдите в главном меню';
         const n = owners[kind][id]; if (n && n !== me.nick) return 'Владелец: ' + n;
         return '';
       },
       // (the payment goes out first: the server counts it before the claim, wallet.js)
-      claim: (kind, id) => { if (NB.ledger) NB.ledger.flush(); return request({ t: 'own_claim', kind, id }).then(r => !!(r && r.ok)); },
+      claim: (kind, id) => { if (NB.OFFLINE) return Promise.resolve(true); if (NB.ledger) NB.ledger.flush(); return request({ t: 'own_claim', kind, id }).then(r => !!(r && r.ok)); },
       free(kind, id) { send({ t: 'own_free', kind, id }); if (me && owners[kind][id] === me.nick) delete owners[kind][id]; },
       sync(kind, ids) { send({ t: 'own_sync', kind, ids }); },
       // shared loot: how long until it's back (0: ready); claim it — true if it's yours, false if someone was first,
@@ -408,7 +414,7 @@
       markers() { const out = []; for (const r of others.values()) if (r.snaps.length) { const s = r.snaps[r.snaps.length - 1]; out.push({ x: s.car ? s.car[3] : s.x, z: s.car ? s.car[5] : s.z }); } return out; }
     };
     NB.net = api;
-    connect();
+    if (NB.OFFLINE) { $('btnChat').hidden = true; $('btnChat').style.display = 'none'; } else connect();
     return api;
   };
 })(window.NB);

@@ -66,7 +66,7 @@
         const sorted = LIST.slice().sort((a, b) => (mine(b) - mine(a)) || a.price - b.price);
         for (const b of sorted) {
           if (mine(b)) { rows.push({ name: '★ ' + b.name, desc: 'Ваш бизнес · ' + b.where + (earned[b.id] ? ' · заработал ' + fmt(earned[b.id]) : '') + ' · продать за ' + fmt((P.biz[b.id].price || b.price) / 2), price: -Math.round((P.biz[b.id].price || b.price) / 2), label: 'Продать', asset: 'biz:' + b.id, earn: 'Продажа бизнеса: ' + b.name, buy: () => sellOnce(b) }); continue; }
-          const who = owner(b), why = who ? 'Владелец: ' + who : N() ? N().cantBuy('biz', b.id) : 'Нет связи с сервером';
+          const who = owner(b), why = NB.OFFLINE ? 'Бизнесы работают только в онлайне' : who ? 'Владелец: ' + who : N() ? N().cantBuy('biz', b.id) : 'Нет связи с сервером';
           rows.push({ name: b.name, desc: b.where + (who ? ' · владелец ' + who : ' · свободен'), price: why ? 0 : b.price, label: 'Купить', disabled: why, asset: 'biz:' + b.id, buy: () => buy(b) });
         }
         return rows;

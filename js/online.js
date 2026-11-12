@@ -4,12 +4,15 @@
 (function (NB) {
   'use strict';
   const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  // 12.11.2026: the online server is switched off to save money — the game is single-player now. Back online:
+  // set this to false and start the neploxo-server service on Railway again.
+  NB.OFFLINE = true;
   const API = LOCAL ? 'http://localhost:3100/api/' : 'https://neploxo-server-production.up.railway.app/api/';
   const $ = id => document.getElementById(id);
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
 
-  let token = get('nb_token'), nick = get('nb_nick'), offset = 0, pending = null, lastPush = 0, pushTimer = 0, replacing = false;
+  let token = NB.OFFLINE ? null : get('nb_token'), nick = NB.OFFLINE ? null : get('nb_nick'), offset = 0, pending = null, lastPush = 0, pushTimer = 0, replacing = false;
 
   // every call is a POST with a text/plain body: no CORS preflight, and it also works while the page closes
   function call(name, data, keepalive) {
@@ -73,6 +76,7 @@
   }
   function bindUi() {
     if (!$('acct')) return;
+    if (NB.OFFLINE) { $('acct').hidden = true; $('acct').style.display = 'none'; return; }
     $('acctOpen').addEventListener('click', () => { $('acctForm').hidden = false; $('acctOpen').hidden = true; $('acctNickIn').focus(); });
     $('acctForm').addEventListener('submit', e => { e.preventDefault(); submit('login'); });
     $('acctReg').addEventListener('click', () => submit('register'));
@@ -111,6 +115,5 @@
   NB.online = { now, push, flush, get nick() { return token ? nick : null; }, get replacing() { return replacing; } };
   addEventListener('pagehide', flush);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindUi); else bindUi();
-  syncClock();
-  syncSave();
+  if (!NB.OFFLINE) { syncClock(); syncSave(); }
 })(window.NB);
